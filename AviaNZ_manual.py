@@ -2128,6 +2128,7 @@ class AviaNZ(QMainWindow):
             dlg.update()
             self.w_spec.setFocus()
             self.statusLeft.setText("Ready")
+            self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
 
     def openPreviousFile(self, skipHidden=True):
         """Listener for previous file << button.
@@ -2139,18 +2140,23 @@ class AviaNZ(QMainWindow):
             self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
 
         i = self.listFiles.currentRow()
-        if i > 1:
+        currentIndex = self.listFiles.currentIndices.index(i)
+        if not skipHidden and i > 1:
             self.listFiles.setCurrentRow(i - 1)
-            if skipHidden and self.listFiles.currentItem().isHidden():
-                self.openPreviousFile()
-            else:
-                self.listLoadFile(self.listFiles.currentItem())
+
+        elif skipHidden and currentIndex > 0:
+            self.listFiles.setCurrentRow(
+                self.listFiles.currentIndices[currentIndex - 1]
+            )
+
         else:
             # Tell the user they've finished
             msg = SupportClasses_GUI.MessagePopup(
                 "d", "First file", "This is already the first file"
             )
             msg.exec_()
+            return
+        self.listLoadFile(self.listFiles.currentItem())
 
     def openNextFile(self, skipHidden=True):
         """Listener for next file >> button.
@@ -2162,18 +2168,24 @@ class AviaNZ(QMainWindow):
             self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
 
         i = self.listFiles.currentRow()
-        if i + 1 < len(self.listFiles):
+        currentIndex = self.listFiles.currentIndices.index(i)
+        if not skipHidden and i + 1 < len(self.listFiles):
             self.listFiles.setCurrentRow(i + 1)
-            if skipHidden and self.listFiles.currentItem().isHidden():
-                self.openNextFile()
-            else:
-                self.listLoadFile(self.listFiles.currentItem())
+
+        elif skipHidden and currentIndex + 1 < len(self.listFiles.currentIndices):
+            self.listFiles.setCurrentRow(
+                self.listFiles.currentIndices[currentIndex + 1]
+            )
+
         else:
             # Tell the user they've finished
             msg = SupportClasses_GUI.MessagePopup(
                 "d", "Last file", "You've finished processing the folder"
             )
             msg.exec_()
+            return
+
+        self.listLoadFile(self.listFiles.currentItem())
 
     def showPointerDetailsCheck(self):
         """Listener for the menuitem that sets if detailed info should be shown when hovering over spectrogram.

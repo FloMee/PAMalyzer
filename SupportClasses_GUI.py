@@ -1328,7 +1328,6 @@ class SortableListWidgetItem(QListWidgetItem):
         self.parent = parent
 
     def __lt__(self, other):
-        print("sort function called")
         if self.text() == "../":
             return True
 
@@ -1338,11 +1337,12 @@ class SortableListWidgetItem(QListWidgetItem):
         elif self.parent.rank_sort:
             thisdata = self.data(QtCore.Qt.UserRole)
             otherdata = other.data(QtCore.Qt.UserRole)
-
-            # if self.get_max_cert(thisdata) == 0 and self.get_max_cert(otherdata) == 0:
-            #     return self.text() < other.text()
-            # else:
-            return self.get_max_cert(thisdata) > self.get_max_cert(otherdata)
+            maxthis = self.get_max_cert(thisdata)
+            maxother = self.get_max_cert(otherdata)
+            if maxthis == maxother:
+                return self.text() < other.text()
+            else:
+                return maxthis > maxother
         else:
             return self.text() < other.text()
 
@@ -1381,6 +1381,7 @@ class LightedFileList(QListWidget):
         self.tempsl = Segment.SegmentList()
         self.setAutoScroll(False)
         self.rank_sort = False
+        self.currentIndices = []
 
     def fill(
         self,
@@ -1555,11 +1556,17 @@ class LightedFileList(QListWidget):
         if fileName:
             # for matching dirs:
             # index = self.findItems(fileName+"\/",Qt.MatchExactly)
-            index = self.findItems(fileName, Qt.MatchExactly)
-            if len(index) > 0:
-                self.setCurrentItem(index[0])
+            items = self.findItems(fileName, Qt.MatchExactly)
+            if len(items) > 0:
+                self.setCurrentItem(items[0])
             else:
                 self.setCurrentRow(0)
+
+            index = self.indexFromItem(items[0]).row()
+
+            if not index in self.currentIndices:
+                self.currentIndices.append(index)
+                self.currentIndices.sort()
 
     def refreshFile(self, fileName, mincert, maxcert):
         """Repaint a single file icon with the provided certainty.
@@ -1700,9 +1707,13 @@ class LightedFileList(QListWidget):
             self.pixmap.fill(QColor(255, 255, 255, 0))
             item.setIcon(QIcon(self.pixmap))
 
+        if not item.isHidden():
+            self.currentIndices.append(self.indexFromItem(item).row())
+
     def restrict(self, species, mincertS=0):
         """restrict the filelist to files where species occures with maxcert > mincertS"""
         # do not sort while restricting filelist
+        self.currentIndices = []
         self.setSortingEnabled(False)
 
         # save current species for use in sorting later
