@@ -65,6 +65,8 @@ import math
 import numpy as np
 import os
 import io
+import itertools
+import operator
 
 
 class TimeAxisHour(pg.AxisItem):
@@ -1361,7 +1363,7 @@ class LightedFileList(QListWidget):
     On init (or after any change), pass the red, darkyellow, and green colors.
     """
 
-    def __init__(self, ColourNone, ColourPossibleDark, ColourNamed):
+    def __init__(self, ColourNone, ColourPossibleDark, ColourNamed, parent):
         super().__init__()
         self.ColourNone = ColourNone
         self.ColourPossibleDark = ColourPossibleDark
@@ -1374,6 +1376,7 @@ class LightedFileList(QListWidget):
         self.setMinimumWidth(150)
         self.setIconSize(QSize(50, 10))
         self.showAll = True
+        self.parent = parent
 
         # for the traffic light icons
         self.pixmap = QPixmap(50, 10)
@@ -1420,7 +1423,15 @@ class LightedFileList(QListWidget):
                 sort=QDir.DirsFirst,
             )
             self.soundDir = soundDir
-
+            file_sp_conf = self.parent.database.get_file_species_max_confidence(
+                self.soundDir
+            )
+            file_sp_conf_dict = {}
+            for d, f, s, c in file_sp_conf:
+                if f in file_sp_conf_dict.keys():
+                    file_sp_conf_dict[f].append((s, c))
+                else:
+                    file_sp_conf_dict[f] = [(s, c)]
             for file in self.listOfFiles:
                 # add entry to the list
                 # item = QListWidgetItem(self)
@@ -1460,79 +1471,30 @@ class LightedFileList(QListWidget):
                     if not recursive:
                         continue
 
-                    rootspcert = []
-                    for root, dirs, files in os.walk(file.filePath()):
-                        for filename in files:
-                            filenamef = os.path.join(root, filename)
-                            if filename.lower().endswith(
-                                ".wav"
-                            ) or filename.lower().endswith(".bmp"):
-                                if readFmt:
-                                    if filename.lower().endswith(".wav"):
-                                        try:
-                                            samplerate = wavio.readFmt(filenamef)[0]
-                                            self.fsList.add(samplerate)
-                                        except Exception as e:
-                                            print(
-                                                "Warning: could not parse format of WAV file",
-                                                filenamef,
-                                            )
-                                            print(e)
-                                    else:
-                                        # For bitmaps, using hardcoded samplerate as there's no readFmt
-                                        self.fsList.add(176000)
+                    dirspcert = self.parent.database.get_dir_species_max_confidence(
+                        file
+                    )
+                    for sp, cert in dirspcert:
+                        if sp in self.spListCert.keys() and self.spListCert[sp] > cert:
+                            continue
+                        else:
+                            self.spListCert[sp] = cert
 
-                                # Data files can accompany either wavs or bmps
-                                dataf = filenamef + ".data"
-                                if os.path.isfile(dataf):
-                                    try:
-                                        self.tempsl.parseJSON(dataf, silent=True)
-                                        if len(self.tempsl) > 0:
-                                            # collect any species present
-                                            filesp = [
-                                                lab["species"]
-                                                for seg in self.tempsl
-                                                for lab in seg[4]
-                                            ]
-                                            self.spList.update(filesp)
-                                            filespcert = [
-                                                (lab["species"], lab["certainty"])
-                                                for seg in self.tempsl
-                                                for lab in seg[4]
-                                            ]
-                                            rootspcert.extend(filespcert)
-                                            for sp, cert in filespcert:
-                                                if (
-                                                    sp in self.spListCert.keys()
-                                                    and self.spListCert[sp] > cert
-                                                ):
-                                                    continue
-                                                else:
-                                                    self.spListCert[sp] = cert
-
-                                            # min certainty
-                                            cert = [
-                                                lab["certainty"]
-                                                for seg in self.tempsl
-                                                for lab in seg[4]
-                                            ]
-                                            if cert:
-                                                mincert = min(cert)
-                                                if self.minCertainty > mincert:
-                                                    self.minCertainty = mincert
-                                    except Exception as e:
-                                        # .data exists, but unreadable
-                                        print("Could not read DATA file", dataf)
-                                        print(e)
-
-                    item.setData(QtCore.Qt.UserRole, rootspcert)
+                    item.setData(QtCore.Qt.UserRole, dirspcert)
                 else:
                     item.setText(file.fileName())
 
                     # check for a data file here and color this entry based on that
                     fullname = os.path.join(soundDir, file.fileName())
                     # (also updates the directory info sets, and minCertainty)
-                    self.paintItem(item, fullname + ".data", mincertS)
+                    fspc = (
+                        file_sp_conf_dict[file.fileName()]
+                        if file.fileName() in file_sp_conf_dict.keys()
+                        else []
+                    )
+                    self.set_item_data(
+                        item, fullname + ".data", mincertS, filespconf=fspc
+                    )
                     # format collection only implemented for WAVs currently
                     if readFmt:
                         if file.fileName().lower().endswith(".wav"):
@@ -1605,6 +1567,17 @@ class LightedFileList(QListWidget):
             curritem.setIcon(QIcon(self.pixmap))
             # self.minCertainty cannot be changed by a cert=100 segment
 
+    def set_item_data(self, item, mincertS=0, species="Species", filespconf=[]):
+        """Sets the date as item data and draw the traffic light for a single item"""
+        item.setData(QtCore.Qt.UserRole, filespconf)
+
+        # collect some extra info about this file as we've read it anyway
+        for sp, cert in filespconf:
+            if sp in self.spListCert.keys() and self.spListCert[sp] > cert:
+                continue
+            else:
+                self.spListCert[sp] = cert
+
     def paintItem(self, item, datafile, mincertS=0, species="Species"):
         """Read the JSON and draw the traffic light for a single item"""
         filesp = []
@@ -1640,7 +1613,9 @@ class LightedFileList(QListWidget):
                         for seg in self.tempsl
                         for lab in seg[4]
                     ]
-
+                self.parent.database.insert_segments(
+                    self.tempsl, self.parent.operator, datafile[:-5]
+                )
                 # write filespcert to item data to later restrict filelist
                 item.setData(QtCore.Qt.UserRole, filespcert)
 

@@ -25,6 +25,8 @@ import Shapes
 
 import numpy as np
 import scipy.ndimage as spi
+from operator import itemgetter
+from itertools import groupby
 from scipy import signal
 import librosa
 import time
@@ -38,6 +40,7 @@ from scipy.interpolate import interp1d
 from scipy.signal import medfilt
 import skimage.measure as skm
 import tensorflow as tf
+
 
 try:
     physical_devices = tf.config.list_physical_devices("GPU")
@@ -370,6 +373,35 @@ class SegmentList(list):
         if not silent:
             print("%d segments read" % len(self))
 
+    def getData(self, parent, filename):
+        """Takes in a filename and reads metadata to self.metadata,
+        and other segments to just the main body of self.
+        If wav file is loaded, pass the true duration in s to check
+        (it will override any duration read from the JSON).
+        """
+        self.parent = parent
+        try:
+            annots = self.parent.database.get_file_segments(os.path.basename(filename))
+        except Exception as e:
+            print("ERROR: file %s failed to load with error:" % filename)
+            print(e)
+            return
+        # first segment stores metadata
+        self.metadata = dict()
+        self.metadata = {"Operator": "FloMee", "Reviewer": "FloMee"}
+        self.metadata["Duration"] = wavio.readFmt(filename)[1]
+
+        grouped = []
+        sorted_annots = sorted(annots, key=lambda x: x[:4])
+        for key, group in groupby(sorted_annots, key=lambda x: x[:4]):
+            d = [
+                {"filter": "M", "species": annot[4], "certainty": annot[5]}
+                for annot in group
+            ]
+            grouped.append([*key, d])
+        for a in grouped:
+            self.addSegment(a)
+
     def addSegment(self, segment):
         """Just a cleaner wrapper to allow adding segments quicker.
         Passes a list "segment" to the Segment class.
@@ -441,11 +473,7 @@ class SegmentList(list):
         annots = [self.metadata]
         for seg in self:
             annots.append(seg)
-
-        file = open(file, "w")
-        json.dump(annots, file)
-        file.write("\n")
-        file.close()
+        self.parent.database.insert_segments(self, self.metadata["Operator"], file[:-5])
         return 1
 
     def orderTime(self):

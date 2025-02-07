@@ -547,6 +547,11 @@ class BirdNET(QWidget):
             self.AviaNZ.SoundFileDir, os.path.basename(self.AviaNZ.filename)
         )
 
+    @Slot(Segment.SegmentList, str)
+    def updateDatabase(self, segList, filename):
+        segList.getData(self.AviaNZ, filename[:-5])
+        segList.saveJSON(filename)
+
     def main(self):
         try:
             self.labels = self.loadLabels()
@@ -567,6 +572,7 @@ class BirdNET(QWidget):
                 )
                 worker.fileProcessed.update.connect(self.updateProgress)
                 worker.filelistProcessed.done.connect(self.updateFilelist)
+                worker.sendSegList.send.connect(self.updateDatabase)
                 self.threadpool.start(worker)
 
             # if self.threadpool.waitForDone():
@@ -580,6 +586,7 @@ class BirdNET(QWidget):
 
 
 class MyEmitter(QObject):
+    send = Signal(Segment.SegmentList, str)
     done = Signal(list)
     update = Signal()
 
@@ -608,6 +615,7 @@ class BirdNET_Worker(QRunnable):
         self.labels = labels
         self.fileProcessed = MyEmitter()
         self.filelistProcessed = MyEmitter()
+        self.sendSegList = MyEmitter()
         self.initProcess()
 
     def run(self, *args, **kwargs):
@@ -1039,7 +1047,7 @@ class BirdNET_Worker(QRunnable):
             if len(seg[4]) > 0 and save:
                 seg_list.addSegment(seg)
 
-        seg_list.saveJSON(rfilepath)
+        self.sendSegList.send.emit(seg_list, rfilepath)
 
     def movingExpAverage(self, timetable, n=3):
         """Calculate moving exponential average over 3 Segments per Default."""

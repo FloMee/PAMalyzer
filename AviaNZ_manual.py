@@ -82,6 +82,7 @@ import Clustering
 import colourMaps
 import Shapes
 import BirdNET
+import Database
 
 import librosa
 import webbrowser, copy, math
@@ -180,6 +181,9 @@ class AviaNZ(QMainWindow):
         self.viewCallType = False
         self.viewCertainty = True
         self.batmode = False
+
+        self.database_filepath = os.path.join(configdir, "test.db")
+        self.database = Database.DatabaseHandler(self.database_filepath)
 
         # Spectrogram default settings
         # TODO: put in config?
@@ -523,6 +527,13 @@ class AviaNZ(QMainWindow):
         if not self.DOC:
             actionMenu.addAction("Export spectrogram image", self.saveImageRaw)
         actionMenu.addAction("&Export current view as image", self.saveImage, "Ctrl+I")
+
+        actionMenu.addSeparator()
+
+        actionMenu.addAction(
+            "Update database for current directory", self.updateDatabase
+        )
+        actionMenu.addAction("Export files", self.exportFiles)
 
         # "Recognisers" menu
         recMenu = self.menuBar().addMenu("&Recognisers")
@@ -1134,7 +1145,7 @@ class AviaNZ(QMainWindow):
 
         # List to hold the list of files
         self.listFiles = SupportClasses_GUI.LightedFileList(
-            self.ColourNone, self.ColourPossibleDark, self.ColourNamed
+            self.ColourNone, self.ColourPossibleDark, self.ColourNamed, self
         )
         self.listFiles.itemDoubleClicked.connect(self.listLoadFile)
         self.listSpecies = QComboBox()
@@ -1995,27 +2006,7 @@ class AviaNZ(QMainWindow):
             # ANNOTATIONS: init empty list
             self.segments = Segment.SegmentList()
             # Load any previous segments stored
-            if os.path.isfile(self.filename + ".data"):
-                # populate it, add the metadata attribute
-                # (note: we're overwriting the JSON duration with actual full wav size)
-                self.segments.parseJSON(
-                    self.filename + ".data", self.sp.fileLength / self.sp.sampleRate
-                )
-                self.operator = self.segments.metadata.get("Operator", self.operator)
-                self.reviewer = self.segments.metadata.get("Reviewer", self.reviewer)
-                self.segmentsToSave = True
-
-                # if there are any multi-species segments,
-                # switch the option on regardless of user preference
-                for s in self.segments:
-                    if len(s[4]) > 1:
-                        self.multipleBirds = True
-            else:
-                self.segments.metadata = {
-                    "Operator": self.operator,
-                    "Reviewer": self.reviewer,
-                    "Duration": self.sp.fileLength / self.sp.sampleRate,
-                }
+            self.segments.getData(self, self.filename)
 
             # Bat mode: initialize with an empty segment for the entire file
             if self.batmode and len(self.segments) == 0:
@@ -7116,6 +7107,29 @@ class AviaNZ(QMainWindow):
         imageFile = self.filename[:-4] + ".png"
         print("Exporting raw spectrogram to file %s" % imageFile)
         self.specPlot.save(imageFile)
+
+    def updateDatabase(self):
+
+        self.tempsl = Segment.SegmentList()
+        for root, dirs, files in os.walk(self.SoundFileDir):
+            for filename in files:
+                filenamef = os.path.join(root, filename)
+                if filename.lower().endswith(
+                    ".wav"
+                ) or filename.lower().endswith(".bmp"):
+                    dataf = filenamef + ".data"
+                    if os.path.isfile(dataf):
+                        print("Update entries for {}".format(filename), end="")
+                        print("\r", end = "")
+                        self.tempsl.parseJSON(dataf, silent=True)
+                        if len(self.tempsl) > 0:
+                            self.database.insert_segments(
+                                self.tempsl,
+                                self.operator,
+                                filenamef,
+                            )
+        print("Database successfully updated.")
+        self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
 
     def changeSettings(self):
         """Create the parameter tree when the Interface settings menu is pressed."""
