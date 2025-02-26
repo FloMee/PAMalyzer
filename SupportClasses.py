@@ -658,59 +658,56 @@ class ExcelIO:
 
             # Loop over the segments
             for seg in speciesSegs:
-                # Print the filename
-                ws.cell(row=r, column=1, value=segsl.filename)
+                for lab in seg[4]:
+                    # Print the filename
+                    ws.cell(row=r, column=1, value=segsl.filename)
 
-                # Time limits
-                ws.cell(
-                    row=r,
-                    column=2,
-                    value=str(
-                        startTimeFile.addMSecs(seg[0] * 1000).toString(timeStrFormat)
-                    ),
-                )
-                ws.cell(
-                    row=r,
-                    column=3,
-                    value=str(
-                        startTimeFile.addMSecs(seg[1] * 1000).toString(timeStrFormat)
-                    ),
-                )
-                # Freq limits
-                if seg[3] != 0:
-                    ws.cell(row=r, column=4, value=int(seg[2]))
-                    ws.cell(row=r, column=5, value=int(seg[3]))
-                if currsp == "Any sound":
-                    # print species and certainty and call type
-                    text = [lab["species"] for lab in seg[4]]
-                    ws.cell(row=r, column=6, value=", ".join(text))
-                    text = [
-                        QLocale.toString(QLocale(), lab["certainty"]) for lab in seg[4]
-                    ]
-                    ws.cell(row=r, column=7, value=", ".join(text))
-                    strct = []
-                    for lab in seg[4]:
-                        if "calltype" in lab:
-                            strct.append(str(lab["calltype"]))
-                        else:
-                            strct.append("-")
-                    ws.cell(row=r, column=8, value=", ".join(strct))
-                else:
-                    # only print certainty and call type
-                    strcert = []
-                    strct = []
-                    for lab in seg[4]:
-                        if lab["species"] == currsp:
-                            strcert.append(
-                                QLocale.toString(QLocale(), lab["certainty"])
+                    # Time limits
+                    ws.cell(
+                        row=r,
+                        column=2,
+                        value=str(
+                            startTimeFile.addMSecs(seg[0] * 1000).toString(
+                                timeStrFormat
                             )
+                        ),
+                    )
+                    ws.cell(
+                        row=r,
+                        column=3,
+                        value=str(
+                            startTimeFile.addMSecs(seg[1] * 1000).toString(
+                                timeStrFormat
+                            )
+                        ),
+                    )
+                    # Freq limits
+                    if seg[3] != 0:
+                        ws.cell(row=r, column=4, value=int(seg[2]))
+                        ws.cell(row=r, column=5, value=int(seg[3]))
+                    if currsp == "Any sound":
+                        # print species and certainty and call type
+                        text = lab["species"]
+                        ws.cell(row=r, column=6, value=text)
+                        text = QLocale.toString(QLocale(), lab["certainty"])
+                        ws.cell(row=r, column=7, value=text)
+
+                        if "calltype" in lab:
+                            strct = str(lab["calltype"])
+                        else:
+                            strct = "-"
+                        ws.cell(row=r, column=8, value=strct)
+                    else:
+                        # only print certainty and call type
+                        if lab["species"] == currsp:
+                            strcert = QLocale.toString(QLocale(), lab["certainty"])
                             if "calltype" in lab:
-                                strct.append(str(lab["calltype"]))
+                                strct = str(lab["calltype"])
                             else:
-                                strct.append("-")
-                    ws.cell(row=r, column=6, value=", ".join(strcert))
-                    ws.cell(row=r, column=7, value=", ".join(strct))
-                r += 1
+                                strct = "-"
+                        ws.cell(row=r, column=6, value=strcert)
+                        ws.cell(row=r, column=7, value=strct)
+                    r += 1
 
     # This stores pres/abs and max certainty for the species in each file
     # segscert: a 2D list of segs x [start, end, certainty]
@@ -801,13 +798,21 @@ class ExcelIO:
         precisionMS=False,
         resolution=10,
         simple=False,
+        fileperspecies=True,
+        species=None,
     ):
         # will export species present in self, + passed as arg, + "all species" excel
         speciesList = set(speciesList)
-        for segl in segments:
-            for seg in segl:
-                speciesList.update([lab["species"] for lab in seg[4]])
-        speciesList.add("Any sound")
+        if fileperspecies:
+            for segl in segments:
+                for seg in segl:
+                    speciesList.update([lab["species"] for lab in seg[4]])
+            speciesList.add("Any sound")
+        elif species == "Species":
+            speciesList.add("Any sound")
+        else:
+            speciesList.add(species)
+
         print("The following species were detected for export:", speciesList)
 
         # check source .wav file names -

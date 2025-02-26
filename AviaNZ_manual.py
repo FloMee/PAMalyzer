@@ -6501,7 +6501,12 @@ class AviaNZ(QMainWindow):
             # Export the actual Excel
             excel = SupportClasses.ExcelIO()
             excsuccess = excel.export(
-                allsegs, self.SoundFileDir, "overwrite", simple=True
+                allsegs,
+                self.SoundFileDir,
+                "overwrite",
+                simple=True,
+                fileperspecies=False,
+                species=self.currentSpecies,
             )
 
         if excsuccess != 1:
