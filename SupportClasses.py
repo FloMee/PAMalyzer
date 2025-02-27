@@ -239,97 +239,6 @@ class ConfigLoader(object):
         print("Loaded Calltypes:", list(goodcalltypes.keys()))
         return goodcalltypes
 
-    def CNNmodels(self, filters, dircnn, targetspecies):
-        """Returns a dict of target CNN models
-        Filters - dict of loaded filter files
-        Targetspecies - list of species names to load
-        """
-        print("Loading CNN models from folder %s" % dircnn)
-        targetmodels = dict()
-        for species in targetspecies:
-            filt = filters[species]
-            if "CNN" not in filt:
-                continue
-            elif filt["CNN"]:
-                if species == "NZ Bats":
-                    try:
-                        model = load_model(
-                            os.path.join(dircnn, filt["CNN"]["CNN_name"] + ".h5")
-                        )
-                        targetmodels[species] = [
-                            model,
-                            filt["CNN"]["win"],
-                            filt["CNN"]["inputdim"],
-                            filt["CNN"]["output"],
-                            filt["CNN"]["windowInc"],
-                            filt["CNN"]["thr"],
-                        ]
-                        print(
-                            "Loaded model:",
-                            os.path.join(dircnn, filt["CNN"]["CNN_name"]),
-                        )
-                    except Exception as e:
-                        print(
-                            "Could not load CNN model from file:",
-                            os.path.join(dircnn, filt["CNN"]["CNN_name"]),
-                            e,
-                        )
-                else:
-                    try:
-                        print(os.path.join(dircnn, filt["CNN"]["CNN_name"]) + ".h5")
-                        json_file = open(
-                            os.path.join(dircnn, filt["CNN"]["CNN_name"]) + ".json", "r"
-                        )
-                        loaded_model_json = json_file.read()
-                        print(loaded_model_json)
-                        print("**")
-                        json_file.close()
-                        model = model_from_json(loaded_model_json)
-                        print(model)
-                        print("***")
-                        model.load_weights(
-                            os.path.join(dircnn, filt["CNN"]["CNN_name"]) + ".h5"
-                        )
-                        print("****")
-                        print(
-                            "Loaded model:",
-                            os.path.join(dircnn, filt["CNN"]["CNN_name"]),
-                        )
-                        model.compile(
-                            loss=filt["CNN"]["loss"],
-                            optimizer=filt["CNN"]["optimizer"],
-                            metrics=["accuracy"],
-                        )
-                        if "fRange" in filt["CNN"]:
-                            targetmodels[filt["CNN"]["CNN_name"]] = [
-                                model,
-                                filt["CNN"]["win"],
-                                filt["CNN"]["inputdim"],
-                                filt["CNN"]["output"],
-                                filt["CNN"]["windowInc"],
-                                filt["CNN"]["thr"],
-                                True,
-                                filt["CNN"]["fRange"],
-                            ]
-                        else:
-                            targetmodels[filt["CNN"]["CNN_name"]] = [
-                                model,
-                                filt["CNN"]["win"],
-                                filt["CNN"]["inputdim"],
-                                filt["CNN"]["output"],
-                                filt["CNN"]["windowInc"],
-                                filt["CNN"]["thr"],
-                                False,
-                            ]
-                    except Exception as e:
-                        print(
-                            "Could not load CNN model from file:",
-                            os.path.join(dircnn, filt["CNN"]["CNN_name"]),
-                        )
-                        print(e)
-        print("Loaded CNN models:", list(targetmodels.keys()))
-        return targetmodels
-
     def shortbl(self, file, configdir):
         # A fallback shortlist will be confirmed to exist in configdir.
         # This list is necessary
@@ -472,23 +381,6 @@ class ConfigLoader(object):
             )
             msg.exec_()
             return None
-
-    def learningParams(self, file):
-        print("Loading software settings from file %s" % file)
-        try:
-            configfile = open(file)
-            config = json.load(configfile)
-            configfile.close()
-            return config
-        except ValueError:
-            # if JSON looks corrupt, quit:
-            msg = SupportClasses_GUI.MessagePopup(
-                "w",
-                "Bad config file",
-                "ERROR: file " + file + " corrupt, delete it to restore default",
-            )
-            msg.exec_()
-            raise
 
     # Dumps the provided JSON array to the corresponding bird file.
     def blwrite(self, content, file, configdir):
