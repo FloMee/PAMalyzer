@@ -181,11 +181,15 @@ class AviaNZ(QMainWindow):
         self.multipleBirds = self.config["MultipleSpecies"]
 
         if len(self.config["RecentFiles"]) > 0:
-            self.SoundFileDir = os.path.dirname(self.config["RecentFiles"][-1])
-            if not os.path.isdir(self.SoundFileDir):
+            firstFile = self.config["RecentFiles"][-1]
+            self.SoundFileDir = os.path.dirname(firstFile)
+            if not os.path.isdir(self.SoundFileDir) or not os.path.isfile(firstFile):
                 self.SoundFileDir = self.config["SoundFileDir"]
+                firstFile = self.SoundFileDir + "/" + "kiwi_1min.wav"
         else:
             self.SoundFileDir = self.config["SoundFileDir"]
+            firstFile = self.SoundFileDir + "/" + "kiwi_1min.wav"
+
         self.filename = None
         self.focusRegion = None
         self.operator = self.config["operator"]
@@ -194,53 +198,7 @@ class AviaNZ(QMainWindow):
         # For preventing callbacks involving overview panel
         self.updateRequestedByOverview = False
 
-        # working directory
-        if not os.path.isdir(self.SoundFileDir):
-            print("Directory doesn't exist: making it")
-            os.makedirs(self.SoundFileDir)
-        print(self.config["RecentFiles"][-1])
-        # self.backupDatafiles()
-
-        # INPUT FILE LOADING
-        # search order: infile -> firstFile -> dialog
-        # Make life easier for now: preload a birdsong
-        firstFile = ""
-        if not os.path.isfile(firstFile):
-            # For distribution:
-            firstFile = self.SoundFileDir
-            # Can also use:
-            # firstFile = self.SoundFileDir + '/' + 'kiwi_1min.wav'
-
-        if not os.path.isfile(firstFile):
-            # pop up a dialog to select file
-            firstFile, drop = QFileDialog.getOpenFileName(
-                self,
-                "Choose File",
-                self.SoundFileDir,
-                "WAV or BMP files (*.wav *.bmp);; Only WAV files (*.wav);; Only BMP files (*.bmp)",
-            )
-            while firstFile == "":
-                msg = SupportClasses_GUI.MessagePopup(
-                    "w",
-                    "Select Sound File",
-                    "Choose a sound file to proceed.\nDo you want to continue?",
-                )
-                msg.setStandardButtons(QMessageBox.No)
-                msg.addButton("Choose a file", QMessageBox.YesRole)
-                msg.button(QMessageBox.No).setText("Exit")
-                reply = msg.exec_()
-                if reply == 0:
-                    firstFile, drop = QFileDialog.getOpenFileName(
-                        self,
-                        "Choose File",
-                        self.SoundFileDir,
-                        "WAV or BMP files (*.wav *.bmp);; Only WAV files (*.wav);; Only BMP files (*.bmp)",
-                    )
-                else:
-                    sys.exit()
-
         # parse firstFile to dir and file parts
-        self.SoundFileDir = os.path.dirname(firstFile)
         print("Working dir set to %s" % self.SoundFileDir)
         print("Opening file %s" % firstFile)
 
