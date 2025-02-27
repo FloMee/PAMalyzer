@@ -583,7 +583,6 @@ class AviaNZ(QMainWindow):
         self.d_spec = Dock("Spectrogram", size=(1200, 300))
         self.d_controls = Dock("Controls", size=(40, 90))
         self.d_files = Dock("Files", size=(40, 200))
-        self.d_plot = Dock("Plots", size=(1200, 150))
         self.d_controls.setSizePolicy(1, 1)
 
         self.area.addDock(self.d_files, "left")
@@ -591,7 +590,6 @@ class AviaNZ(QMainWindow):
         self.area.addDock(self.d_ampl, "bottom", self.d_overview)
         self.area.addDock(self.d_spec, "bottom", self.d_ampl)
         self.area.addDock(self.d_controls, "bottom", self.d_files)
-        self.area.addDock(self.d_plot, "bottom", self.d_spec)
 
         # Store the state of the docks in case the user wants to reset it
         self.state = self.area.saveState()
@@ -758,11 +756,6 @@ class AviaNZ(QMainWindow):
         self.w_spec.addItem(self.p_spec, row=0, col=1)
         self.d_spec.addWidget(self.w_spec)
 
-        self.w_plot = pg.GraphicsLayoutWidget()
-        self.p_plot = self.w_plot.addViewBox(enableMouse=False, enableMenu=False)
-        self.w_plot.addItem(self.p_plot, row=0, col=1)
-        self.d_plot.addWidget(self.w_plot)
-
         # The axes
         # Time axis has to go separately in loadFile
         self.ampaxis = pg.AxisItem(orientation="left")
@@ -776,16 +769,6 @@ class AviaNZ(QMainWindow):
             self.w_spec.addItem(self.specaxis, row=0, col=0)
         self.specaxis.linkToView(self.p_spec)
         self.specaxis.setWidth(w=65)
-
-        # Plot window also needs an axis to make them line up
-        self.plotaxis = pg.AxisItem(orientation="left")
-        self.w_plot.addItem(self.plotaxis, row=0, col=0)
-        self.plotaxis.linkToView(self.p_plot)
-        self.plotaxis.setWidth(w=65)
-        self.plotaxis.setLabel("")
-
-        # Hide diagnostic plot window until requested
-        self.d_plot.hide()
 
         # The slider to show playback position
         # This is hidden, but controls the moving bar
@@ -2210,7 +2193,6 @@ class AviaNZ(QMainWindow):
         # main recursion of restoreState:
         self.area.buildFromState(self.state["main"], docks, self.area, missing="error")
         # restoreState doesn't restore non-floating window sizes smh
-        self.d_plot.hide()
         containers, docks = self.area.findAll()
         # basically say that left panel and controls should be as small as possible:
         self.d_controls.setSizePolicy(1, 1)
@@ -2482,12 +2464,6 @@ class AviaNZ(QMainWindow):
             padding=0,
         )
         self.p_spec.setXRange(minX, maxX, update=True, padding=0)
-        self.p_plot.setXRange(
-            self.convertSpectoAmpl(minX),
-            self.convertSpectoAmpl(maxX),
-            update=True,
-            padding=0,
-        )
 
         # # # I know the next two lines SHOULD be unnecessary. But they aren't!
         self.p_ampl.setXRange(
