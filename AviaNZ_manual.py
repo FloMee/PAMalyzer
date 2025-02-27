@@ -75,7 +75,9 @@ import SupportClasses, SupportClasses_GUI
 import Dialogs
 import SignalProc
 import Segment
+import WaveletSegment
 import WaveletFunctions
+import Clustering
 import colourMaps
 import BirdNET
 
@@ -467,6 +469,7 @@ class AviaNZ(QMainWindow):
 
         if not self.DOC:
             actionMenu.addAction("Calculate segment statistics", self.calculateStats)
+            actionMenu.addAction("Cluster segments", self.classifySegments)
 
         actionMenu.addAction("Export file segments to excel", self.exportSeg)
         actionMenu.addAction("Export all segments to excel", self.exportExcel)
@@ -4402,6 +4405,24 @@ class AviaNZ(QMainWindow):
             self.audiodata_backup = np.empty((np.shape(self.audiodata)[0], 1))
             self.audiodata_backup[:, 0] = np.copy(self.audiodata)
         self.showFreq_backup = [self.sp.minFreqShow, self.sp.maxFreqShow]
+
+    def decomposeWP(self, x=None):
+        """Listener for quickWP control button.
+        Takes DATA and produces a WP decomposition.
+        """
+        print("Decomposing to WP...")
+        ot = time.time()
+        self.WFinst = WaveletFunctions.WaveletFunctions(
+            data=self.audiodata,
+            wavelet="dmey2",
+            maxLevel=self.config["maxSearchDepth"],
+            samplerate=self.sampleRate,
+        )
+        maxLevel = 5
+        allnodes = range(2 ** (maxLevel + 1) - 1)
+        self.WFinst.WaveletPacket(allnodes, mode="symmetric", antialias=False)
+        print("Done")
+        print(time.time() - ot)
 
     def denoiseSeg(self):
         """Listener for quickDenoise control button.
