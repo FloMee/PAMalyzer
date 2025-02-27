@@ -101,17 +101,7 @@ class AviaNZ(QMainWindow):
     """Main class for the user interface.
     Contains most of the user interface and plotting code"""
 
-    def __init__(
-        self,
-        root=None,
-        configdir=None,
-        CLI=False,
-        cheatsheet=False,
-        zooniverse=False,
-        firstFile="",
-        imageFile="",
-        command="",
-    ):
+    def __init__(self, configdir=None):
         """Initialisation of the class. Load main config and bird lists from configdir.
         Also initialises the data structures and loads an initial file (specified explicitly)
         and sets up the window.
@@ -120,10 +110,6 @@ class AviaNZ(QMainWindow):
         print("Starting PAMalyzer...")
 
         super(AviaNZ, self).__init__()
-        self.root = root
-        self.CLI = CLI
-        self.cheatsheet = cheatsheet
-        self.zooniverse = zooniverse
 
         # configdir passes the standard user app dir based on OS.
         # At this point, the main config file should already be ensured to exist.
@@ -212,60 +198,55 @@ class AviaNZ(QMainWindow):
         if not os.path.isdir(self.SoundFileDir):
             print("Directory doesn't exist: making it")
             os.makedirs(self.SoundFileDir)
-
+        print(self.config["RecentFiles"][-1])
         # self.backupDatafiles()
 
         # INPUT FILE LOADING
         # search order: infile -> firstFile -> dialog
         # Make life easier for now: preload a birdsong
-        if not os.path.isfile(firstFile) and not cheatsheet and not zooniverse:
+        firstFile = ""
+        if not os.path.isfile(firstFile):
             # For distribution:
             firstFile = self.SoundFileDir
             # Can also use:
             # firstFile = self.SoundFileDir + '/' + 'kiwi_1min.wav'
 
-        if not os.path.isfile(firstFile) and not cheatsheet and not zooniverse:
-            if self.CLI:
-                print("file %s not found, exiting" % firstFile)
-                raise OSError("No input file, cannot continue")
-            else:
-                # pop up a dialog to select file
-                firstFile, drop = QFileDialog.getOpenFileName(
-                    self,
-                    "Choose File",
-                    self.SoundFileDir,
-                    "WAV or BMP files (*.wav *.bmp);; Only WAV files (*.wav);; Only BMP files (*.bmp)",
+        if not os.path.isfile(firstFile):
+            # pop up a dialog to select file
+            firstFile, drop = QFileDialog.getOpenFileName(
+                self,
+                "Choose File",
+                self.SoundFileDir,
+                "WAV or BMP files (*.wav *.bmp);; Only WAV files (*.wav);; Only BMP files (*.bmp)",
+            )
+            while firstFile == "":
+                msg = SupportClasses_GUI.MessagePopup(
+                    "w",
+                    "Select Sound File",
+                    "Choose a sound file to proceed.\nDo you want to continue?",
                 )
-                while firstFile == "":
-                    msg = SupportClasses_GUI.MessagePopup(
-                        "w",
-                        "Select Sound File",
-                        "Choose a sound file to proceed.\nDo you want to continue?",
+                msg.setStandardButtons(QMessageBox.No)
+                msg.addButton("Choose a file", QMessageBox.YesRole)
+                msg.button(QMessageBox.No).setText("Exit")
+                reply = msg.exec_()
+                if reply == 0:
+                    firstFile, drop = QFileDialog.getOpenFileName(
+                        self,
+                        "Choose File",
+                        self.SoundFileDir,
+                        "WAV or BMP files (*.wav *.bmp);; Only WAV files (*.wav);; Only BMP files (*.bmp)",
                     )
-                    msg.setStandardButtons(QMessageBox.No)
-                    msg.addButton("Choose a file", QMessageBox.YesRole)
-                    msg.button(QMessageBox.No).setText("Exit")
-                    reply = msg.exec_()
-                    if reply == 0:
-                        firstFile, drop = QFileDialog.getOpenFileName(
-                            self,
-                            "Choose File",
-                            self.SoundFileDir,
-                            "WAV or BMP files (*.wav *.bmp);; Only WAV files (*.wav);; Only BMP files (*.bmp)",
-                        )
-                    else:
-                        sys.exit()
+                else:
+                    sys.exit()
 
         # parse firstFile to dir and file parts
-        if not cheatsheet and not zooniverse:
-            self.SoundFileDir = os.path.dirname(firstFile)
-            print("Working dir set to %s" % self.SoundFileDir)
-            print("Opening file %s" % firstFile)
+        self.SoundFileDir = os.path.dirname(firstFile)
+        print("Working dir set to %s" % self.SoundFileDir)
+        print("Opening file %s" % firstFile)
 
         # to keep code simpler, graphic options are created even in CLI mode
         # they're just not shown because QMainWindow.__init__ is skipped
-        if not self.CLI:
-            QMainWindow.__init__(self, root)
+        QMainWindow.__init__(self)
 
         # parse mouse settings
         if self.config["drawingRightBtn"]:
@@ -281,61 +262,27 @@ class AviaNZ(QMainWindow):
         self.createFrame()
 
         self.resetStorageArrays()
-        if self.CLI:
-            if cheatsheet or zooniverse:
-                # use infile and imagefile as directories
-                print(firstFile)
-                self.SoundFileDir = firstFile
-                # Read folders and sub-folders
-                for root, dirs, files in os.walk(firstFile):
-                    for f in files:
-                        if f[-4:].lower() == ".wav":
-                            print(os.path.join(root, f))
-                            self.loadFile(os.path.join(root, f), cs=True)
-                            self.widthWindow.setValue(60)  # self.datalengthSec)
-                            print("file path: ", os.path.join(root, f[:-4]))
-                            self.setColourLevels(20, 50)
-                            self.saveImage(os.path.join(root, f[:-4] + ".png"))
-            else:
-                self.loadFile(firstFile)
-                while command != ():
-                    c = command[0]
-                    command = command[1:]
-                    print("Next command to execute is %s" % c)
-                    if c == "denoise":
-                        self.denoise()
-                    elif c == "segment":
-                        self.segment()
-                    else:
-                        print("ERROR: %s is not a valid command" % c)
-                        raise ValueError("CLI command not recognized")
-                if imageFile != "":
-                    # reset images to show full width if in CLI:
-                    self.widthWindow.setValue(self.datalengthSec)
-                    # looks unnecessary:
-                    # self.p_spec.setXRange(0, self.convertAmpltoSpec(self.datalengthSec), update=True, padding=0)
-                    self.saveImage(imageFile)
+
+        # Make the window and associated widgets
+        self.setWindowTitle("PAMalyzer")
+        self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
+        # Show the window
+        if self.config["StartMaximized"]:
+            self.showMaximized()
+            # extra toggle because otherwise Windows starts at a non-maximized size
+            self.setWindowState(self.windowState() ^ Qt.WindowMaximized)
+            self.setWindowState(self.windowState() | Qt.WindowMaximized)
         else:
-            # Make the window and associated widgets
-            self.setWindowTitle("PAMalyzer")
-            self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
-            # Show the window
-            if self.config["StartMaximized"]:
-                self.showMaximized()
-                # extra toggle because otherwise Windows starts at a non-maximized size
-                self.setWindowState(self.windowState() ^ Qt.WindowMaximized)
-                self.setWindowState(self.windowState() | Qt.WindowMaximized)
-            else:
-                self.show()
+            self.show()
 
-            # Save the segments every minute
-            self.timer = QTimer()
-            self.timer.timeout.connect(self.saveSegments)
-            self.timer.start(self.config["secsSave"] * 1000)
+        # Save the segments every minute
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.saveSegments)
+        self.timer.start(self.config["secsSave"] * 1000)
 
-            self.listLoadFile(os.path.basename(firstFile))
+        self.listLoadFile(os.path.basename(firstFile))
 
-        if self.DOC and not cheatsheet and not zooniverse:
+        if self.DOC:
             self.setOperatorReviewerDialog()
 
     def createMenu(self):
@@ -765,8 +712,7 @@ class AviaNZ(QMainWindow):
         self.ampaxis.setLabel("")
 
         self.specaxis = pg.AxisItem(orientation="left")
-        if not self.zooniverse:
-            self.w_spec.addItem(self.specaxis, row=0, col=0)
+        self.w_spec.addItem(self.specaxis, row=0, col=0)
         self.specaxis.linkToView(self.p_spec)
         self.specaxis.setWidth(w=65)
 
@@ -1554,13 +1500,6 @@ class AviaNZ(QMainWindow):
             self.p_spec.removeItem(self.energyPlot)
         except Exception:
             pass
-        # Cheatsheet: remove the freq labels
-        if self.zooniverse and hasattr(self, "label1"):
-            self.p_spec.removeItem(self.label1)
-            self.p_spec.removeItem(self.label2)
-            self.p_spec.removeItem(self.label3)
-            self.p_spec.removeItem(self.label4)
-            self.p_spec.removeItem(self.label5)
 
     def openFile(self, fileName=None):
         """This handles the menu items for opening a file.
@@ -1717,19 +1656,16 @@ class AviaNZ(QMainWindow):
 
                 # Create an instance of the Signal Processing class
                 if not hasattr(self, "sp"):
-                    if self.cheatsheet:
-                        self.sp = SignalProc.SignalProc(512, 256, 0, 0)
-                    else:
-                        self.sp = SignalProc.SignalProc(
-                            self.config["window_width"],
-                            self.config["incr"],
-                            self.config["minFreq"],
-                            self.config["maxFreq"],
-                        )
+                    self.sp = SignalProc.SignalProc(
+                        self.config["window_width"],
+                        self.config["incr"],
+                        self.config["minFreq"],
+                        self.config["maxFreq"],
+                    )
 
                 self.currentFileSection = 0
 
-                if hasattr(self, "timeaxis") and not self.zooniverse:
+                if hasattr(self, "timeaxis"):
                     self.w_spec.removeItem(self.timeaxis)
 
                 # Check if the filename is in standard DOC format
@@ -1762,8 +1698,7 @@ class AviaNZ(QMainWindow):
                         orientation="bottom", linkView=self.p_ampl
                     )
 
-                if not self.zooniverse:
-                    self.w_spec.addItem(self.timeaxis, row=1, col=1)
+                self.w_spec.addItem(self.timeaxis, row=1, col=1)
 
                 # This next line is a hack to make the axis update
                 # self.changeWidth(self.widthWindow.value())
@@ -2514,87 +2449,41 @@ class AviaNZ(QMainWindow):
         SpecRange = FreqRange / height
         self.drawGuidelines()
 
-        if self.zooniverse:
-            labels = [
-                0,
-                int(FreqRange // 4000),
-                int(FreqRange // 2000),
-                int(3 * FreqRange // 4000),
-                int(FreqRange // 1000),
-            ]
-            if self.sgScale == "Mel Frequency":
-                for i in range(len(labels)):
-                    labels[i] = self.sp.convertHztoMel(labels[i])
-            elif self.sgScale == "Bark Frequency":
-                for i in range(len(labels)):
-                    labels[i] = self.sp.convertHztoBark(labels[i])
+        labels = [
+            self.sp.minFreqShow,
+            self.sp.minFreqShow + FreqRange / 4,
+            self.sp.minFreqShow + FreqRange / 2,
+            self.sp.minFreqShow + 3 * FreqRange / 4,
+            self.sp.minFreqShow + FreqRange,
+        ]
 
-            offset = 6
-            txt = '<span style="color: #0F0; font-size:20pt">%s</div>' % str(labels[0])
-            # txt='<span style="color: #0F0; font-size:20pt">%s</div>'%str(0)
-            self.label1 = pg.TextItem(html=txt, color="g", anchor=(0, 0))
-            self.p_spec.addItem(self.label1)
-            self.label1.setPos(0, 0 + offset)
-
-            txt = '<span style="color: #0F0; font-size:20pt">%s</div>' % str(labels[1])
-            # txt='<span style="color: #0F0; font-size:20pt">%s</div>'%str(int(FreqRange//4000))
-            self.label2 = pg.TextItem(html=txt, color="g", anchor=(0, 0))
-            self.p_spec.addItem(self.label2)
-            self.label2.setPos(0, SpecRange / 4 + offset)
-
-            txt = '<span style="color: #0F0; font-size:20pt">%s</div>' % str(labels[2])
-            # txt='<span style="color: #0F0; font-size:20pt">%s</div>'%str(int(FreqRange//2000))
-            self.label3 = pg.TextItem(html=txt, color="g", anchor=(0, 0))
-            self.p_spec.addItem(self.label3)
-            self.label3.setPos(0, SpecRange / 2 + offset)
-
-            txt = '<span style="color: #0F0; font-size:20pt">%s</div>' % str(labels[3])
-            # txt='<span style="color: #0F0; font-size:20pt">%s</div>'%str(int(3*FreqRange//4000))
-            self.label4 = pg.TextItem(html=txt, color="g", anchor=(0, 0))
-            self.p_spec.addItem(self.label4)
-            self.label4.setPos(0, 3 * SpecRange / 4 + offset)
-
-            txt = '<span style="color: #0F0; font-size:20pt">%s</div>' % str(labels[4])
-            # txt='<span style="color: #0F0; font-size:20pt">%s</div>'%str(int(FreqRange//1000))
-            self.label5 = pg.TextItem(html=txt, color="g", anchor=(0, 0))
-            self.p_spec.addItem(self.label5)
-            self.label5.setPos(0, SpecRange + offset)
+        if self.sgScale == "Mel Frequency":
+            for i in range(len(labels)):
+                labels[i] = self.sp.convertHztoMel(labels[i])
+            self.specaxis.setLabel("Mels")
+        elif self.sgScale == "Bark Frequency":
+            for i in range(len(labels)):
+                labels[i] = self.sp.convertHztoBark(labels[i])
+            self.specaxis.setLabel("Barks")
         else:
-            labels = [
-                self.sp.minFreqShow,
-                self.sp.minFreqShow + FreqRange / 4,
-                self.sp.minFreqShow + FreqRange / 2,
-                self.sp.minFreqShow + 3 * FreqRange / 4,
-                self.sp.minFreqShow + FreqRange,
-            ]
+            self.specaxis.setLabel("kHz")
 
-            if self.sgScale == "Mel Frequency":
-                for i in range(len(labels)):
-                    labels[i] = self.sp.convertHztoMel(labels[i])
-                self.specaxis.setLabel("Mels")
-            elif self.sgScale == "Bark Frequency":
-                for i in range(len(labels)):
-                    labels[i] = self.sp.convertHztoBark(labels[i])
-                self.specaxis.setLabel("Barks")
-            else:
-                self.specaxis.setLabel("kHz")
-
-            self.specaxis.setTicks(
+        self.specaxis.setTicks(
+            [
                 [
-                    [
-                        (0, round(labels[0] / 1000, 2)),
-                        (SpecRange / 4, round(labels[1] / 1000, 2)),
-                        (SpecRange / 2, round(labels[2] / 1000, 2)),
-                        (3 * SpecRange / 4, round(labels[3] / 1000, 2)),
-                        (SpecRange, round(labels[4] / 1000, 2)),
-                    ]
+                    (0, round(labels[0] / 1000, 2)),
+                    (SpecRange / 4, round(labels[1] / 1000, 2)),
+                    (SpecRange / 2, round(labels[2] / 1000, 2)),
+                    (3 * SpecRange / 4, round(labels[3] / 1000, 2)),
+                    (SpecRange, round(labels[4] / 1000, 2)),
                 ]
-            )
-            # self.specaxis.setTicks([[(0,round(self.sp.minFreqShow/1000, 2)),
-            # (SpecRange/4,round(self.sp.minFreqShow/1000+FreqRange/4000, 2)),
-            # (SpecRange/2,round(self.sp.minFreqShow/1000+FreqRange/2000, 2)),
-            # (3*SpecRange/4,round(self.sp.minFreqShow/1000+3*FreqRange/4000, 2)),
-            # (SpecRange,round(self.sp.minFreqShow/1000+FreqRange/1000, 2))]])
+            ]
+        )
+        # self.specaxis.setTicks([[(0,round(self.sp.minFreqShow/1000, 2)),
+        # (SpecRange/4,round(self.sp.minFreqShow/1000+FreqRange/4000, 2)),
+        # (SpecRange/2,round(self.sp.minFreqShow/1000+FreqRange/2000, 2)),
+        # (3*SpecRange/4,round(self.sp.minFreqShow/1000+3*FreqRange/4000, 2)),
+        # (SpecRange,round(self.sp.minFreqShow/1000+FreqRange/1000, 2))]])
 
         self.updateOverview()
         self.textpos = int(
@@ -2602,22 +2491,21 @@ class AviaNZ(QMainWindow):
         )  # + self.config['textoffset']
 
         # If there are segments, show them
-        if not self.cheatsheet and not self.zooniverse:
-            for count in range(len(self.segments)):
-                self.addSegment(
-                    self.segments[count][0],
-                    self.segments[count][1],
-                    self.segments[count][2],
-                    self.segments[count][3],
-                    self.segments[count][4],
-                    False,
-                    count,
-                    remaking,
-                    coordsAbsolute=True,
-                )
+        for count in range(len(self.segments)):
+            self.addSegment(
+                self.segments[count][0],
+                self.segments[count][1],
+                self.segments[count][2],
+                self.segments[count][3],
+                self.segments[count][4],
+                False,
+                count,
+                remaking,
+                coordsAbsolute=True,
+            )
 
-            # This is the moving bar for the playback
-            self.p_spec.addItem(self.bar, ignoreBounds=True)
+        # This is the moving bar for the playback
+        self.p_spec.addItem(self.bar, ignoreBounds=True)
 
         QApplication.processEvents()
 
@@ -4485,15 +4373,6 @@ class AviaNZ(QMainWindow):
         """Listener for the denoising dialog.
         Calls the denoiser and then plots the updated data.
         """
-        if self.CLI:
-            # in CLI mode, default values will be retrieved from dialogs.
-            self.denoiseDialog = Dialogs.Denoise(
-                DOC=self.DOC, minFreq=self.sp.minFreq, maxFreq=self.sp.maxFreq
-            )
-            # values can be passed here explicitly, e.g.:
-            # self.denoiseDialog.depth.setValue(10)
-            # or could add an argument to pass custom defaults, e.g.:
-            # self.denoiseDialog = Dialogs.Denoise(defaults=("wt", 1, 2, 'a')
         with pg.BusyCursor():
             opstartingtime = time.time()
             print(
@@ -5498,8 +5377,6 @@ class AviaNZ(QMainWindow):
         self.segmentsToSave = True
 
     def saveImage(self, imageFile=""):
-        if self.cheatsheet:
-            self.showMaximized()  # for nice spec images
 
         exporter = pge.ImageExporter(self.w_spec.scene())
 

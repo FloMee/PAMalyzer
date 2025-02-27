@@ -20,42 +20,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import click
-import sys
-
-# Command line running to run a filter is something like
-# python AviaNZ.py -c -b -d "/home/marslast/Projects/AviaNZ/Sound Files/train5" -r "Morepork" -w
-
-# For training
-# python AviaNZ.py -c -t -d "/home/marslast/Projects/AviaNZ/Sound Files/train5" -e "/home/marslast/Projects/AviaNZ/Sound Files/train6" -r "Morepork" -x 2
-
-
-# For testing
-# python AviaNZ.py -c -u -d "/home/marslast/Projects/AviaNZ/Sound Files/test1" -r "Kiwi (Tokoeka Rakiura)"
-@click.command()
-@click.option("-c", "--cli", is_flag=True, help="Run in command-line mode")
-@click.option("-s", "--cheatsheet", is_flag=True, help="Make the cheatsheet images")
-@click.option(
-    "-z", "--zooniverse", is_flag=True, help="Make the Zooniverse images and sounds"
-)
-@click.option(
-    "-f", "--infile", type=click.Path(), help="Input wav file (mandatory in CLI mode)"
-)
-@click.option(
-    "-o",
-    "--imagefile",
-    type=click.Path(),
-    help="If specified, a spectrogram will be saved to this file",
-)
-@click.argument("command", nargs=-1)
-def mainlauncher(
-    cli,
-    cheatsheet,
-    zooniverse,
-    infile,
-    imagefile,
-    command,
-):
+def mainlauncher():
     # adapt path to allow this to be launched from wherever
     import sys, os
 
@@ -65,14 +30,11 @@ def mainlauncher(
         appdir = os.path.dirname(os.path.abspath(__file__))
     os.chdir(appdir)
 
-    # print("Using python at", sys.path)
-    # print(os.environ)
-    # print("Version", sys.version)
-
     try:
         import platform, json, shutil
         from jsonschema import validate
         import SupportClasses
+        from PyQt5.QtWidgets import QApplication
     except Exception as e:
         print("ERROR: could not import packages")
         raise
@@ -133,48 +95,28 @@ def mainlauncher(
                 print(e)
                 raise
 
-    if cli:
-        if (cheatsheet or zooniverse) and isinstance(infile, str):
-            import AviaNZ
+    print("Starting PAMalyzer..")
 
-            avianz = AviaNZ(
-                configdir=configdir,
-                CLI=True,
-                cheatsheet=cheatsheet,
-                zooniverse=zooniverse,
-                firstFile=infile,
-                imageFile=imagefile,
-                command=command,
-            )
-            print("Analysis complete, closing PAMalyzer")
+    app = QApplication(sys.argv)
+    # a hack to fix default font size (Win 10 suggests 7 pt for QLabels for some reason)
+    QApplication.setFont(QApplication.font("QMenu"))
+
+    while True:
+        import AviaNZ_manual
+
+        avianz = AviaNZ_manual.AviaNZ(configdir=configdir)
+
+        if avianz:
+            avianz.activateWindow()
         else:
-            print("ERROR: valid input file (-f) is needed")
-            raise
-    else:
-        task = None
-        print("Starting PAMalyzer in GUI mode")
-        from PyQt5.QtWidgets import QApplication
+            return
 
-        app = QApplication(sys.argv)
-        # a hack to fix default font size (Win 10 suggests 7 pt for QLabels for some reason)
-        QApplication.setFont(QApplication.font("QMenu"))
+        out = app.exec_()
+        QApplication.closeAllWindows()
+        QApplication.processEvents()
 
-        while True:
-            import AviaNZ_manual
-
-            avianz = AviaNZ_manual.AviaNZ(configdir=configdir)
-
-            if avianz:
-                avianz.activateWindow()
-            else:
-                return
-
-            out = app.exec_()
-            QApplication.closeAllWindows()
-            QApplication.processEvents()
-
-            if out == 0:
-                break
+        if out == 0:
+            break
 
 try:
     mainlauncher()
