@@ -79,7 +79,6 @@ import WaveletSegment
 import WaveletFunctions
 import Clustering
 import colourMaps
-import Shapes
 import BirdNET
 
 import librosa
@@ -471,7 +470,6 @@ class AviaNZ(QMainWindow):
 
         if not self.DOC:
             actionMenu.addAction("Calculate segment statistics", self.calculateStats)
-            actionMenu.addAction("Analyse shapes", self.showShapesDialog)
             actionMenu.addAction("Cluster segments", self.classifySegments)
 
         actionMenu.addAction("Export file segments to excel", self.exportSeg)
@@ -4376,131 +4374,6 @@ class AviaNZ(QMainWindow):
             )
 
         csv.close()
-
-    def detectShapes(self):
-        # method = self.shapesDialog.getValues()
-        method, IFsettings = self.shapesDialog.getValues()
-        allshapes = []
-        specxunit = self.convertSpectoAmpl(1)
-        specyunit = self.sampleRate // 2 / np.shape(self.sg)[1]
-        if self.batmode:
-            incr = 512
-        else:
-            incr = self.config["incr"]
-
-        # TODO TODO not tested for bats at all,
-        # no idea what here may need adapting
-        # (specifically b/c they have a spec that starts at >0)
-        # NOTE: resulting shape.tstart will be relative to the current page
-        with pg.BusyCursor():
-            for segm in self.segments:
-                segshape = None
-                # convert from absolute to relative-to-page times
-                segRelativeStart = segm[0] - self.startRead
-                segRelativeEnd = segm[1] - self.startRead
-
-                # skip if they are not in this page:
-                if segRelativeEnd < 0 or segRelativeStart > self.datalengthSec:
-                    print("skipping out of page segment", segm[0], "-", segm[1])
-                    allshapes.append(segshape)
-                    continue
-
-                if method == "stupidShaper":
-                    # placeholder method:
-                    adjusted_segm = [
-                        segRelativeStart,
-                        segRelativeEnd,
-                        segm[2],
-                        segm[3],
-                        segm[4],
-                    ]
-                    segshape = Shapes.stupidShaper(adjusted_segm, specxunit, specyunit)
-                elif method == "fundFreqShaper":
-                    # Fundamental frequency:
-                    data = self.audiodata[
-                        int(segRelativeStart * self.sampleRate) : int(
-                            segRelativeEnd * self.sampleRate
-                        )
-                    ]
-                    W = 4 * incr
-                    segshape = Shapes.fundFreqShaper(
-                        data, W, thr=0.5, fs=self.sampleRate
-                    )
-                    # shape.tstart is relative to segment start (0)
-                    # so we also need to add the segment start
-                    segshape.tstart += segRelativeStart
-                elif method == "instantShaper1" or method == "instantShaper2":
-                    # instantaneous frequency
-                    IFmethod = int(method[-1])
-                    spstart = math.floor(self.convertAmpltoSpec(segRelativeStart))
-                    spend = math.ceil(self.convertAmpltoSpec(segRelativeEnd))
-                    sg = np.copy(self.sp.sg[spstart:spend, :])
-                    # mask freqs outside the currently marked segment
-                    if segm[3] > 0:
-                        markedylow = math.floor(self.convertFreqtoY(segm[2]))
-                        markedyupp = math.ceil(self.convertFreqtoY(segm[3]))
-                        sg[:, :markedylow] = 0
-                        sg[:, markedyupp:] = 0
-                    segshape = Shapes.instantShaper(
-                        sg,
-                        self.sampleRate,
-                        incr,
-                        self.config["window_width"],
-                        self.windowType,
-                        IFmethod,
-                        IFsettings,
-                    )
-                    # shape.tstart is relative to segment start (0)
-                    # so we also need to add the segment start
-                    segshape.tstart += segRelativeStart
-                allshapes.append(segshape)
-
-        if len(allshapes) != len(self.segments):
-            print(
-                "ERROR: something went wrong in shape analysis, produced %d shapes",
-                len(allshapes),
-            )
-            return
-
-        # print, plot or export the results
-        # clear any old plots:
-        for sh in self.shapePlots:
-            try:
-                self.p_spec.removeItem(sh)
-            except Exception:
-                pass
-        self.shapePlots = []
-
-        # NOTE: this skips -1 and values below minFreqShow and connects
-        # the reamining dots. Might not be what you want.
-        # TODO not sure if this will work when spec sp.minFreqShow>0
-        for shape in allshapes:
-            if shape is None:
-                continue
-            # Convert coordinates to Hz/s and back to spec y/x, b/c
-            # spacing used to calculate the shape may differ from current spec pixel size.
-            numy = len(shape.y)
-            seqx = [
-                self.convertAmpltoSpec(x * shape.tunit + shape.tstart)
-                for x in range(numy)
-            ]
-            seqfreqs = shape.y * shape.yunit + shape.ystart  # convert to Hz
-            # Hide any below minFreqShow
-            visible = seqfreqs >= self.sp.minFreqShow
-            seqfreqs = seqfreqs[visible]
-            seqx = np.asarray(seqx)[visible]
-            seqy = [self.convertFreqtoY(y) for y in seqfreqs]
-
-            self.shapePlots.append(pg.PlotDataItem())
-            self.shapePlots[-1].setData(seqx, seqy, pen=pg.mkPen("r", width=2))
-            self.p_spec.addItem(self.shapePlots[-1])
-
-    def showShapesDialog(self):
-        """Create the shape analysis dialog."""
-        self.shapesDialog = Dialogs.Shapes()
-        self.shapesDialog.show()
-        self.shapesDialog.activateWindow()
-        self.shapesDialog.activate.clicked.connect(self.detectShapes)
 
     def showDenoiseDialog(self):
         """Create the denoising dialog when the relevant button is pressed."""
