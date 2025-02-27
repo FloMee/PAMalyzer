@@ -117,7 +117,7 @@ class AviaNZ(QMainWindow):
         and sets up the window.
         One interesting configuration point is the DOC setting, which hides the more 'research' functions.
         """
-        print("Starting AviaNZ...")
+        print("Starting PAMalyzer...")
 
         super(AviaNZ, self).__init__()
         self.root = root
@@ -317,8 +317,8 @@ class AviaNZ(QMainWindow):
                     self.saveImage(imageFile)
         else:
             # Make the window and associated widgets
-            self.setWindowTitle("AviaNZ")
-            self.setWindowIcon(QIcon("img/AviaNZ.ico"))
+            self.setWindowTitle("PAMalyzer")
+            self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
             # Show the window
             if self.config["StartMaximized"]:
                 self.showMaximized()
@@ -1722,8 +1722,8 @@ class AviaNZ(QMainWindow):
 
         with pg.ProgressDialog("Loading..", 0, 6) as dlg:
             dlg.setCancelButton(None)
-            dlg.setWindowIcon(QIcon("img/Avianz.ico"))
-            dlg.setWindowTitle("AviaNZ")
+            dlg.setWindowIcon(QIcon("img/PAMalyzer.ico"))
+            dlg.setWindowTitle("PAMalyzer")
             dlg.show()
             dlg.update()
             if name is not None:
@@ -2045,7 +2045,7 @@ class AviaNZ(QMainWindow):
             dlg += 1
             dlg.update()
             self.drawfigMain()
-            self.setWindowTitle("AviaNZ - Manual Processing " + self.filename)
+            self.setWindowTitle("PAMalyzer - Manual Processing " + self.filename)
             dlg += 1
             dlg.update()
             self.w_spec.setFocus()
@@ -5859,8 +5859,8 @@ class AviaNZ(QMainWindow):
         self.t = ParameterTree()
         self.t.setParameters(self.p, showTop=False)
         self.t.show()
-        self.t.setWindowTitle("AviaNZ - Interface Settings")
-        self.t.setWindowIcon(QIcon("img/Avianz.ico"))
+        self.t.setWindowTitle("PAMalyzer - Interface Settings")
+        self.t.setWindowIcon(QIcon("img/PAMalyzer.ico"))
         self.t.setFixedHeight(900)
         self.t.setMinimumWidth(520)
 

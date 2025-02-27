@@ -62,93 +62,6 @@ pg.setConfigOption("background", "w")
 pg.setConfigOption("foreground", "k")
 pg.setConfigOption("antialias", True)
 
-
-class StartScreen(QDialog):
-    def __init__(self, parent=None):
-        QDialog.__init__(self, parent)
-        self.setWindowIcon(QIcon("img/AviaNZ.ico"))
-        self.setWindowTitle("AviaNZ - Choose Task")
-        self.setWindowFlags(
-            (self.windowFlags() ^ Qt.WindowContextHelpButtonHint)
-            | Qt.FramelessWindowHint
-            | Qt.WindowCloseButtonHint
-        )
-        self.setAutoFillBackground(False)
-        self.setMinimumSize(860, 350)
-        self.setStyleSheet(
-            "QDialog {background-image: url(img/AviaNZ_SW_V2.jpg); background-repeat: no-repeat; background-color: #242021; background-position: top center;}"
-        )
-        self.activateWindow()
-
-        # #242021 for the bgcolor of that image
-        # btn_style='QPushButton {background-color: #A3C1DA; color: white; font-size:20px; font-weight: bold; font-family: "Arial"}'
-        btn_style = """ QAbstractButton {background-color: #242021;
-                    border-color: #b2c8da; border-width:2px; border-style: outset;
-                    color: white; font-size:21px; font-weight: bold; font-family: "Arial"; padding: 3px;}
-                    QAbstractButton:pressed {border-style: inset;}
-                    """
-        b1 = QPushButton("   Manual Processing   ")
-        b2 = QPushButton("     Batch Processing     ")
-        b3 = QPushButton("  Review Batch Results  ")
-        b1.setStyleSheet(btn_style)
-        b2.setStyleSheet(btn_style)
-        b3.setStyleSheet(btn_style)
-        bclose = QtGui.QToolButton()
-        bclose.setIcon(QtGui.QIcon("img/close.png"))
-        bclose.setIconSize(QSize(40, 40))
-        bclose.setToolTip("Close")
-        bclose.setStyleSheet(btn_style)
-        bclose.clicked.connect(self.reject)
-
-        hboxclose = QHBoxLayout()
-        hboxclose.addWidget(bclose, alignment=Qt.AlignRight)
-
-        hbox = QHBoxLayout()
-        hbox.addStretch(5)
-        hbox.addWidget(b1)
-        hbox.addStretch(4)
-        hbox.addWidget(b2)
-        hbox.addStretch(4)
-        hbox.addWidget(b3)
-        hbox.addStretch(5)
-        # hbox.addWidget(b4)
-
-        vbox = QVBoxLayout()
-        vbox.addLayout(hboxclose)
-        vbox.addSpacing(180)
-        vbox.addStretch(1)
-        vbox.addLayout(hbox)
-        vbox.addStretch(1)
-
-        self.setLayout(vbox)
-
-        b1.clicked.connect(self.manualSeg)
-        b2.clicked.connect(self.findSpecies)
-        b3.clicked.connect(self.reviewSeg)
-        # b4.clicked.connect(self.utilities)
-
-        self.task = -1
-
-    def manualSeg(self):
-        self.task = 1
-        self.accept()
-
-    def findSpecies(self):
-        self.task = 2
-        self.accept()
-
-    def reviewSeg(self):
-        self.task = 3
-        self.accept()
-
-    # def utilities(self):
-    # self.task = 4
-    # self.accept()
-
-    def getValues(self):
-        return self.task
-
-
 # ======
 class FileDataDialog(QDialog):
     def __init__(self, name, date, time, parent=None):
@@ -199,7 +112,7 @@ class Spectrogram(QDialog):
     ):
         QDialog.__init__(self, parent)
         self.setWindowTitle("Spectrogram Options")
-        self.setWindowIcon(QIcon("img/Avianz.ico"))
+        self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
         self.setWindowFlags(
             (self.windowFlags() ^ Qt.WindowContextHelpButtonHint)
             | Qt.WindowCloseButtonHint
@@ -386,7 +299,7 @@ class Excel2Annotation(QDialog):
     def __init__(self, parent=None):
         QDialog.__init__(self, parent)
         self.setWindowTitle("Generate annotations from Excel")
-        self.setWindowIcon(QIcon("img/Avianz.ico"))
+        self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
         self.setWindowFlags(
             (self.windowFlags() ^ Qt.WindowContextHelpButtonHint)
             | Qt.WindowCloseButtonHint
@@ -567,7 +480,7 @@ class Tag2Annotation(QDialog):
     def __init__(self, parent=None):
         QDialog.__init__(self, parent)
         self.setWindowTitle("Generate annotations from XML (Freebird)")
-        self.setWindowIcon(QIcon("img/Avianz.ico"))
+        self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
         self.setWindowFlags(
             (self.windowFlags() ^ Qt.WindowContextHelpButtonHint)
             | Qt.WindowCloseButtonHint
@@ -631,7 +544,7 @@ class BackupAnnotation(QDialog):
     def __init__(self, parent=None):
         QDialog.__init__(self, parent)
         self.setWindowTitle("Backup annotations")
-        self.setWindowIcon(QIcon("img/Avianz.ico"))
+        self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
         self.setWindowFlags(
             (self.windowFlags() ^ Qt.WindowContextHelpButtonHint)
             | Qt.WindowCloseButtonHint
@@ -703,7 +616,7 @@ class OperatorReviewer(QDialog):
     def __init__(self, operator="", reviewer="", parent=None):
         QDialog.__init__(self, parent)
         self.setWindowTitle("Set Operator/Reviewer")
-        self.setWindowIcon(QIcon("img/Avianz.ico"))
+        self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
         self.setWindowFlags((self.windowFlags() ^ Qt.WindowContextHelpButtonHint))
         self.setMinimumWidth(320)
 
@@ -737,7 +650,7 @@ class addNoiseData(QDialog):
     def __init__(self, noiseLevel, noiseTypes, parent=None):
         QDialog.__init__(self, parent)
         self.setWindowTitle("Noise Information")
-        self.setWindowIcon(QIcon("img/Avianz.ico"))
+        self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
         self.setWindowFlags((self.windowFlags() ^ Qt.WindowContextHelpButtonHint))
         self.setMinimumWidth(320)
 
@@ -842,7 +755,7 @@ class Denoise(QDialog):
     def __init__(self, parent=None, DOC=True, minFreq=0, maxFreq=None):
         QDialog.__init__(self, parent)
         self.setWindowTitle("Denoising Options")
-        self.setWindowIcon(QIcon("img/Avianz.ico"))
+        self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
         self.setWindowFlags(
             (self.windowFlags() ^ Qt.WindowContextHelpButtonHint)
             | Qt.WindowCloseButtonHint
@@ -1250,7 +1163,7 @@ class HumanClassify1(QDialog):
         # plotAspect: initial stretch factor in the X direction
         QDialog.__init__(self, parent)
         self.setWindowTitle("Check Classifications")
-        self.setWindowIcon(QIcon("img/Avianz.ico"))
+        self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
         self.setWindowFlags(
             (self.windowFlags() ^ Qt.WindowContextHelpButtonHint)
             | Qt.WindowMaximizeButtonHint
@@ -2148,7 +2061,7 @@ class HumanClassify2(QDialog):
         else:
             self.setWindowTitle("Human review")
 
-        self.setWindowIcon(QIcon("img/Avianz.ico"))
+        self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
         self.setWindowFlags(
             (self.windowFlags() ^ Qt.WindowContextHelpButtonHint)
             | Qt.WindowMaximizeButtonHint
@@ -2612,7 +2525,7 @@ class FilterManager(QDialog):
     def __init__(self, filtdir, parent=None):
         super(FilterManager, self).__init__(parent)
         self.setWindowTitle("Manage recognisers")
-        self.setWindowIcon(QIcon("img/Avianz.ico"))
+        self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
 
         self.setWindowFlags(
             (self.windowFlags() ^ Qt.WindowContextHelpButtonHint)
@@ -2956,7 +2869,7 @@ class Cluster(QDialog):
     def __init__(self, segments, sampleRate, classes, config, parent=None):
         QDialog.__init__(self, parent)
         self.setWindowTitle("Clustered segments")
-        self.setWindowIcon(QIcon("img/Avianz.ico"))
+        self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
         self.setWindowFlags(
             (self.windowFlags() ^ Qt.WindowContextHelpButtonHint)
             | Qt.WindowCloseButtonHint
@@ -3089,7 +3002,7 @@ class ExportBats(QDialog):
     def __init__(self, filename, observer, easting="", northing="", recorder=""):
         QDialog.__init__(self)
         self.setWindowTitle("Export Results?")
-        self.setWindowIcon(QIcon("img/Avianz.ico"))
+        self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
         self.setWindowFlags(
             (self.windowFlags() ^ Qt.WindowContextHelpButtonHint)
             | Qt.WindowCloseButtonHint
@@ -3186,7 +3099,7 @@ class Shapes(QDialog):
     def __init__(self, parent=None):
         QDialog.__init__(self, parent)
         self.setWindowTitle("Shape analysis")
-        self.setWindowIcon(QIcon("img/Avianz.ico"))
+        self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
         self.setWindowFlags(
             (self.windowFlags() ^ Qt.WindowContextHelpButtonHint)
             | Qt.WindowCloseButtonHint

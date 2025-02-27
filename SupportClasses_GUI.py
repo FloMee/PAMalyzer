@@ -1051,15 +1051,15 @@ class MessagePopup(QMessageBox):
             self.setIconPixmap(QPixmap("img/Owl_thinking.png"))
         elif type == "a":
             # Easy way to set ABOUT text here:
-            self.setIconPixmap(QPixmap("img/AviaNZ.png"))
-            self.setText("The AviaNZ Program, v3.3-devel (May 2021)")
+            self.setIconPixmap(QPixmap("img/PAMalyzer.png"))
+            self.setText("PAMalyzer, v0.1 (Feb 2025)")
             self.setInformativeText(
-                "By Stephen Marsland, Victoria University of Wellington. With code by Nirosha Priyadarshani, Julius Juodakis, and Virginia Listanti. Input from Isabel Castro, Moira Pryde, Stuart Cockburn, Rebecca Stirnemann, Sumudu Purage, and Rebecca Huistra. \n stephen.marsland@vuw.ac.nz"
+                """By Florian Meerheim, University of Applied Sciences Dresden.\nThis software is built upon the amazing Software AviaNZ by Stephen Marsland et al."""
             )
         elif type == "o":
-            self.setIconPixmap(QPixmap("img/AviaNZ.png"))
+            self.setIconPixmap(QPixmap("img/PAMalyzer.png"))
 
-        self.setWindowIcon(QIcon("img/Avianz.ico"))
+        self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
 
         # by default, adding OK button. Can easily be overwritten after creating
         self.setStandardButtons(QMessageBox.Ok)

@@ -80,10 +80,10 @@ def mainlauncher(
     # determine location of config file and bird lists
     if platform.system() == "Windows":
         # Win
-        configdir = os.path.expandvars(os.path.join("%APPDATA%", "AviaNZ"))
+        configdir = os.path.expandvars(os.path.join("%APPDATA%", "PAMalyzer"))
     elif platform.system() == "Linux" or platform.system() == "Darwin":
         # Unix
-        configdir = os.path.expanduser("~/.avianz/")
+        configdir = os.path.expanduser("~/.PAMalyzer/")
     else:
         print("ERROR: what OS is this? %s" % platform.system())
         raise
@@ -146,13 +146,13 @@ def mainlauncher(
                 imageFile=imagefile,
                 command=command,
             )
-            print("Analysis complete, closing AviaNZ")
+            print("Analysis complete, closing PAMalyzer")
         else:
             print("ERROR: valid input file (-f) is needed")
             raise
     else:
         task = None
-        print("Starting AviaNZ in GUI mode")
+        print("Starting PAMalyzer in GUI mode")
         from PyQt5.QtWidgets import QApplication
 
         app = QApplication(sys.argv)
@@ -183,6 +183,6 @@ except Exception:
 
     print(traceback.format_exc())
     input(
-        "Encountered error. Report it with the text above to AviaNZ team at www.avianz.net.\nPress ENTER to exit"
+        "Encountered error. Report it with the text above to PAMalyzer team.\nPress ENTER to exit"
     )
     raise
