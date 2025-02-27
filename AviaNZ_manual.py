@@ -23,7 +23,6 @@
 
 import sys, os, json, platform, re, shutil, fnmatch
 import pathlib
-from shutil import copyfile
 
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem, QKeySequence, QPixmap
@@ -79,7 +78,6 @@ import WaveletFunctions
 import colourMaps
 import BirdNET
 
-import librosa
 import webbrowser, copy, math
 import time
 import openpyxl
@@ -461,7 +459,6 @@ class AviaNZ(QMainWindow):
 
         if not self.DOC:
             actionMenu.addAction("Filter spectrogram", self.medianFilterSpec)
-            actionMenu.addAction("Denoise spectrogram", self.denoiseImage)
 
         actionMenu.addSeparator()
 
@@ -2369,17 +2366,6 @@ class AviaNZ(QMainWindow):
             median_filter(self.sg, size=(100, 20))
             self.specPlot.setImage(self.sg)
             self.statusLeft.setText("Ready")
-
-    def denoiseImage(self):
-        # TODO
-        """Denoise the spectrogram. To be used in conjunction with spectrogram inversion."""
-        # from cv2 import fastNlMeansDenoising
-        # sg = np.array(self.sg/np.max(self.sg)*255,dtype = np.uint8)
-        # sg = fastNlMeansDenoising(sg,10,7,21)
-        # self.specPlot.setImage(sg)
-
-    # ==============
-    # Code for drawing and using the main figure
 
     def convertAmpltoSpec(self, x):
         """Unit conversion"""
@@ -6369,7 +6355,7 @@ class AviaNZ(QMainWindow):
             else:
                 # print(source)
                 # print(destination," doesn't exist")
-                copyfile(source, destination)
+                shutil.copyfile(source, destination)
 
     def eventFilter(self, obj, event):
         """Handles two types of events:
