@@ -21,7 +21,6 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import SignalProc
 import SupportClasses
-import Shapes
 
 import numpy as np
 import scipy.ndimage as spi
@@ -662,17 +661,6 @@ class Segmenter:
         self.window_width = sp.window_width
         self.incr = sp.incr
 
-    def bestSegments(self, FIRthr=0.7, medianClipthr=3.0, yinthr=0.9):
-        """A reasonably good segmentaion - a merged version of FIR, median clipping, and fundamental frequency using yin"""
-        segs1 = self.segmentByFIR(FIRthr)
-        segs2 = self.medianClip(medianClipthr)
-        segs3 = self.yinSegs(100, thr=yinthr)
-        segs1 = self.mergeSegments(segs1, segs2)
-        segs = self.mergeSegments(segs1, segs3)
-        # mergeSegments also sorts, so not needed:
-        # segs = sorted(segs, key=lambda x: x[0])
-        return segs
-
     def mergeSegments(self, segs1, segs2=None):
         """Given two segmentations of the same file, join them,
         and if one wasn't empty, merge any overlapping segments.
@@ -1216,37 +1204,6 @@ class Segmenter:
         for i in range(len(onsets)):
             segments.append([times[onsets[i]], times[onsets[i]] + 0.2])
         return segments
-
-    def yinSegs(self, minfreq=100, minperiods=3, thr=0.5, W=1000):
-        """Segmentation by computing the fundamental frequency.
-        Uses the Yin algorithm of de Cheveigne and Kawahara (2002).
-        Args:
-        minfreq: lowest freq (Hz) to consider as plausible.
-        thr: the threshold for accepting F0,
-          necessarily higher than the 0.1 in the paper.
-        W: the window in samples used.
-        """
-        # Window width W should be at least 3*period.
-        # A sample rate of 16000 and a min fundamental frequency of 100Hz would then therefore suggest reasonably short windows
-        minwin = float(self.fs) / minfreq * minperiods
-        if W < minwin:
-            print("Extending window width to ", minwin)
-            W = int(minwin)
-
-        # returns pitch in Hz for each window of Wsamples/2.
-        # As this uses the full self.data, it is up to caller to adjust times
-        # to real seconds if self.data only contained e.g. a segment
-        shape = Shapes.fundFreqShaper(self.data, W, thr, self.fs)
-
-        pitch = shape.y
-        if len(pitch) == 0:
-            return np.array([])
-        units = shape.tunit
-
-        # drop any pitch under minfreq
-        ind = pitch > minfreq
-        segs = self.convert01(ind, units)
-        return segs
 
     def findCCMatches(self, seg, sg, thr):
         """Cross-correlation. Takes a segment and looks for others that match it to within thr.
