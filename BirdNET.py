@@ -40,7 +40,7 @@ import time
 import copy
 import traceback
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import Qt, QThreadPool, QRunnable, Signal, Slot, QObject, QDir
+from PyQt5.QtCore import Qt, QThreadPool, QRunnable, Signal, pyqtSlot, QObject, QDir
 from PyQt5.QtWidgets import (
     QDialog,
     QSlider,
@@ -530,7 +530,7 @@ class BirdNET(QWidget):
 
         return classes
 
-    @Slot()
+    @pyqtSlot()
     def updateProgress(self):
         self.progress.setValue(self.progress.value() + 1)
         self.progress.setLabelText(
@@ -539,7 +539,7 @@ class BirdNET(QWidget):
             )
         )
 
-    @Slot(list)
+    @pyqtSlot(list)
     def updateFilelist(self, filelist):
         if self.AviaNZ.filename in filelist:
             self.AviaNZ.loadFile(name=self.AviaNZ.filename)
