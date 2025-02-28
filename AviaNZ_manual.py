@@ -193,7 +193,7 @@ class AviaNZ(QMainWindow):
         else:
             self.SoundFileDir = self.config["SoundFileDir"]
             firstFile = self.SoundFileDir + "/" + "kiwi_1min.wav"
-
+        self.SoundFileDirOld = ""
         self.filename = None
         self.focusRegion = None
         self.operator = self.config["operator"]
@@ -1486,7 +1486,7 @@ class AviaNZ(QMainWindow):
             )
         # (it is provided when this is called by File -> [recent file clicked])
         success = 1
-        SoundFileDirOld = self.SoundFileDir
+        self.SoundFileDirOld = self.SoundFileDir
         fileNameOld = os.path.basename(self.filename)
         if fileName != "":
             print("Opening file %s" % fileName)
@@ -1558,8 +1558,9 @@ class AviaNZ(QMainWindow):
                 dir.cd(lof[i].fileName())
                 self.SoundFileDir = str(dir.absolutePath())
 
-        # Now repopulate the listbox
-        self.fillFileList(self.SoundFileDir, current)
+        # only repopulate the list of files if dir has changed
+        if self.SoundFileDir != self.SoundFileDirOld:
+            self.fillFileList(self.SoundFileDir, current)
 
         # if a file was clicked, open it
         if not os.path.isdir(fullcurrent):
