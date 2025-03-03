@@ -23,7 +23,6 @@
 
 import sys, os, json, platform, re, shutil, fnmatch
 import pathlib
-from shutil import copyfile
 
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem, QKeySequence, QPixmap
@@ -73,18 +72,13 @@ from pyqtgraph.parametertree import Parameter, ParameterTree
 
 import SupportClasses, SupportClasses_GUI
 import Dialogs
-import DialogsTraining
 import SignalProc
 import Segment
-import WaveletSegment
 import WaveletFunctions
-import Clustering
 import colourMaps
-import Shapes
 import BirdNET
 import Database
 
-import librosa
 import webbrowser, copy, math
 import time
 import openpyxl
@@ -108,29 +102,15 @@ class AviaNZ(QMainWindow):
     """Main class for the user interface.
     Contains most of the user interface and plotting code"""
 
-    def __init__(
-        self,
-        root=None,
-        configdir=None,
-        CLI=False,
-        cheatsheet=False,
-        zooniverse=False,
-        firstFile="",
-        imageFile="",
-        command="",
-    ):
+    def __init__(self, configdir=None):
         """Initialisation of the class. Load main config and bird lists from configdir.
         Also initialises the data structures and loads an initial file (specified explicitly)
         and sets up the window.
         One interesting configuration point is the DOC setting, which hides the more 'research' functions.
         """
-        print("Starting AviaNZ...")
+        print("Starting PAMalyzer...")
 
         super(AviaNZ, self).__init__()
-        self.root = root
-        self.CLI = CLI
-        self.cheatsheet = cheatsheet
-        self.zooniverse = zooniverse
 
         # configdir passes the standard user app dir based on OS.
         # At this point, the main config file should already be ensured to exist.
@@ -140,9 +120,7 @@ class AviaNZ(QMainWindow):
         self.config = self.ConfigLoader.config(self.configfile)
         self.saveConfig = True
 
-        # Load filters
-        self.filtersDir = os.path.join(configdir, self.config["FiltersDir"])
-        self.FilterDicts = self.ConfigLoader.filters(self.filtersDir)
+        # Load call types
         self.calltypesDir = os.path.join(configdir, "Calltypes")
         self.CalltypeDicts = self.ConfigLoader.calltypes(self.calltypesDir)
 
@@ -198,7 +176,6 @@ class AviaNZ(QMainWindow):
 
         self.lastSpecies = [{"species": "Don't Know", "certainty": 0, "filter": "M"}]
         self.DOC = self.config["DOC"]
-        self.extra = "none"
         self.slowSpeed = 2
 
         # placeholder for BirdNET-Lite and BirdNET-Analyzer
@@ -208,11 +185,15 @@ class AviaNZ(QMainWindow):
         self.multipleBirds = self.config["MultipleSpecies"]
 
         if len(self.config["RecentFiles"]) > 0:
-            self.SoundFileDir = os.path.dirname(self.config["RecentFiles"][-1])
-            if not os.path.isdir(self.SoundFileDir):
+            firstFile = self.config["RecentFiles"][-1]
+            self.SoundFileDir = os.path.dirname(firstFile)
+            if not os.path.isdir(self.SoundFileDir) or not os.path.isfile(firstFile):
                 self.SoundFileDir = self.config["SoundFileDir"]
+                firstFile = self.SoundFileDir + "/" + "kiwi_1min.wav"
         else:
             self.SoundFileDir = self.config["SoundFileDir"]
+            firstFile = self.SoundFileDir + "/" + "kiwi_1min.wav"
+
         self.filename = None
         self.focusRegion = None
         self.operator = self.config["operator"]
@@ -221,64 +202,13 @@ class AviaNZ(QMainWindow):
         # For preventing callbacks involving overview panel
         self.updateRequestedByOverview = False
 
-        # working directory
-        if not os.path.isdir(self.SoundFileDir):
-            print("Directory doesn't exist: making it")
-            os.makedirs(self.SoundFileDir)
-
-        # self.backupDatafiles()
-
-        # INPUT FILE LOADING
-        # search order: infile -> firstFile -> dialog
-        # Make life easier for now: preload a birdsong
-        if not os.path.isfile(firstFile) and not cheatsheet and not zooniverse:
-            # For distribution:
-            firstFile = self.SoundFileDir
-            # Can also use:
-            # firstFile = self.SoundFileDir + '/' + 'kiwi_1min.wav'
-
-        if not os.path.isfile(firstFile) and not cheatsheet and not zooniverse:
-            if self.CLI:
-                print("file %s not found, exiting" % firstFile)
-                raise OSError("No input file, cannot continue")
-            else:
-                # pop up a dialog to select file
-                firstFile, drop = QFileDialog.getOpenFileName(
-                    self,
-                    "Choose File",
-                    self.SoundFileDir,
-                    "WAV or BMP files (*.wav *.bmp);; Only WAV files (*.wav);; Only BMP files (*.bmp)",
-                )
-                while firstFile == "":
-                    msg = SupportClasses_GUI.MessagePopup(
-                        "w",
-                        "Select Sound File",
-                        "Choose a sound file to proceed.\nDo you want to continue?",
-                    )
-                    msg.setStandardButtons(QMessageBox.No)
-                    msg.addButton("Choose a file", QMessageBox.YesRole)
-                    msg.button(QMessageBox.No).setText("Exit")
-                    reply = msg.exec_()
-                    if reply == 0:
-                        firstFile, drop = QFileDialog.getOpenFileName(
-                            self,
-                            "Choose File",
-                            self.SoundFileDir,
-                            "WAV or BMP files (*.wav *.bmp);; Only WAV files (*.wav);; Only BMP files (*.bmp)",
-                        )
-                    else:
-                        sys.exit()
-
         # parse firstFile to dir and file parts
-        if not cheatsheet and not zooniverse:
-            self.SoundFileDir = os.path.dirname(firstFile)
-            print("Working dir set to %s" % self.SoundFileDir)
-            print("Opening file %s" % firstFile)
+        print("Working dir set to %s" % self.SoundFileDir)
+        print("Opening file %s" % firstFile)
 
         # to keep code simpler, graphic options are created even in CLI mode
         # they're just not shown because QMainWindow.__init__ is skipped
-        if not self.CLI:
-            QMainWindow.__init__(self, root)
+        QMainWindow.__init__(self)
 
         # parse mouse settings
         if self.config["drawingRightBtn"]:
@@ -294,61 +224,27 @@ class AviaNZ(QMainWindow):
         self.createFrame()
 
         self.resetStorageArrays()
-        if self.CLI:
-            if cheatsheet or zooniverse:
-                # use infile and imagefile as directories
-                print(firstFile)
-                self.SoundFileDir = firstFile
-                # Read folders and sub-folders
-                for root, dirs, files in os.walk(firstFile):
-                    for f in files:
-                        if f[-4:].lower() == ".wav":
-                            print(os.path.join(root, f))
-                            self.loadFile(os.path.join(root, f), cs=True)
-                            self.widthWindow.setValue(60)  # self.datalengthSec)
-                            print("file path: ", os.path.join(root, f[:-4]))
-                            self.setColourLevels(20, 50)
-                            self.saveImage(os.path.join(root, f[:-4] + ".png"))
-            else:
-                self.loadFile(firstFile)
-                while command != ():
-                    c = command[0]
-                    command = command[1:]
-                    print("Next command to execute is %s" % c)
-                    if c == "denoise":
-                        self.denoise()
-                    elif c == "segment":
-                        self.segment()
-                    else:
-                        print("ERROR: %s is not a valid command" % c)
-                        raise ValueError("CLI command not recognized")
-                if imageFile != "":
-                    # reset images to show full width if in CLI:
-                    self.widthWindow.setValue(self.datalengthSec)
-                    # looks unnecessary:
-                    # self.p_spec.setXRange(0, self.convertAmpltoSpec(self.datalengthSec), update=True, padding=0)
-                    self.saveImage(imageFile)
+
+        # Make the window and associated widgets
+        self.setWindowTitle("PAMalyzer")
+        self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
+        # Show the window
+        if self.config["StartMaximized"]:
+            self.showMaximized()
+            # extra toggle because otherwise Windows starts at a non-maximized size
+            self.setWindowState(self.windowState() ^ Qt.WindowMaximized)
+            self.setWindowState(self.windowState() | Qt.WindowMaximized)
         else:
-            # Make the window and associated widgets
-            self.setWindowTitle("AviaNZ")
-            self.setWindowIcon(QIcon("img/AviaNZ.ico"))
-            # Show the window
-            if self.config["StartMaximized"]:
-                self.showMaximized()
-                # extra toggle because otherwise Windows starts at a non-maximized size
-                self.setWindowState(self.windowState() ^ Qt.WindowMaximized)
-                self.setWindowState(self.windowState() | Qt.WindowMaximized)
-            else:
-                self.show()
+            self.show()
 
-            # Save the segments every minute
-            self.timer = QTimer()
-            self.timer.timeout.connect(self.saveSegments)
-            self.timer.start(self.config["secsSave"] * 1000)
+        # Save the segments every minute
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.saveSegments)
+        self.timer.start(self.config["secsSave"] * 1000)
 
-            self.listLoadFile(os.path.basename(firstFile))
+        self.listLoadFile(os.path.basename(firstFile))
 
-        if self.DOC and not cheatsheet and not zooniverse:
+        if self.DOC:
             self.setOperatorReviewerDialog()
 
     def createMenu(self):
@@ -366,7 +262,6 @@ class AviaNZ(QMainWindow):
         for recentfile in self.config["RecentFiles"]:
             fileMenu.addAction(recentfile, lambda arg=recentfile: self.openFile(arg))
         fileMenu.addSeparator()
-        fileMenu.addAction("Restart Program", self.restart, "Ctrl+R")
         fileMenu.addAction(
             QIcon(QPixmap("img/exit.png")), "&Quit", QApplication.quit, "Ctrl+Q"
         )
@@ -423,35 +318,6 @@ class AviaNZ(QMainWindow):
             "&Change spectrogram parameters", self.showSpectrogramDialog, "Ctrl+C"
         )
 
-        if not self.DOC:
-            specMenu.addSeparator()
-            self.showDiagnosticTick = specMenu.addAction(
-                "Show training diagnostics", self.showDiagnosticDialog
-            )
-            self.showDiagnosticCNN = specMenu.addAction(
-                "Show CNN training diagnostics", self.showDiagnosticDialogCNN
-            )
-            self.extraMenu = specMenu.addMenu("Diagnostic plots")
-            extraGroup = QActionGroup(self)
-            for ename in [
-                "none",
-                "Wavelet scalogram",
-                "Wavelet correlations",
-                "Wind energy",
-                "Rain",
-                "Wind adjustment",
-                "Filtered spectrogram, new + AA",
-                "Filtered spectrogram, new",
-                "Filtered spectrogram, old",
-            ]:
-                em = self.extraMenu.addAction(ename)
-                em.setCheckable(True)
-                if ename == self.extra:
-                    em.setChecked(True)
-                receiver = lambda checked, ename=ename: self.setExtraPlot(ename)
-                em.triggered.connect(receiver)
-                extraGroup.addAction(em)
-
         specMenu.addSeparator()
         markMenu = specMenu.addMenu("Mark on spectrogram")
         self.showFundamental = markMenu.addAction(
@@ -499,21 +365,14 @@ class AviaNZ(QMainWindow):
         actionMenu.addSeparator()
         self.denoiseAction = actionMenu.addAction("Denoise", self.showDenoiseDialog)
         actionMenu.addAction("Add metadata about noise", self.addNoiseData, "Ctrl+N")
-        # actionMenu.addAction("Find matches",self.findMatches)
 
         if not self.DOC:
             actionMenu.addAction("Filter spectrogram", self.medianFilterSpec)
-            actionMenu.addAction("Denoise spectrogram", self.denoiseImage)
 
         actionMenu.addSeparator()
-        self.segmentAction = actionMenu.addAction(
-            "Segment", self.segmentationDialog, "Ctrl+S"
-        )
 
         if not self.DOC:
             actionMenu.addAction("Calculate segment statistics", self.calculateStats)
-            actionMenu.addAction("Analyse shapes", self.showShapesDialog)
-            actionMenu.addAction("Cluster segments", self.classifySegments)
 
         actionMenu.addAction("Export file segments to excel", self.exportSeg)
         actionMenu.addAction("Export all segments to excel", self.exportExcel)
@@ -537,20 +396,6 @@ class AviaNZ(QMainWindow):
 
         # "Recognisers" menu
         recMenu = self.menuBar().addMenu("&Recognisers")
-        extrarecMenu = recMenu.addMenu("Train an automated recogniser")
-        extrarecMenu.addAction(
-            "Train a changepoint recogniser", self.buildChpRecogniser
-        )
-        if not self.DOC:
-            extrarecMenu.addAction("Train a wavelet recogniser", self.buildRecogniser)
-
-        extrarecMenu.addAction("Extend a recogniser with CNN", self.buildCNN)
-        recMenu.addAction("Test a recogniser", self.testRecogniser)
-        recMenu.addAction("Manage recognisers", self.manageFilters)
-        recMenu.addAction(
-            "Customise a recogniser (use existing ROC)", self.customiseFiltersROC
-        )
-
         recMenu.addAction("Classify recordings with BirdNET", self.classifyBirdNET)
 
         # "Utilities" menu
@@ -558,7 +403,6 @@ class AviaNZ(QMainWindow):
         utilMenu.addAction("Import from Excel", self.excel2Annotation)
         utilMenu.addAction("Import from Freebird", self.tag2Annotation)
         utilMenu.addAction("Backup annotations", self.backupAnnotations)
-        utilMenu.addAction("&Split WAV/DATA files", self.launchSplitter)
 
         helpMenu = self.menuBar().addMenu("&Help")
         helpMenu.addAction("Help", self.showHelp, "Ctrl+H")
@@ -585,11 +429,6 @@ class AviaNZ(QMainWindow):
         webbrowser.open_new(
             r"file://" + os.path.realpath("./Docs/AviaNZCheatSheet.pdf")
         )
-
-    def launchSplitter(self):
-        """Close the main window, start splitter QMainWindow"""
-        print("Switching to AviaNZ Splitter")
-        QApplication.exit(2)
 
     def createFrame(self):
         """Creates the main window.
@@ -660,7 +499,6 @@ class AviaNZ(QMainWindow):
         self.d_spec = Dock("Spectrogram", size=(1200, 300))
         self.d_controls = Dock("Controls", size=(40, 90))
         self.d_files = Dock("Files", size=(40, 200))
-        self.d_plot = Dock("Plots", size=(1200, 150))
         self.d_controls.setSizePolicy(1, 1)
 
         self.area.addDock(self.d_files, "left")
@@ -668,7 +506,6 @@ class AviaNZ(QMainWindow):
         self.area.addDock(self.d_ampl, "bottom", self.d_overview)
         self.area.addDock(self.d_spec, "bottom", self.d_ampl)
         self.area.addDock(self.d_controls, "bottom", self.d_files)
-        self.area.addDock(self.d_plot, "bottom", self.d_spec)
 
         # Store the state of the docks in case the user wants to reset it
         self.state = self.area.saveState()
@@ -835,11 +672,6 @@ class AviaNZ(QMainWindow):
         self.w_spec.addItem(self.p_spec, row=0, col=1)
         self.d_spec.addWidget(self.w_spec)
 
-        self.w_plot = pg.GraphicsLayoutWidget()
-        self.p_plot = self.w_plot.addViewBox(enableMouse=False, enableMenu=False)
-        self.w_plot.addItem(self.p_plot, row=0, col=1)
-        self.d_plot.addWidget(self.w_plot)
-
         # The axes
         # Time axis has to go separately in loadFile
         self.ampaxis = pg.AxisItem(orientation="left")
@@ -849,20 +681,9 @@ class AviaNZ(QMainWindow):
         self.ampaxis.setLabel("")
 
         self.specaxis = pg.AxisItem(orientation="left")
-        if not self.zooniverse:
-            self.w_spec.addItem(self.specaxis, row=0, col=0)
+        self.w_spec.addItem(self.specaxis, row=0, col=0)
         self.specaxis.linkToView(self.p_spec)
         self.specaxis.setWidth(w=65)
-
-        # Plot window also needs an axis to make them line up
-        self.plotaxis = pg.AxisItem(orientation="left")
-        self.w_plot.addItem(self.plotaxis, row=0, col=0)
-        self.plotaxis.linkToView(self.p_plot)
-        self.plotaxis.setWidth(w=65)
-        self.plotaxis.setLabel("")
-
-        # Hide diagnostic plot window until requested
-        self.d_plot.hide()
 
         # The slider to show playback position
         # This is hidden, but controls the moving bar
@@ -1250,9 +1071,6 @@ class AviaNZ(QMainWindow):
         self.useAmplitudeCheck()
 
         if not self.DOC:
-            self.showDiagnosticTick.setEnabled(not self.batmode)
-            self.extraMenu.setEnabled(not self.batmode)
-            self.setExtraPlot("none")
             self.showFormant.setEnabled(not self.batmode)
 
         self.showInvSpec.setVisible(self.batmode)
@@ -1262,7 +1080,6 @@ class AviaNZ(QMainWindow):
 
         self.addRegularAction.setEnabled(not self.batmode)
         self.denoiseAction.setEnabled(not self.batmode)
-        self.segmentAction.setEnabled(not self.batmode)
 
         self.playButton.setEnabled(not self.batmode)
         self.stopButton.setEnabled(not self.batmode)
@@ -1427,15 +1244,7 @@ class AviaNZ(QMainWindow):
                 # add the species menu
                 spMenu = self.menuBirdList.addMenu(lab["species"])
 
-                # get possible call types from all filters for this species
-                possibleCTs = set()
-                for filt in self.FilterDicts.values():
-                    if filt["species"] == lab["species"]:
-                        possibleCTs.update(
-                            [subf["calltype"] for subf in filt["Filters"]]
-                        )
-
-                # get additional call types from call type files
+                # get call types from call type files
                 for ctfile in self.CalltypeDicts.values():
                     if ctfile["species"] == lab["species"]:
                         possibleCTs.update(ctfile["calltypes"])
@@ -1660,13 +1469,6 @@ class AviaNZ(QMainWindow):
             self.p_spec.removeItem(self.energyPlot)
         except Exception:
             pass
-        # Cheatsheet: remove the freq labels
-        if self.zooniverse and hasattr(self, "label1"):
-            self.p_spec.removeItem(self.label1)
-            self.p_spec.removeItem(self.label2)
-            self.p_spec.removeItem(self.label3)
-            self.p_spec.removeItem(self.label4)
-            self.p_spec.removeItem(self.label5)
 
     def openFile(self, fileName=None):
         """This handles the menu items for opening a file.
@@ -1811,8 +1613,8 @@ class AviaNZ(QMainWindow):
 
         with pg.ProgressDialog("Loading..", 0, 6) as dlg:
             dlg.setCancelButton(None)
-            dlg.setWindowIcon(QIcon("img/Avianz.ico"))
-            dlg.setWindowTitle("AviaNZ")
+            dlg.setWindowIcon(QIcon("img/PAMalyzer.ico"))
+            dlg.setWindowTitle("PAMalyzer")
             dlg.show()
             dlg.update()
             if name is not None:
@@ -1823,19 +1625,16 @@ class AviaNZ(QMainWindow):
 
                 # Create an instance of the Signal Processing class
                 if not hasattr(self, "sp"):
-                    if self.cheatsheet:
-                        self.sp = SignalProc.SignalProc(512, 256, 0, 0)
-                    else:
-                        self.sp = SignalProc.SignalProc(
-                            self.config["window_width"],
-                            self.config["incr"],
-                            self.config["minFreq"],
-                            self.config["maxFreq"],
-                        )
+                    self.sp = SignalProc.SignalProc(
+                        self.config["window_width"],
+                        self.config["incr"],
+                        self.config["minFreq"],
+                        self.config["maxFreq"],
+                    )
 
                 self.currentFileSection = 0
 
-                if hasattr(self, "timeaxis") and not self.zooniverse:
+                if hasattr(self, "timeaxis"):
                     self.w_spec.removeItem(self.timeaxis)
 
                 # Check if the filename is in standard DOC format
@@ -1868,8 +1667,7 @@ class AviaNZ(QMainWindow):
                         orientation="bottom", linkView=self.p_ampl
                     )
 
-                if not self.zooniverse:
-                    self.w_spec.addItem(self.timeaxis, row=1, col=1)
+                self.w_spec.addItem(self.timeaxis, row=1, col=1)
 
                 # This next line is a hack to make the axis update
                 # self.changeWidth(self.widthWindow.value())
@@ -2114,7 +1912,7 @@ class AviaNZ(QMainWindow):
             dlg += 1
             dlg.update()
             self.drawfigMain()
-            self.setWindowTitle("AviaNZ - Manual Processing " + self.filename)
+            self.setWindowTitle("PAMalyzer - Manual Processing " + self.filename)
             dlg += 1
             dlg.update()
             self.w_spec.setFocus()
@@ -2279,7 +2077,6 @@ class AviaNZ(QMainWindow):
         # main recursion of restoreState:
         self.area.buildFromState(self.state["main"], docks, self.area, missing="error")
         # restoreState doesn't restore non-floating window sizes smh
-        self.d_plot.hide()
         containers, docks = self.area.findAll()
         # basically say that left panel and controls should be as small as possible:
         self.d_controls.setSizePolicy(1, 1)
@@ -2436,17 +2233,6 @@ class AviaNZ(QMainWindow):
             self.specPlot.setImage(self.sg)
             self.statusLeft.setText("Ready")
 
-    def denoiseImage(self):
-        # TODO
-        """Denoise the spectrogram. To be used in conjunction with spectrogram inversion."""
-        # from cv2 import fastNlMeansDenoising
-        # sg = np.array(self.sg/np.max(self.sg)*255,dtype = np.uint8)
-        # sg = fastNlMeansDenoising(sg,10,7,21)
-        # self.specPlot.setImage(sg)
-
-    # ==============
-    # Code for drawing and using the main figure
-
     def convertAmpltoSpec(self, x):
         """Unit conversion"""
         if self.batmode:
@@ -2562,12 +2348,6 @@ class AviaNZ(QMainWindow):
             padding=0,
         )
         self.p_spec.setXRange(minX, maxX, update=True, padding=0)
-        self.p_plot.setXRange(
-            self.convertSpectoAmpl(minX),
-            self.convertSpectoAmpl(maxX),
-            update=True,
-            padding=0,
-        )
 
         # # # I know the next two lines SHOULD be unnecessary. But they aren't!
         self.p_ampl.setXRange(
@@ -2575,16 +2355,6 @@ class AviaNZ(QMainWindow):
         )
         self.p_spec.setXRange(minX, maxX, padding=0)
 
-        if self.extra != "none" and "Filtered spectrogram" not in self.extra:
-            self.p_plot.setXRange(
-                self.convertSpectoAmpl(minX), self.convertSpectoAmpl(maxX), padding=0
-            )
-        if "Filtered spectrogram" in self.extra:
-            self.p_plot.setXRange(minX, maxX, padding=0)
-        elif self.extra == "Wavelet scalogram":
-            self.p_plot.setXRange(
-                self.convertSpectoAmpl(minX) * 4, self.convertSpectoAmpl(maxX) * 4
-            )
         self.scrollSlider.setValue(minX)
         self.config["windowWidth"] = self.convertSpectoAmpl(maxX - minX)
         # self.saveConfig = True
@@ -2613,7 +2383,6 @@ class AviaNZ(QMainWindow):
         self.overviewImage.setImage(self.sg[:, pixelstart:pixelend])
         self.overviewImageRegion.setBounds([0, len(self.sg)])
         self.specPlot.setImage(self.sg[:, pixelstart:pixelend])
-        self.setExtraPlot(self.extra)
 
         self.setColourMap(self.config["cmap"])
         self.setColourLevels()
@@ -2629,87 +2398,41 @@ class AviaNZ(QMainWindow):
         SpecRange = FreqRange / height
         self.drawGuidelines()
 
-        if self.zooniverse:
-            labels = [
-                0,
-                int(FreqRange // 4000),
-                int(FreqRange // 2000),
-                int(3 * FreqRange // 4000),
-                int(FreqRange // 1000),
-            ]
-            if self.sgScale == "Mel Frequency":
-                for i in range(len(labels)):
-                    labels[i] = self.sp.convertHztoMel(labels[i])
-            elif self.sgScale == "Bark Frequency":
-                for i in range(len(labels)):
-                    labels[i] = self.sp.convertHztoBark(labels[i])
+        labels = [
+            self.sp.minFreqShow,
+            self.sp.minFreqShow + FreqRange / 4,
+            self.sp.minFreqShow + FreqRange / 2,
+            self.sp.minFreqShow + 3 * FreqRange / 4,
+            self.sp.minFreqShow + FreqRange,
+        ]
 
-            offset = 6
-            txt = '<span style="color: #0F0; font-size:20pt">%s</div>' % str(labels[0])
-            # txt='<span style="color: #0F0; font-size:20pt">%s</div>'%str(0)
-            self.label1 = pg.TextItem(html=txt, color="g", anchor=(0, 0))
-            self.p_spec.addItem(self.label1)
-            self.label1.setPos(0, 0 + offset)
-
-            txt = '<span style="color: #0F0; font-size:20pt">%s</div>' % str(labels[1])
-            # txt='<span style="color: #0F0; font-size:20pt">%s</div>'%str(int(FreqRange//4000))
-            self.label2 = pg.TextItem(html=txt, color="g", anchor=(0, 0))
-            self.p_spec.addItem(self.label2)
-            self.label2.setPos(0, SpecRange / 4 + offset)
-
-            txt = '<span style="color: #0F0; font-size:20pt">%s</div>' % str(labels[2])
-            # txt='<span style="color: #0F0; font-size:20pt">%s</div>'%str(int(FreqRange//2000))
-            self.label3 = pg.TextItem(html=txt, color="g", anchor=(0, 0))
-            self.p_spec.addItem(self.label3)
-            self.label3.setPos(0, SpecRange / 2 + offset)
-
-            txt = '<span style="color: #0F0; font-size:20pt">%s</div>' % str(labels[3])
-            # txt='<span style="color: #0F0; font-size:20pt">%s</div>'%str(int(3*FreqRange//4000))
-            self.label4 = pg.TextItem(html=txt, color="g", anchor=(0, 0))
-            self.p_spec.addItem(self.label4)
-            self.label4.setPos(0, 3 * SpecRange / 4 + offset)
-
-            txt = '<span style="color: #0F0; font-size:20pt">%s</div>' % str(labels[4])
-            # txt='<span style="color: #0F0; font-size:20pt">%s</div>'%str(int(FreqRange//1000))
-            self.label5 = pg.TextItem(html=txt, color="g", anchor=(0, 0))
-            self.p_spec.addItem(self.label5)
-            self.label5.setPos(0, SpecRange + offset)
+        if self.sgScale == "Mel Frequency":
+            for i in range(len(labels)):
+                labels[i] = self.sp.convertHztoMel(labels[i])
+            self.specaxis.setLabel("Mels")
+        elif self.sgScale == "Bark Frequency":
+            for i in range(len(labels)):
+                labels[i] = self.sp.convertHztoBark(labels[i])
+            self.specaxis.setLabel("Barks")
         else:
-            labels = [
-                self.sp.minFreqShow,
-                self.sp.minFreqShow + FreqRange / 4,
-                self.sp.minFreqShow + FreqRange / 2,
-                self.sp.minFreqShow + 3 * FreqRange / 4,
-                self.sp.minFreqShow + FreqRange,
-            ]
+            self.specaxis.setLabel("kHz")
 
-            if self.sgScale == "Mel Frequency":
-                for i in range(len(labels)):
-                    labels[i] = self.sp.convertHztoMel(labels[i])
-                self.specaxis.setLabel("Mels")
-            elif self.sgScale == "Bark Frequency":
-                for i in range(len(labels)):
-                    labels[i] = self.sp.convertHztoBark(labels[i])
-                self.specaxis.setLabel("Barks")
-            else:
-                self.specaxis.setLabel("kHz")
-
-            self.specaxis.setTicks(
+        self.specaxis.setTicks(
+            [
                 [
-                    [
-                        (0, round(labels[0] / 1000, 2)),
-                        (SpecRange / 4, round(labels[1] / 1000, 2)),
-                        (SpecRange / 2, round(labels[2] / 1000, 2)),
-                        (3 * SpecRange / 4, round(labels[3] / 1000, 2)),
-                        (SpecRange, round(labels[4] / 1000, 2)),
-                    ]
+                    (0, round(labels[0] / 1000, 2)),
+                    (SpecRange / 4, round(labels[1] / 1000, 2)),
+                    (SpecRange / 2, round(labels[2] / 1000, 2)),
+                    (3 * SpecRange / 4, round(labels[3] / 1000, 2)),
+                    (SpecRange, round(labels[4] / 1000, 2)),
                 ]
-            )
-            # self.specaxis.setTicks([[(0,round(self.sp.minFreqShow/1000, 2)),
-            # (SpecRange/4,round(self.sp.minFreqShow/1000+FreqRange/4000, 2)),
-            # (SpecRange/2,round(self.sp.minFreqShow/1000+FreqRange/2000, 2)),
-            # (3*SpecRange/4,round(self.sp.minFreqShow/1000+3*FreqRange/4000, 2)),
-            # (SpecRange,round(self.sp.minFreqShow/1000+FreqRange/1000, 2))]])
+            ]
+        )
+        # self.specaxis.setTicks([[(0,round(self.sp.minFreqShow/1000, 2)),
+        # (SpecRange/4,round(self.sp.minFreqShow/1000+FreqRange/4000, 2)),
+        # (SpecRange/2,round(self.sp.minFreqShow/1000+FreqRange/2000, 2)),
+        # (3*SpecRange/4,round(self.sp.minFreqShow/1000+3*FreqRange/4000, 2)),
+        # (SpecRange,round(self.sp.minFreqShow/1000+FreqRange/1000, 2))]])
 
         self.updateOverview()
         self.textpos = int(
@@ -2717,22 +2440,21 @@ class AviaNZ(QMainWindow):
         )  # + self.config['textoffset']
 
         # If there are segments, show them
-        if not self.cheatsheet and not self.zooniverse:
-            for count in range(len(self.segments)):
-                self.addSegment(
-                    self.segments[count][0],
-                    self.segments[count][1],
-                    self.segments[count][2],
-                    self.segments[count][3],
-                    self.segments[count][4],
-                    False,
-                    count,
-                    remaking,
-                    coordsAbsolute=True,
-                )
+        for count in range(len(self.segments)):
+            self.addSegment(
+                self.segments[count][0],
+                self.segments[count][1],
+                self.segments[count][2],
+                self.segments[count][3],
+                self.segments[count][4],
+                False,
+                count,
+                remaking,
+                coordsAbsolute=True,
+            )
 
-            # This is the moving bar for the playback
-            self.p_spec.addItem(self.bar, ignoreBounds=True)
+        # This is the moving bar for the playback
+        self.p_spec.addItem(self.bar, ignoreBounds=True)
 
         QApplication.processEvents()
 
@@ -2758,354 +2480,6 @@ class AviaNZ(QMainWindow):
         except Exception:
             pass
         self.media_slow.notify.connect(self.movePlaySlowSlider)
-
-    def setExtraPlot(self, plotname):
-        """Reacts to menu clicks and updates or hides diagnostic plot window."""
-        self.extra = plotname
-
-        # clear plot before updating/proceeding
-        self.clearDiagnostic()
-
-        if self.extra != "none":
-            self.d_plot.show()
-        else:
-            self.d_plot.hide()
-
-        # plot wavelet scalogram
-        if self.extra == "Wavelet scalogram":
-            self.plotExtra = pg.ImageItem()
-            self.p_plot.addItem(self.plotExtra)
-
-            # passing dummy spInfo because we only use this for a function
-            ws = WaveletSegment.WaveletSegment(spInfo={}, wavelet="dmey2")
-            e = ws.computeWaveletEnergy(
-                self.audiodata, self.sampleRate, window=0.25, inc=0.25
-            )
-            # e is 2^nlevels x nseconds
-
-            # show only leaf nodes:
-            print(np.shape(e))
-            e = np.log(e[30:62, :])
-
-            self.plotExtra.setLookupTable(colourMaps.getLookupTable("Inferno"))
-            self.plotExtra.setImage(e.T)
-            self.plotaxis.setLabel("Wavelet node")
-
-        # plot wc correlations
-        if self.extra == "Wavelet correlations":
-            self.plotExtra = pg.ImageItem()
-            self.p_plot.addItem(self.plotExtra)
-
-            # preprocess
-            data = librosa.core.audio.resample(self.audiodata, self.sampleRate, 16000)
-            data = self.sp.bandpassFilter(data, self.sampleRate, 100, 16000)
-
-            # passing dummy spInfo because we only use this for a function
-            ws = WaveletSegment.WaveletSegment(spInfo={}, wavelet="dmey2")
-            e = ws.computeWaveletEnergy(self.audiodata, self.sampleRate)
-            annotation = np.zeros(np.shape(e)[1])
-            for s in self.segments:
-                annotation[math.floor(s[0]) : math.ceil(s[1])] = 1
-            w0 = np.where(annotation == 0)[0]
-            w1 = np.where(annotation == 1)[0]
-
-            r = np.zeros((64, np.shape(e)[1]))
-            for count in range(62):
-                # just compute_r from WaveletSegment
-                corr = (
-                    (np.mean(e[count, w1]) - np.mean(e[count, w0]))
-                    / np.std(e[count, :])
-                    * np.sqrt(len(w0) * len(w1))
-                    / len(annotation)
-                )
-                # map a long vector of rs to different image areas
-                level = int(math.log(count + 2, 2))
-                node = count + 2 - 2**level
-                node = WaveletFunctions.graycode(node)
-                r[node * 2 ** (6 - level) : (node + 1) * 2 ** (6 - level), level] = corr
-            r[:, 0] = np.linspace(np.min(r), np.max(r), num=64)
-            # propagate along x
-            for tmult in range(10, len(annotation)):
-                r[:, tmult] = r[:, tmult - 10]
-
-            self.plotExtra.setLookupTable(colourMaps.getLookupTable("Viridis"))
-            self.plotExtra.setImage(r.T)
-            self.plotaxis.setLabel("Frequency bin")
-
-        # plot estimated wind and signal levels for a pre-set node
-        if self.extra == "Wind adjustment":
-            TGTSAMPLERATE = 16000
-            minchpwin = 32 / TGTSAMPLERATE
-            chpwin = round(0.25 / minchpwin) * minchpwin
-            print("Will use window of", chpwin, "s")
-            # resample and generate WP w/ all nodes for the current page
-            if self.sampleRate != TGTSAMPLERATE:
-                datatoplot = librosa.core.audio.resample(
-                    self.audiodata, self.sampleRate, TGTSAMPLERATE
-                )
-            else:
-                datatoplot = self.audiodata
-            WF = WaveletFunctions.WaveletFunctions(
-                data=datatoplot, wavelet="dmey2", maxLevel=5, samplerate=TGTSAMPLERATE
-            )
-            WF.WaveletPacket(range(31, 63))
-            # list all the node frequency centers
-            node_freqs = [
-                sum(WaveletFunctions.getWCFreq(n, TGTSAMPLERATE)) / 2
-                for n in range(31, 63)
-            ]
-
-            xs = np.arange(0, self.datalengthSec, chpwin)
-            # xs = xs[:-1] # TODO TMP only for bittern
-            datalen = len(xs)
-
-            # extract energies from each leaf node
-            Es = np.zeros((datalen, 32))
-            i = 0
-            for node in range(31, 63):
-                E, _ = WF.extractE(node, chpwin)
-                Es[:, i] = E[:datalen]
-                i += 1
-                print("node %d extracted" % node)
-
-            # extract unadjusted signal energy
-            tgt_node = 46 - 31
-            Es = np.log(Es)
-            sig_lvl = Es[:, tgt_node]
-
-            # estimate wind level in each window
-            wind_lvlR = np.zeros(len(xs))
-            wind_lvlC = np.zeros(len(xs))
-            wind_lvlCO = np.zeros(len(xs))
-
-            # select 10 % frames with lowest overall energy:
-            # (note that root node does not need downsampling)
-            bgpow, _ = WF.extractE(0, chpwin, wpantialias=False)
-            numframes = round(0.1 * len(bgpow))
-            quietframes = np.argpartition(bgpow, numframes)[:numframes]
-            # From these, determine "background level" for the target nodes:
-            bgpow = np.mean(sig_lvl[quietframes])
-
-            oversubalpha = 1.2
-
-            def calc_wind(energies, nodecenters, tgt):
-                # fits an adjustment model based on energies, nodecenters,
-                # excluding tgt node.
-                regy = np.delete(energies, tgt)
-                regy = np.delete(regy, 45 - 31)
-                regy = np.delete(regy, 44 - 31)
-                regx = np.delete(nodecenters, tgt)
-                regx = np.delete(regx, 45 - 31)
-                regx = np.delete(regx, 44 - 31)
-
-                # remove two extreme nodes as they have filtering artifacts
-                regx = np.delete(regx, 16)
-                regx = np.delete(regx, 0)
-                regy = np.delete(regy, 16)
-                regy = np.delete(regy, 0)
-                # Drop nodes that are too high outside wind freq range
-                freqmask = np.where(regx < 6000)
-
-                regy = regy[freqmask]
-                regx = np.log(regx[freqmask])
-
-                # Robust reg
-                # NOTE: this is our own QuantReg reimplementation
-                # really tailored to our polynomial fit
-                # TODO see if sklearn model, to be added in v1.0, is any better
-                regx_poly = np.column_stack(
-                    (np.ones(len(regx)), regx, regx**2, regx**3)
-                )
-                pol = WaveletFunctions.QuantReg(
-                    regy, regx_poly, q=0.20, max_iter=250, p_tol=1e-3
-                )
-                predR = pol(np.log(nodecenters[tgt]))
-
-                # Cubic fit
-                pol = np.polynomial.polynomial.Polynomial.fit(regx, regy, 3)
-                predC = pol(np.log(nodecenters[tgt]))
-
-                # oversubtracted cubic
-                predCO = (predC - bgpow) * oversubalpha + bgpow
-                return predR, predC, predCO
-
-            for w in range(len(xs)):
-                wind_lvlR[w], wind_lvlC[w], wind_lvlCO[w] = calc_wind(
-                    Es[w, :], node_freqs, tgt_node
-                )
-
-            self.p_legend = pg.LegendItem()
-            self.p_legend.setParentItem(self.p_plot)
-            self.plotExtra = pg.PlotDataItem(xs, sig_lvl)
-            self.plotExtra.setPen(fn.mkPen(color="k", width=2))
-            self.p_legend.addItem(self.plotExtra, "node")
-            self.plotExtra2 = pg.PlotDataItem(xs, wind_lvlC)
-            self.plotExtra2.setPen(fn.mkPen(color="r", width=2))
-            self.p_legend.addItem(self.plotExtra2, "cubic")
-            self.plotExtra3 = pg.PlotDataItem(xs, wind_lvlR)
-            self.plotExtra3.setPen(fn.mkPen(color=(0, 200, 0), width=2))
-            self.p_legend.addItem(self.plotExtra3, "robust")
-            self.plotExtra4 = pg.PlotDataItem(xs, wind_lvlCO)
-            self.plotExtra4.setPen(fn.mkPen(color=(80, 30, 255), width=2))
-            self.p_legend.addItem(self.plotExtra4, "cub-over")
-            self.plotaxis.setLabel("Log mean power")
-            self.p_plot.addItem(self.plotExtra)
-            self.p_plot.addItem(self.plotExtra2)
-            self.p_plot.addItem(self.plotExtra3)
-            self.p_plot.addItem(self.plotExtra4)
-
-        # plot energy in "wind" band
-        if self.extra == "Wind energy":
-            we_mean = np.zeros(int(np.ceil(self.datalengthSec)))
-            we_std = np.zeros(int(np.ceil(self.datalengthSec)))
-            for w in range(int(np.ceil(self.datalengthSec))):
-                data = self.audiodata[
-                    int(w * self.sampleRate) : int((w + 1) * self.sampleRate)
-                ]
-                post = Segment.PostProcess(
-                    configdir=self.configdir,
-                    audioData=data,
-                    sampleRate=self.sampleRate,
-                    segments=[],
-                    subfilter={},
-                )
-                m, std, _ = post.wind_cal(data, self.sampleRate)
-                we_mean[w] = m
-                we_std[w] = std
-
-            print("mean wind: ", we_mean)
-            self.plotExtra = pg.PlotDataItem(
-                np.arange(int(np.ceil(self.datalengthSec))), we_mean
-            )
-            self.plotExtra.setPen(fn.mkPen(color="k", width=2))
-            self.plotExtra2 = pg.PlotDataItem(
-                np.arange(int(np.ceil(self.datalengthSec))), we_mean + we_std
-            )
-            self.plotExtra2.setPen(fn.mkPen("c"))
-            self.plotExtra3 = pg.PlotDataItem(
-                np.arange(int(np.ceil(self.datalengthSec))), we_mean - we_std
-            )
-            self.plotExtra3.setPen(fn.mkPen("c"))
-            self.plotExtra4 = pg.PlotDataItem(
-                np.arange(int(np.ceil(self.datalengthSec))),
-                np.ones(int(np.ceil(self.datalengthSec))) * 1.5,
-            )
-            self.plotExtra4.setPen(fn.mkPen("r"))
-            self.plotaxis.setLabel("Mean (SD) power, V^2/Hz")
-            self.p_plot.addItem(self.plotExtra)
-            self.p_plot.addItem(self.plotExtra2)
-            self.p_plot.addItem(self.plotExtra3)
-            self.p_plot.addItem(self.plotExtra4)
-
-        # plot energy in "rain"
-        if self.extra == "Rain":
-            we_mean = np.zeros(int(np.ceil(self.datalengthSec)))
-            we_std = np.zeros(int(np.ceil(self.datalengthSec)))
-            for w in range(int(self.datalength / self.sampleRate)):
-                data = self.audiodata[
-                    int(w * self.sampleRate) : int((w + 1) * self.sampleRate)
-                ]
-                tempsp = SignalProc.SignalProc()
-                tempsp.data = data
-                sgRaw = tempsp.spectrogram()
-                # Normalise
-                sgRaw -= np.mean(sgRaw, axis=0)
-                sgRaw /= np.max(np.abs(sgRaw), axis=0)
-                we_mean[w] = np.mean(np.mean(sgRaw, axis=0))
-                we_std[w] = np.std(np.std(sgRaw, axis=0))
-            self.plotExtra = pg.PlotDataItem(np.arange(self.datalengthSec), we_mean)
-            self.plotExtra.setPen(fn.mkPen(color="k", width=2))
-            self.plotExtra2 = pg.PlotDataItem(
-                np.arange(self.datalengthSec), we_mean + we_std
-            )
-            self.plotExtra2.setPen(fn.mkPen("r"))
-            self.plotExtra3 = pg.PlotDataItem(
-                np.arange(self.datalengthSec), we_mean - we_std
-            )
-            self.plotExtra3.setPen(fn.mkPen("r"))
-            self.p_plot.addItem(self.plotExtra)
-            self.p_plot.addItem(self.plotExtra2)
-            self.p_plot.addItem(self.plotExtra3)
-
-        # plot spectrogram of only the filtered band:
-        if (
-            self.extra == "Filtered spectrogram, new + AA"
-            or self.extra == "Filtered spectrogram, new"
-            or self.extra == "Filtered spectrogram, old"
-        ):
-            self.plotExtra = pg.ImageItem()
-            self.p_plot.addItem(self.plotExtra)
-
-            try:
-                plotNodes = json.load(
-                    open(os.path.join(self.filtersDir, "plotnodes.txt"))
-                )
-            except:
-                print("Couldn't load file, using default list")
-                plotNodes = [48, 49, 52]
-
-            # resample
-            if self.sampleRate != 16000:
-                audiodata = librosa.core.audio.resample(
-                    self.audiodata, self.sampleRate, 16000
-                )
-            else:
-                audiodata = self.audiodata
-
-            WF = WaveletFunctions.WaveletFunctions(
-                data=audiodata, wavelet="dmey2", maxLevel=5, samplerate=16000
-            )
-
-            # For now, not using antialiasFilter in the reconstructions as it's quick anyway
-            if self.extra == "Filtered spectrogram, new + AA":
-                WF.WaveletPacket(plotNodes, "symmetric", True, True)
-                C = WF.reconstructWP2(plotNodes[0], True, False)[: len(self.audiodata)]
-                for node in plotNodes[1:]:
-                    C = C + WF.reconstructWP2(node, True, False)[: len(C)]
-            if self.extra == "Filtered spectrogram, new":
-                WF.WaveletPacket(plotNodes, "symmetric", False)
-                C = WF.reconstructWP2(plotNodes[0], True, False)[: len(self.audiodata)]
-                for node in plotNodes[1:]:
-                    C = C + WF.reconstructWP2(node, True, False)[: len(C)]
-            if self.extra == "Filtered spectrogram, old":
-                WF.WaveletPacket(plotNodes, "symmetric", False)
-                C = WF.reconstructWP2(plotNodes[0], False)[: len(self.audiodata)]
-                for node in plotNodes[1:]:
-                    C = C + WF.reconstructWP2(node, False)[: len(C)]
-
-            # reconstructed signal was @ 16 kHz,
-            # so we upsample to get equal sized spectrograms
-            if self.sampleRate != 16000:
-                C = librosa.core.audio.resample(C, 16000, self.sampleRate)
-            tempsp = SignalProc.SignalProc()
-            tempsp.data = C
-            sgRaw = tempsp.spectrogram()
-            sgHeightReduction = np.shape(sgRaw)[1] * 16000 // self.sampleRate
-            sgRaw = sgRaw[:, :sgHeightReduction]
-            maxsg = max(np.min(sgRaw), 1e-9)
-            tempsp = np.abs(np.where(sgRaw == 0, 0.0, 10.0 * np.log10(sgRaw / maxsg)))
-
-            self.plotExtra.setLookupTable(colourMaps.getLookupTable("Inferno"))
-            self.plotExtra.setImage(tempsp)
-
-            # set axis. Always at 0:sampleRate//2
-            # minX, maxX = self.overviewImageRegion.getRegion()
-            # self.p_plot.setXRange(minX, maxX, padding=0)
-            MaxFreq = 8000
-            height = 16000 // 2 / np.shape(tempsp)[1]
-            SpecRange = MaxFreq / height
-            self.plotaxis.setTicks(
-                [
-                    [
-                        (0, 0.0),
-                        (SpecRange / 4, round(MaxFreq / 4000, 2)),
-                        (SpecRange / 2, round(MaxFreq / 2000, 2)),
-                        (3 * SpecRange / 4, round(3 * MaxFreq / 4000, 2)),
-                        (SpecRange, round(MaxFreq / 1000, 2)),
-                    ]
-                ]
-            )
-            self.plotaxis.setLabel("kHz")
 
     def updateRegion_spec(self):
         """This is the listener for when a segment box is changed in the spectrogram.
@@ -4618,325 +3992,6 @@ class AviaNZ(QMainWindow):
     # ===============
     # Generate the various dialogs that match the menu items
 
-    def showDiagnosticDialog(self):
-        """Create the dialog to set diagnostic plot parameters."""
-        if not hasattr(self, "diagnosticDialog"):
-            self.diagnosticDialog = Dialogs.Diagnostic(self.FilterDicts)
-            self.diagnosticDialog.activate.clicked.connect(self.setDiagnostic)
-            self.diagnosticDialog.clear.clicked.connect(self.clearDiagnostic)
-        self.diagnosticDialog.show()
-        self.diagnosticDialog.activateWindow()
-
-    def showDiagnosticDialogCNN(self):
-        """Create the dialog to set diagnostic plot parameters."""
-        if not hasattr(self, "diagnosticDialogCNN"):
-            self.diagnosticDialogCNN = Dialogs.DiagnosticCNN(self.FilterDicts)
-            self.diagnosticDialogCNN.filter.currentTextChanged.connect(
-                self.setCTDiagnosticsCNN
-            )
-            self.diagnosticDialogCNN.activate.clicked.connect(self.setDiagnosticCNN)
-            self.diagnosticDialogCNN.clear.clicked.connect(self.clearDiagnosticCNN)
-        self.diagnosticDialogCNN.show()
-        self.diagnosticDialogCNN.activateWindow()
-
-    def clearDiagnostic(self):
-        """Cleans up diagnostic plot space. Should be called
-        when loading new file/page, or from Diagnostic Dialog.
-        """
-        try:
-            self.p_plot.clear()
-            if hasattr(self, "p_legend"):
-                self.p_legend.scene().removeItem(self.p_legend)
-            if hasattr(self, "diagnosticCalls"):
-                for c in self.diagnosticCalls:
-                    self.p_spec.removeItem(c)
-            self.d_plot.hide()
-            # TODO this can be very slow with many items.
-            # Uncomment and use the option below, if e.g. you are doing
-            # intense testing.
-            # if len(self.diagnosticCalls)>0:
-            #     p_spec_new = SupportClasses_GUI.DragViewBox(self, enableMouse=False,enableMenu=False,enableDrag=self.config['specMouseAction']==3, thisIsAmpl=False)
-            #     p_spec_new.addItem(self.specPlot)
-            #     self.w_spec.removeItem(self.p_spec)
-            #     del self.p_spec
-            #     self.p_spec = p_spec_new
-            #     self.w_spec.addItem(self.p_spec,row=0,col=1)
-        except Exception as e:
-            print(e)
-        self.diagnosticCalls = []
-
-    def setDiagnostic(self):
-        """Takes parameters returned from DiagnosticDialog
-        and draws the training diagnostic plots.
-        """
-        with pg.BusyCursor():
-            self.diagnosticDialog.activate.setEnabled(False)
-            self.statusLeft.setText("Making diagnostic plots...")
-            # Note: importing here so that main program could be run without ext/
-            from ext import ce_denoise
-
-            # take values: -2/-3/-4 for AA types, -2/-3 for En/Spec plot
-            [filter, aaType, markSpec] = self.diagnosticDialog.getValues()
-            spInfo = self.FilterDicts[filter]
-            # For now, just using params from the first subfilter
-            spSubf = spInfo["Filters"][0]
-            print("Using subfilter", spSubf["calltype"])
-            # spInfo = json.load(open(os.path.join(self.filtersDir, filter + '.txt')))
-            WINSIZE = 0.5
-
-            # clear plot box and add legend
-            self.clearDiagnostic()
-            self.p_legend = pg.LegendItem()
-            self.p_legend.setParentItem(self.p_plot)
-            # 1 sec in spectrogram units
-            specs = self.convertAmpltoSpec(1)
-
-            # plot things
-            # 1. decompose
-            # if needed, adjusting sampling rate to match filter
-            if self.sampleRate != spInfo["SampleRate"]:
-                datatoplot = librosa.core.audio.resample(
-                    self.audiodata, self.sampleRate, spInfo["SampleRate"]
-                )
-            else:
-                datatoplot = self.audiodata
-
-            WF = WaveletFunctions.WaveletFunctions(
-                data=datatoplot,
-                wavelet="dmey2",
-                maxLevel=5,
-                samplerate=spInfo["SampleRate"],
-            )
-            WF.WaveletPacket(
-                spSubf["WaveletParams"]["nodes"],
-                "symmetric",
-                aaType == -4,
-                antialiasFilter=True,
-            )
-            numNodes = len(spSubf["WaveletParams"]["nodes"])
-            xs = np.arange(0, self.datalengthSec, WINSIZE)
-            Esep = np.zeros((numNodes, len(xs)))
-
-            ### DENOISING reference: relative |amp| on rec signals from each WP node, when wind is present
-            ### just handmade from some wind examples
-            # noiseenv = np.array([0.54, 0.83, 0.84, 1, 0.32, 0.54, 0.70, 0.70,  0.16, 0.19, 0.24, 0.22, 0.28, 0.27, 0.25, 0.26,  0.01, 0.06, 0.14, 0.12, 0.15, 0.16, 0.14, 0.15,  0.16, 0.16, 0.15, 0.15, 0.14, 0.16, 0.15, 0.15])
-            # # reconstruct wind signal
-            # windC = WF.reconstructWP2(34, aaType != -2, False)
-            # windC = np.abs(windC)
-            # print("calculating wind strength")
-            # windE = ce_denoise.EnergyCurve(windC, 4000)
-            # # "noise strength index" - strength of wind at each second, on linear scale
-            # windMaxE = np.zeros(int(self.datalengthSec))
-            # for w in range(int(self.datalengthSec)):
-            #     windMaxE[w] = np.max(windE[w*spInfo['SampleRate'] : (w+1)*spInfo['SampleRate']])
-            # del windC
-            # del windE
-
-            # 2. reconstruct from bands
-            r = 0
-            # M = spSubf['WaveletParams']['M']
-            for node in spSubf["WaveletParams"]["nodes"]:
-                # reconstruction as in detectCalls:
-                print("working on node", node)
-                C = WF.reconstructWP2(node, aaType != -2, True)
-                C = self.sp.bandpassFilter(
-                    C,
-                    spInfo["SampleRate"],
-                    spSubf["FreqRange"][0],
-                    spSubf["FreqRange"][1],
-                )
-
-                C = np.abs(C)
-                # E = ce_denoise.EnergyCurve(C, int( M*spInfo['SampleRate']/2 ))
-                E = C
-                C = np.log(C)
-
-                # some prep that doesn't need to be looped over t:
-                meanC = np.mean(C)
-                sdC = np.std(C)
-
-                # For our new detection: print energy of the quietest second
-                trimmedlength = math.floor(self.datalengthSec) * spInfo["SampleRate"]
-                persecE = np.reshape(
-                    E[0:trimmedlength],
-                    (math.floor(self.datalengthSec), spInfo["SampleRate"]),
-                ).mean(axis=1)
-                print(
-                    "Node %i: mean %f, SD %f, range %f - %f"
-                    % (node, meanC, sdC, min(persecE), max(persecE))
-                )
-
-                # get true freqs of this band
-                freqmin, freqmax = WaveletFunctions.getWCFreq(
-                    node, spInfo["SampleRate"]
-                )
-                # convert freqs to spec Y units
-                freqmin = self.convertFreqtoY(freqmin)
-                freqmax = self.convertFreqtoY(freqmax)
-
-                # basic divergent color palette
-                plotcol = (255 * r // numNodes, 127 * (r % 2), 0)
-
-                # get max (or mean) E for each second
-                # and normalize, so that we don't need to hardcode thr
-                for w in range(len(xs)):
-                    start = int(w * WINSIZE * spInfo["SampleRate"])
-                    end = int((w + 1) * WINSIZE * spInfo["SampleRate"])
-                    maxE = np.mean(E[start:end])
-                    ### DENOISE:
-                    # based on wind strength in this second, calculate estimated |wind| in this node
-                    # and subtract from maxE
-                    # maxE = max(meanC, maxE - windMaxE[w]*noiseenv[node-31]*1.1)
-                    Esep[r, w] = (np.log(maxE) - meanC) / sdC
-
-                    # mark detected calls on spectrogram
-                    if markSpec and Esep[r, w] > spSubf["WaveletParams"]["thr"]:
-                        diagCall = pg.ROI(
-                            (specs * xs[w], freqmin),
-                            (specs * WINSIZE, freqmax - freqmin),
-                            pen=plotcol,
-                            movable=False,
-                        )
-                        self.diagnosticCalls.append(diagCall)
-                        self.p_spec.addItem(diagCall)
-
-                # plot
-                self.plotDiag = pg.PlotDataItem(
-                    xs, Esep[r, :], pen=fn.mkPen(plotcol, width=2)
-                )
-                self.p_plot.addItem(self.plotDiag)
-                self.p_legend.addItem(self.plotDiag, str(node))
-                r = r + 1
-
-            ### DENOISE: add line of wind strength
-            # self.p_plot.addItem(pg.PlotDataItem(np.arange(int(self.datalengthSec))+0.5, np.log(windMaxE),
-            #             pen=fn.mkPen((0,130,0), width=2)))
-            # add line corresponding to thr
-            # self.p_plot.addItem(pg.InfiniteLine(-0.8, angle=0, pen=fn.mkPen(color=(40,40,40), width=1)))
-            self.p_plot.addItem(
-                pg.InfiniteLine(
-                    spSubf["WaveletParams"]["thr"],
-                    angle=0,
-                    pen=fn.mkPen(color=(40, 40, 40), width=1),
-                )
-            )
-            minX, maxX = self.overviewImageRegion.getRegion()
-            self.p_plot.setXRange(
-                self.convertSpectoAmpl(minX),
-                self.convertSpectoAmpl(maxX),
-                update=True,
-                padding=0,
-            )
-            self.plotaxis.setLabel("Power Z-score")
-            self.d_plot.show()
-        self.diagnosticDialog.activate.setEnabled(True)
-        self.statusLeft.setText("Ready")
-
-    def setCTDiagnosticsCNN(self):
-        from PyQt5.QtWidgets import QCheckBox
-
-        filter = self.diagnosticDialogCNN.filter.currentText()
-        speciesData = self.FilterDicts[filter]
-        CTs = []
-        for f in speciesData["Filters"]:
-            CTs.append(f["calltype"])
-        CTs.append("Noise")
-        for ch in self.diagnosticDialogCNN.chkboxes:
-            ch.hide()
-        self.diagnosticDialogCNN.chkboxes = []
-        for ct in CTs:
-            self.diagnosticDialogCNN.chkboxes.append(QCheckBox(ct))
-        for cb in self.diagnosticDialogCNN.chkboxes:
-            if cb.text() != "Noise":
-                cb.setChecked(True)
-            self.diagnosticDialogCNN.ctbox.addWidget(cb)
-
-    def clearDiagnosticCNN(self):
-        """Cleans up diagnostic plot space. Should be called
-        when loading new file/page, or from Diagnostic Dialog.
-        """
-        try:
-            self.p_plot.clear()
-            if hasattr(self, "p_legend"):
-                self.p_legend.scene().removeItem(self.p_legend)
-            self.d_plot.hide()
-        except Exception as e:
-            print(e)
-
-    def setDiagnosticCNN(self):
-        """Takes parameters returned from DiagnosticDialog
-        and draws the training diagnostic plots.
-        """
-        from itertools import chain, repeat
-
-        with pg.BusyCursor():
-            self.diagnosticDialogCNN.activate.setEnabled(False)
-            self.statusLeft.setText("Making CNN diagnostic plots...")
-
-            # Skip Wavelet filter, and show the raw CNN probabilities for current page, block length depends on CNN input size
-            # load target CNN model if exists
-            [filtername, selectedCTs] = self.diagnosticDialogCNN.getValues()
-            print(selectedCTs)
-            speciesData = self.FilterDicts[filtername]
-            CTs = []
-            for f in speciesData["Filters"]:
-                CTs.append(f["calltype"])
-            CTs.append("Noise")
-            self.CNNDicts = self.ConfigLoader.CNNmodels(
-                self.FilterDicts, self.filtersDir, [filtername]
-            )
-
-            segment = [[self.startRead, self.startRead + self.datalengthSec]]
-            CNNmodel = None
-            probs = 0
-            if filtername in self.CNNDicts.keys():
-                CNNmodel = self.CNNDicts[filtername]
-            post = Segment.PostProcess(
-                configdir=self.configdir,
-                audioData=self.audiodata,
-                sampleRate=self.sampleRate,
-                tgtsampleRate=speciesData["SampleRate"],
-                segments=segment,
-                subfilter=speciesData["Filters"][0],
-                CNNmodel=CNNmodel,
-                cert=50,
-            )
-            if CNNmodel:
-                CNNwindow, probs = post.CNNDiagnostic()
-            if isinstance(probs, int):
-                self.diagnosticDialogCNN.activate.setEnabled(True)
-                return
-
-            # clear plot box and add legend
-            self.clearDiagnostic()
-            self.p_legend = pg.LegendItem()
-            self.p_legend.setParentItem(self.p_plot)
-
-            Psep = np.zeros((len(CTs), len(probs[:, 0].tolist())))
-            for i in range(len(CTs)):
-                Psep[i, :] = probs[:, i].tolist()
-
-            # plot
-            for ct in range(len(CTs)):
-                if not selectedCTs[ct]:
-                    continue
-                else:
-                    # basic divergent color palette
-                    plotcol = (255 * ct // len(CTs), 127 * (ct % 2), 0)
-                    y = Psep[ct, :]
-                    # x = np.linspace(0, CNNwindow*len(y), len(y))
-                    x = np.linspace(
-                        CNNwindow / 2, CNNwindow * len(y) - CNNwindow / 2, len(y)
-                    )
-                    self.plotDiag = pg.PlotDataItem(
-                        x, y, pen=fn.mkPen(plotcol, width=2)
-                    )
-                    self.p_plot.addItem(self.plotDiag)
-                    self.p_legend.addItem(self.plotDiag, CTs[ct])
-            self.d_plot.show()
-        self.diagnosticDialogCNN.activate.setEnabled(True)
-        self.statusLeft.setText("Ready")
-
     def showSpectrogramDialog(self):
         """Create spectrogram dialog when the button is pressed."""
         if not hasattr(self, "spectrogramDialog"):
@@ -5115,131 +4170,6 @@ class AviaNZ(QMainWindow):
 
         csv.close()
 
-    def detectShapes(self):
-        # method = self.shapesDialog.getValues()
-        method, IFsettings = self.shapesDialog.getValues()
-        allshapes = []
-        specxunit = self.convertSpectoAmpl(1)
-        specyunit = self.sampleRate // 2 / np.shape(self.sg)[1]
-        if self.batmode:
-            incr = 512
-        else:
-            incr = self.config["incr"]
-
-        # TODO TODO not tested for bats at all,
-        # no idea what here may need adapting
-        # (specifically b/c they have a spec that starts at >0)
-        # NOTE: resulting shape.tstart will be relative to the current page
-        with pg.BusyCursor():
-            for segm in self.segments:
-                segshape = None
-                # convert from absolute to relative-to-page times
-                segRelativeStart = segm[0] - self.startRead
-                segRelativeEnd = segm[1] - self.startRead
-
-                # skip if they are not in this page:
-                if segRelativeEnd < 0 or segRelativeStart > self.datalengthSec:
-                    print("skipping out of page segment", segm[0], "-", segm[1])
-                    allshapes.append(segshape)
-                    continue
-
-                if method == "stupidShaper":
-                    # placeholder method:
-                    adjusted_segm = [
-                        segRelativeStart,
-                        segRelativeEnd,
-                        segm[2],
-                        segm[3],
-                        segm[4],
-                    ]
-                    segshape = Shapes.stupidShaper(adjusted_segm, specxunit, specyunit)
-                elif method == "fundFreqShaper":
-                    # Fundamental frequency:
-                    data = self.audiodata[
-                        int(segRelativeStart * self.sampleRate) : int(
-                            segRelativeEnd * self.sampleRate
-                        )
-                    ]
-                    W = 4 * incr
-                    segshape = Shapes.fundFreqShaper(
-                        data, W, thr=0.5, fs=self.sampleRate
-                    )
-                    # shape.tstart is relative to segment start (0)
-                    # so we also need to add the segment start
-                    segshape.tstart += segRelativeStart
-                elif method == "instantShaper1" or method == "instantShaper2":
-                    # instantaneous frequency
-                    IFmethod = int(method[-1])
-                    spstart = math.floor(self.convertAmpltoSpec(segRelativeStart))
-                    spend = math.ceil(self.convertAmpltoSpec(segRelativeEnd))
-                    sg = np.copy(self.sp.sg[spstart:spend, :])
-                    # mask freqs outside the currently marked segment
-                    if segm[3] > 0:
-                        markedylow = math.floor(self.convertFreqtoY(segm[2]))
-                        markedyupp = math.ceil(self.convertFreqtoY(segm[3]))
-                        sg[:, :markedylow] = 0
-                        sg[:, markedyupp:] = 0
-                    segshape = Shapes.instantShaper(
-                        sg,
-                        self.sampleRate,
-                        incr,
-                        self.config["window_width"],
-                        self.windowType,
-                        IFmethod,
-                        IFsettings,
-                    )
-                    # shape.tstart is relative to segment start (0)
-                    # so we also need to add the segment start
-                    segshape.tstart += segRelativeStart
-                allshapes.append(segshape)
-
-        if len(allshapes) != len(self.segments):
-            print(
-                "ERROR: something went wrong in shape analysis, produced %d shapes",
-                len(allshapes),
-            )
-            return
-
-        # print, plot or export the results
-        # clear any old plots:
-        for sh in self.shapePlots:
-            try:
-                self.p_spec.removeItem(sh)
-            except Exception:
-                pass
-        self.shapePlots = []
-
-        # NOTE: this skips -1 and values below minFreqShow and connects
-        # the reamining dots. Might not be what you want.
-        # TODO not sure if this will work when spec sp.minFreqShow>0
-        for shape in allshapes:
-            if shape is None:
-                continue
-            # Convert coordinates to Hz/s and back to spec y/x, b/c
-            # spacing used to calculate the shape may differ from current spec pixel size.
-            numy = len(shape.y)
-            seqx = [
-                self.convertAmpltoSpec(x * shape.tunit + shape.tstart)
-                for x in range(numy)
-            ]
-            seqfreqs = shape.y * shape.yunit + shape.ystart  # convert to Hz
-            # Hide any below minFreqShow
-            visible = seqfreqs >= self.sp.minFreqShow
-            seqfreqs = seqfreqs[visible]
-            seqx = np.asarray(seqx)[visible]
-            seqy = [self.convertFreqtoY(y) for y in seqfreqs]
-
-            self.shapePlots.append(pg.PlotDataItem())
-            self.shapePlots[-1].setData(seqx, seqy, pen=pg.mkPen("r", width=2))
-            self.p_spec.addItem(self.shapePlots[-1])
-
-    def showShapesDialog(self):
-        """Create the shape analysis dialog."""
-        self.shapesDialog = Dialogs.Shapes()
-        self.shapesDialog.show()
-        self.shapesDialog.activateWindow()
-        self.shapesDialog.activate.clicked.connect(self.detectShapes)
-
     def showDenoiseDialog(self):
         """Create the denoising dialog when the relevant button is pressed."""
         self.denoiseDialog = Dialogs.Denoise(
@@ -5271,24 +4201,6 @@ class AviaNZ(QMainWindow):
             self.audiodata_backup = np.empty((np.shape(self.audiodata)[0], 1))
             self.audiodata_backup[:, 0] = np.copy(self.audiodata)
         self.showFreq_backup = [self.sp.minFreqShow, self.sp.maxFreqShow]
-
-    def decomposeWP(self, x=None):
-        """Listener for quickWP control button.
-        Takes DATA and produces a WP decomposition.
-        """
-        print("Decomposing to WP...")
-        ot = time.time()
-        self.WFinst = WaveletFunctions.WaveletFunctions(
-            data=self.audiodata,
-            wavelet="dmey2",
-            maxLevel=self.config["maxSearchDepth"],
-            samplerate=self.sampleRate,
-        )
-        maxLevel = 5
-        allnodes = range(2 ** (maxLevel + 1) - 1)
-        self.WFinst.WaveletPacket(allnodes, mode="symmetric", antialias=False)
-        print("Done")
-        print(time.time() - ot)
 
     def denoiseSeg(self):
         """Listener for quickDenoise control button.
@@ -5410,15 +4322,6 @@ class AviaNZ(QMainWindow):
         """Listener for the denoising dialog.
         Calls the denoiser and then plots the updated data.
         """
-        if self.CLI:
-            # in CLI mode, default values will be retrieved from dialogs.
-            self.denoiseDialog = Dialogs.Denoise(
-                DOC=self.DOC, minFreq=self.sp.minFreq, maxFreq=self.sp.maxFreq
-            )
-            # values can be passed here explicitly, e.g.:
-            # self.denoiseDialog.depth.setValue(10)
-            # or could add an argument to pass custom defaults, e.g.:
-            # self.denoiseDialog = Dialogs.Denoise(defaults=("wt", 1, 2, 'a')
         with pg.BusyCursor():
             opstartingtime = time.time()
             print(
@@ -5702,211 +4605,6 @@ class AviaNZ(QMainWindow):
 
         QApplication.processEvents()
 
-    def buildChpRecogniser(self):
-        """Train a changepoint detector.
-        Currently, takes nodes from a selected wavelet filter,
-        and only trains alpha, length etc.
-        """
-        self.saveSegments()
-        self.buildRecAdvWizard = DialogsTraining.BuildRecAdvWizard(
-            self.filtersDir, self.config, method="chp"
-        )
-        self.buildRecAdvWizard.button(3).clicked.connect(
-            lambda: self.saveRecogniser(test=False)
-        )
-        self.buildRecAdvWizard.saveTestBtn.clicked.connect(
-            lambda: self.saveRecogniser(test=True)
-        )
-        self.buildRecAdvWizard.activateWindow()
-        self.buildRecAdvWizard.exec_()
-        # reread filters list with the new one
-        self.FilterDicts = self.ConfigLoader.filters(self.filtersDir)
-
-    def buildRecogniser(self):
-        """Listener for 'Build a recogniser'
-        All training and file I/O are done in Dialogs.py currently.
-        """
-        self.saveSegments()
-        self.buildRecAdvWizard = DialogsTraining.BuildRecAdvWizard(
-            self.filtersDir, self.config, method="wv"
-        )
-        self.buildRecAdvWizard.button(3).clicked.connect(
-            lambda: self.saveRecogniser(test=False)
-        )
-        self.buildRecAdvWizard.saveTestBtn.clicked.connect(
-            lambda: self.saveRecogniser(test=True)
-        )
-        self.buildRecAdvWizard.activateWindow()
-        self.buildRecAdvWizard.exec_()
-        # reread filters list with the new one
-        self.FilterDicts = self.ConfigLoader.filters(self.filtersDir)
-
-    def buildCNN(self):
-        """Listener for 'Build a CNN'"""
-        self.saveSegments()
-        self.buildCNNWizard = DialogsTraining.BuildCNNWizard(
-            self.filtersDir, self.config, self.configdir
-        )
-        self.buildCNNWizard.button(3).clicked.connect(
-            lambda: self.RecogniserCNN(test=False)
-        )
-        self.buildCNNWizard.saveTestBtn.clicked.connect(
-            lambda: self.saveRecogniserCNN(test=True)
-        )
-        self.buildCNNWizard.activateWindow()
-        self.buildCNNWizard.exec_()
-
-    def testRecogniser(self, filter=None):
-        """Listener for the Test Recogniser action"""
-        self.testRecWizard = DialogsTraining.TestRecWizard(
-            self.filtersDir, self.configdir, filter
-        )
-        self.testRecWizard.exec_()
-
-    def saveRecogniser(self, test=False):
-        try:
-            # actually write out the filter
-            filename = os.path.join(
-                self.filtersDir, self.buildRecAdvWizard.field("filtfile")
-            )
-            # also write ROC in to a file
-            rocfilename = (
-                self.buildRecAdvWizard.speciesData["species"]
-                + "_ROCWF"
-                + time.strftime("_%H-%M-%S", time.gmtime())
-            )
-            self.buildRecAdvWizard.speciesData["ROCWF"] = rocfilename
-            rocfilename = os.path.join(self.filtersDir, rocfilename + ".json")
-            print("Saving new recogniser to ", filename)
-            with open(filename, "w") as f:
-                f.write(json.dumps(self.buildRecAdvWizard.speciesData, indent=4))
-            with open(rocfilename, "w") as f:
-                f.write(json.dumps(self.buildRecAdvWizard.ROCData, indent=4))
-
-            # prompt the user
-            if test:
-                msg = SupportClasses_GUI.MessagePopup(
-                    "d",
-                    "Training completed!",
-                    "Training completed!\nProceeding to testing.",
-                )
-            else:
-                msg = SupportClasses_GUI.MessagePopup(
-                    "d",
-                    "Training completed!",
-                    "Training completed!\nWe strongly recommend testing the recogniser on a separate dataset before actual use.",
-                )
-            msg.exec_()
-            self.buildRecAdvWizard.done(1)
-            if test:
-                self.testRecogniser(filter=os.path.basename(filename))
-        except Exception as e:
-            print("ERROR: could not save recogniser because:", e)
-            self.buildRecAdvWizard.done(0)
-
-    def saveRecogniserCNN(self, test=False):
-        # actually write out the filter and CNN model
-        modelsrc = os.path.join(self.buildCNNWizard.cnntrain.tmpdir2.name, "model.json")
-        CNN_name = self.buildCNNWizard.cnntrain.species + time.strftime(
-            "_%H-%M-%S", time.gmtime()
-        )
-        self.buildCNNWizard.cnntrain.currfilt["CNN"]["CNN_name"] = CNN_name
-        modelfile = os.path.join(self.filtersDir, CNN_name + ".json")
-        weightsrc = self.buildCNNWizard.cnntrain.bestweight
-        weightfile = os.path.join(self.filtersDir, CNN_name + ".h5")
-        # also write ROC in to a file
-        rocfilename = (
-            self.buildCNNWizard.cnntrain.currfilt["species"]
-            + "_ROCNN"
-            + time.strftime("_%H-%M-%S", time.gmtime())
-        )
-        self.buildCNNWizard.cnntrain.currfilt["ROCNN"] = rocfilename
-        rocfilename = os.path.join(self.filtersDir, rocfilename + ".json")
-
-        try:
-            if self.buildCNNWizard.savePage.saveoption == "New":
-                filename = os.path.join(
-                    self.filtersDir, self.buildCNNWizard.savePage.enterFiltName.text()
-                )
-                print("Saving a new recogniser", filename)
-                # save ROC
-                with open(rocfilename, "w") as f:
-                    f.write(json.dumps(self.buildCNNWizard.cnntrain.ROCdata, indent=4))
-            else:
-                filename = os.path.join(
-                    self.filtersDir, self.buildCNNWizard.cnntrain.filterName
-                )
-                print("Updating the existing recogniser ", filename)
-                # save ROC
-                # TODO this was disabled here for some reason,
-                # not sure what is the intended behavior
-                # with open(rocfilename, 'w') as f:
-                #     f.write(json.dumps(self.buildCNNWizard.cnntrain.ROCdata, indent=4))
-
-            # Store the recognizer txt
-            with open(filename, "w") as f:
-                f.write(json.dumps(self.buildCNNWizard.cnntrain.currfilt, indent=4))
-            # Actually copy the model
-            copyfile(modelsrc, modelfile)
-            copyfile(weightsrc, weightfile)
-            # And remove temp dirs
-            self.buildCNNWizard.cnntrain.tmpdir1.cleanup()
-            self.buildCNNWizard.cnntrain.tmpdir2.cleanup()
-            # prompt the user
-            if test:
-                msg = SupportClasses_GUI.MessagePopup(
-                    "d",
-                    "Training completed!",
-                    "Training completed!\nProceeding to testing.",
-                )
-            else:
-                msg = SupportClasses_GUI.MessagePopup(
-                    "d",
-                    "Training completed!",
-                    "Training completed!\nWe strongly recommend testing the recogniser on a separate dataset before actual use.",
-                )
-            msg.exec_()
-            self.buildCNNWizard.done(1)
-            if test:
-                self.testRecogniser(filter=os.path.basename(filename))
-        except Exception as e:
-            print("ERROR: could not save recogniser because:", e)
-
-    def saveRecogniserROC(self):
-        # nothing to worry about CNN files, they are untouched
-        try:
-            if self.filterManager.saveoption == "New":
-                filename = os.path.join(
-                    self.filtersDir, self.filterManager.enterFiltName.text()
-                )
-                print("Saving a new recogniser", filename)
-                msgtext = (
-                    "Saved as a new recogniser: "
-                    + self.filterManager.enterFiltName.text()
-                    + "\n\nWe strongly recommend testing the recogniser on a test dataset before actual use."
-                )
-            else:
-                filename = os.path.join(
-                    self.filtersDir,
-                    self.filterManager.listFiles.currentItem().text() + ".txt",
-                )
-                print("Updating the existing recogniser ", filename)
-                msgtext = (
-                    "Updated the recogniser: "
-                    + self.filterManager.listFiles.currentItem().text()
-                    + "txt\n\nWe strongly recommend testing the recogniser on a test dataset before actual use."
-                )
-
-            # store the changed recognizer txt
-            with open(filename, "w") as f:
-                f.write(json.dumps(self.filterManager.newfilter, indent=4))
-            # prompt the user
-            msg = SupportClasses_GUI.MessagePopup("d", "Saved!", msgtext)
-            msg.exec_()
-        except Exception as e:
-            print("ERROR: could not save recogniser because:", e)
-        self.filterManager.close()
-
     def excel2Annotation(self):
         """Utility function dialog: Generate AviaNZ style annotations given the start-end of calls in excel format"""
         self.excel2AnnotationDialog = Dialogs.Excel2Annotation()
@@ -6104,324 +4802,6 @@ class AviaNZ(QMainWindow):
         # print(e)
         # return
 
-    def segmentationDialog(self):
-        """Create the segmentation dialog when the relevant button is pressed."""
-        maxampl = 0.001
-        if self.datalength > 0:
-            maxampl = np.max(self.audiodata)
-        self.segmentDialog = Dialogs.Segmentation(
-            maxampl, DOC=self.DOC, species=self.FilterDicts
-        )
-        self.segmentDialog.show()
-        self.segmentDialog.activateWindow()
-        self.segmentDialog.undo.clicked.connect(self.segment_undo)
-        self.segmentDialog.activate.clicked.connect(self.segment)
-
-    def segment(self):
-        """Listener for the segmentation dialog. Calls the relevant segmenter."""
-        if self.CLI:
-            maxampl = 0.001
-            if self.datalength > 0:
-                maxampl = np.max(self.audiodata)
-            self.segmentDialog = Dialogs.Segmentation(maxampl)
-
-        opstartingtime = time.time()
-        print("Segmenting requested at " + time.strftime("%H:%M:%S", time.localtime()))
-        # for undoing:
-        self.prevSegments = copy.deepcopy(self.segments)
-
-        self.segmentsToSave = True
-        # settings is a dict with parameters for various possible methods
-        alg, settings = self.segmentDialog.getValues()
-
-        with pg.BusyCursor():
-            filtname = str(settings["filtname"])
-            self.statusLeft.setText("Segmenting...")
-            # Delete old segments:
-            # only this species, if using species-specific methods:
-            if alg == "Wavelet Filter" or alg == "WV Changepoint":
-                if filtname == "Choose species...":
-                    msg = SupportClasses_GUI.MessagePopup(
-                        "w", "Species Error", "Please select your species!"
-                    )
-                    msg.exec_()
-                    return
-
-                filtspecies = self.FilterDicts[filtname]["species"]
-                oldsegs = self.segments.getSpecies(filtspecies)
-                # Only show segments which are at least partly visible in this page:
-                for ix in reversed(oldsegs):
-                    seg = self.segments[ix]
-                    if (
-                        seg[0] > self.startRead + self.datalengthSec
-                        or seg[1] < self.startRead
-                    ):
-                        oldsegs.remove(ix)
-
-                todelete = []
-                # deleting from the end, because deleteSegments shifts IDs:
-                for si in reversed(oldsegs):
-                    # DO NOT delete segments in other pages
-                    if self.listRectanglesa1[si] is None:
-                        continue
-                    # clear these species from overview colors
-                    self.refreshOverviewWith(self.segments[si], delete=True)
-                    # remove all labels for the current species
-                    wipedAll = self.segments[si].wipeSpecies(filtspecies)
-                    self.refreshOverviewWith(self.segments[si])
-                    # drop the segment if it's the only species, or just update the graphics
-                    if wipedAll:
-                        todelete.append(si)
-                    else:
-                        self.updateText(si)
-                        self.updateColour(si)
-                # reverse loop to allow deleting segments
-                for dl in todelete:
-                    self.deleteSegment(dl)
-            else:
-                self.removeSegments()
-
-            # NON-SPECIFIC methods here (produce "Don't Know"):
-            if alg == "Default":
-                newSegments = self.seg.bestSegments()
-            elif alg == "Median Clipping":
-                newSegments = self.seg.medianClip(
-                    settings["medThr"], minSegment=self.config["minSegment"]
-                )
-                newSegments = self.seg.checkSegmentOverlap(newSegments)
-                # will also remove too short segments (medSize is set in ms because sliders limited to int)
-                # print("before length", newSegments)
-                # newSegments = self.seg.deleteShort(newSegments, minlength=medSize/1000)
-            elif alg == "Harma":
-                newSegments = self.seg.Harma(
-                    float(str(settings["HarmaThr1"])),
-                    float(str(settings["HarmaThr2"])),
-                    minSegment=self.config["minSegment"],
-                )
-                newSegments = self.seg.checkSegmentOverlap(newSegments)
-            elif alg == "Power":
-                newSegments = self.seg.segmentByPower(float(str(settings["PowerThr"])))
-                newSegments = self.seg.checkSegmentOverlap(newSegments)
-            elif alg == "Onsets":
-                newSegments = self.seg.onsets()
-                newSegments = self.seg.checkSegmentOverlap(newSegments)
-            elif alg == "Fundamental Frequency":
-                newSegments = self.seg.yinSegs(
-                    int(str(settings["FFminfreq"])),
-                    int(str(settings["FFminperiods"])),
-                    float(str(settings["Yinthr"])),
-                    int(str(settings["FFwindow"])),
-                )
-                newSegments = self.seg.checkSegmentOverlap(newSegments)
-            elif alg == "FIR":
-                newSegments = self.seg.segmentByFIR(float(str(settings["FIRThr1"])))
-                newSegments = self.seg.checkSegmentOverlap(newSegments)
-            # SPECIES-SPECIFIC methods from here:
-            elif alg == "Wavelet Filter":
-                # Old WF filter, not compatible with wind removal:
-                speciesData = self.FilterDicts[filtname]
-                ws = WaveletSegment.WaveletSegment(speciesData)
-                ws.readBatch(
-                    self.audiodata,
-                    self.sampleRate,
-                    d=False,
-                    spInfo=[speciesData],
-                    wpmode="new",
-                    wind=False,
-                )
-                newSegments = ws.waveletSegment(0, wpmode="new")
-                # this will produce a list of lists (over subfilters)
-            elif alg == "WV Changepoint":
-                print("Changepoint detection requested")
-                speciesData = self.FilterDicts[filtname]
-                # this will produce a list of lists (over subfilters)
-                ws = WaveletSegment.WaveletSegment(speciesData)
-                ws.readBatch(
-                    self.audiodata,
-                    self.sampleRate,
-                    d=False,
-                    spInfo=[speciesData],
-                    wpmode="new",
-                    wind=settings["wind"] > 0,
-                )
-                # nuisance-signal changepoint detector (alg 2)
-                # with all params passed:
-                newSegments = ws.waveletSegmentChp(
-                    0,
-                    alpha=settings["chpalpha"],
-                    window=settings["chpwindow"],
-                    maxlen=settings["maxlen"],
-                    alg=2,
-                    silent=False,
-                    wind=settings["wind"],
-                )
-
-            # TODO: make sure cross corr outputs lists of lists
-            elif alg == "Cross-Correlation":
-                if filtname != "Choose species...":
-                    # need to load template/s
-                    newSegments = self.findMatches(
-                        float(str(settings["CCThr1"])), filtname
-                    )
-                else:
-                    newSegments = self.findMatches(float(str(settings["CCThr1"])))
-            else:
-                print("ERROR: unrecognised algorithm", alg)
-                return
-
-            # Post-process
-            # 1. Delete windy segments
-            # 2. Delete rainy segments
-            # 3. Check fundamental frq
-            # 4. Merge neighbours
-            # 5. Delete short segmentsost process to remove short segments, wind, rain, and use F0 check.
-            if alg == "Wavelet Filter" or alg == "WV Changepoint":
-                print(
-                    "Segments detected: ",
-                    sum(isinstance(seg, list) for subf in newSegments for seg in subf),
-                )
-                print(newSegments)
-                print("Post-processing...")
-                # load target CNN model if exists
-                self.CNNDicts = self.ConfigLoader.CNNmodels(
-                    self.FilterDicts, self.filtersDir, [filtname]
-                )
-                # postProcess currently operates on single-level list of segments,
-                # so we run it over subfilters for wavelets:
-                for filtix in range(len(speciesData["Filters"])):
-                    subfilter = speciesData["Filters"][filtix]
-                    CNNmodel = None
-                    if "CNN" in speciesData:
-                        CNNmodel = self.CNNDicts.get(speciesData["CNN"]["CNN_name"])
-
-                    post = Segment.PostProcess(
-                        configdir=self.configdir,
-                        audioData=self.audiodata,
-                        sampleRate=self.sampleRate,
-                        tgtsampleRate=speciesData["SampleRate"],
-                        segments=newSegments[filtix],
-                        subfilter=subfilter,
-                        CNNmodel=CNNmodel,
-                        cert=50,
-                    )
-                    # Deprecated wind filter:
-                    # if settings["windold"]:
-                    #     post.wind()
-                    #     print('After wind: segments: ', len(post.segments))
-                    if CNNmodel:
-                        print("Post-processing with CNN")
-                        post.CNN()
-                        print("After CNN: segments: ", len(post.segments))
-                    if settings["rain"]:
-                        post.rainClick()
-                        print("After rain segments: ", len(post.segments))
-                    if "F0" in subfilter and "F0Range" in subfilter:
-                        if subfilter["F0"]:
-                            print("Checking for fundamental frequency...")
-                            post.fundamentalFrq()
-                            print("After FF segments:", len(post.segments))
-                    if alg == "Wavelet Filter":
-                        post.joinGaps(maxgap=subfilter["TimeRange"][3])
-                    if subfilter["TimeRange"][0] > 0:
-                        post.deleteShort(minlength=subfilter["TimeRange"][0])
-
-                    newSegments[filtix] = post.segments
-            else:
-                print("Segments detected: ", len(newSegments))
-                print("Post-processing...")
-                post = Segment.PostProcess(
-                    configdir=self.configdir,
-                    audioData=self.audiodata,
-                    sampleRate=self.sampleRate,
-                    segments=newSegments,
-                    subfilter={},
-                )
-                # if settings["windold"]:
-                #     post.wind()
-                #     print('After wind segments: ', len(post.segments))
-                if settings["rain"]:
-                    post.rainClick()
-                    print("After rain segments: ", len(post.segments))
-                post.joinGaps(maxgap=settings["maxgap"])
-                post.deleteShort(minlength=settings["minlen"])
-                newSegments = post.segments
-            print("After post processing: ", newSegments)
-
-            # Generate Segment-type output.
-            if alg == "Wavelet Filter" or alg == "WV Changepoint":
-                for filtix in range(len(speciesData["Filters"])):
-                    speciesSubf = speciesData["Filters"][filtix]
-                    y1 = speciesSubf["FreqRange"][0]
-                    y2 = min(self.sampleRate // 2, speciesSubf["FreqRange"][1])
-                    for seg in newSegments[filtix]:
-                        self.addSegment(
-                            float(seg[0][0]),
-                            float(seg[0][1]),
-                            y1,
-                            y2,
-                            [
-                                {
-                                    "species": filtspecies,
-                                    "certainty": seg[1],
-                                    "filter": filtname,
-                                    "calltype": speciesSubf["calltype"],
-                                }
-                            ],
-                            index=-1,
-                        )
-                        self.segmentsToSave = True
-            elif alg == "Cross-Correlation" and filtname != "Choose species...":
-                # TODO: this has not been updated for a while
-                filtspecies = self.FilterDicts[filtname]["species"]
-                for filtix in range(len(speciesData["Filters"])):
-                    speciesSubf = speciesData["Filters"][filtix]
-                    y1 = speciesSubf["FreqRange"][0]
-                    y2 = min(self.sampleRate // 2, speciesSubf["FreqRange"][1])
-                    for seg in newSegments[filtix]:
-                        self.addSegment(
-                            float(seg[0]),
-                            float(seg[1]),
-                            y1,
-                            y2,
-                            [{"species": filtspecies, "certainty": seg[1]}],
-                            index=-1,
-                        )
-                        self.segmentsToSave = True
-            else:
-                for seg in newSegments:
-                    self.addSegment(seg[0][0], seg[0][1])
-                    self.segmentsToSave = True
-
-            self.segmentDialog.undo.setEnabled(True)
-            self.statusLeft.setText("Ready")
-        print("Segmentation finished at %s" % (time.time() - opstartingtime))
-
-    def segment_undo(self):
-        """Listener for undo button in segmentation dialog.
-        Deletes everything, and re-adds segments from a backup.
-        """
-        # just in case:
-        self.segmentDialog.undo.setEnabled(False)
-        if not hasattr(self, "prevSegments"):
-            print("Nothing to undo!")
-            return
-
-        self.removeSegments()
-        # This recreates the previous segments (from all pages):
-        self.segments = copy.deepcopy(self.prevSegments)
-        # So here we only need to show them:
-        for seg in self.prevSegments:
-            self.addSegment(
-                seg[0],
-                seg[1],
-                seg[2],
-                seg[3],
-                seg[4],
-                saveSeg=False,
-                coordsAbsolute=True,
-            )
-        self.segmentsToSave = True
-
     def exportExcel(self):
         """Launched manually by pressing the button.
         Cleans out old excels and creates a single new one.
@@ -6492,7 +4872,12 @@ class AviaNZ(QMainWindow):
             # Export the actual Excel
             excel = SupportClasses.ExcelIO()
             excsuccess = excel.export(
-                allsegs, self.SoundFileDir, "overwrite", simple=True
+                allsegs,
+                self.SoundFileDir,
+                "overwrite",
+                simple=True,
+                fileperspecies=False,
+                species=self.currentSpecies,
             )
 
         if excsuccess != 1:
@@ -6593,135 +4978,6 @@ class AviaNZ(QMainWindow):
                 + self.SoundFileDir,
             )
             msg.exec_()
-            return
-
-    def findMatches(self, thr=0.4, species="Choose species..."):
-        """Calls the cross-correlation function to find matches like the currently highlighted box.
-        It also check if you have selected a species, then allow to read those templates and match.
-        """
-        # TODO: Remove?
-        # print ("inside find Matches: ", species)
-        segments = []
-        if species != "Choose species..." and os.path.exists("Sound Files/" + species):
-            self.statusLeft.setText("Finding matches...")
-            print("Reading template/s")
-            # Todo: do more than one template and merge result?
-            sp_temp = SignalProc.SignalProc(
-                self.config["window_width"], self.config["incr"]
-            )
-            sp_temp.readWav("Sound Files/" + species + "/train1_1.wav")
-
-            # Parse wav format details based on file header:
-            sampleRate = sp_temp.sampleRate
-            audiodata = sp_temp.data
-
-            # downsample
-            print("fs: ", sampleRate, self.sppInfo[str(species)][4])
-            if sampleRate != self.sppInfo[str(species)][4]:
-                sp_temp.resample(self.sppInfo[str(species)][4])
-            datalength = np.shape(audiodata)[0]
-            len_seg = datalength / sampleRate
-
-            sgRaw_temp = sp_temp.spectrogram(
-                mean_normalise=self.sgMeanNormalise,
-                equal_loudness=self.sgEqualLoudness,
-                onesided=self.sgOneSided,
-            )
-
-            # Get the data for the spectrogram
-            if self.sampleRate != self.sppInfo[str(species)][4]:
-                data1 = librosa.core.audio.resample(
-                    self.audiodata, self.sampleRate, self.sppInfo[str(species)][4]
-                )
-                sampleRate1 = self.sppInfo[str(species)][4]
-            else:
-                data1 = self.audiodata
-                sampleRate1 = self.sampleRate
-            # TODO utilize self.sp / SignalProc more here
-            sp_temp.data = data1
-            sp_temp.sampleRate = sampleRate1
-            sgRaw = self.sp.spectrogram(
-                window=str(self.windowType),
-                sgType=str(self.sgType),
-                sgScale=str(self.sgScale),
-                nfilters=int(str(self.nfilters)),
-                mean_normalise=self.sgMeanNormalise,
-                equal_loudness=self.sgEqualLoudness,
-                onesided=self.sgOneSided,
-            )
-            indices = self.seg.findCCMatches(sgRaw_temp, sgRaw, thr)
-            # scale indices to match with self.samplerate
-            indices = [i * self.sampleRate / sampleRate1 for i in indices]
-            # print('indices:', indices)
-            # identifySegments(seg=indices, minlength=10)
-            # indices are in spectrogram pixels, need to turn into times
-            y1 = self.convertFreqtoY(self.sppInfo[str(species)][2] / 2)
-            if self.sppInfo[str(species)][4] / 2 > self.sampleRate:
-                y2 = self.convertFreqtoY(self.sampleRate / 2 - self.sampleRate * 0.01)
-            else:
-                y2 = self.convertFreqtoY(self.sppInfo[str(species)][4] / 2)
-            for i in indices:
-                if np.abs(i) > self.config["overlap_allowed"]:
-                    time = i * self.config["incr"] / self.sampleRate
-                    # print(time, time + len_seg,self.segments)
-                    # self.addSegment(time, time+len_seg,y1,y2,[species+'?'])
-                    segments.append([time, time + len_seg])
-        elif self.box1id is None or self.box1id < 0:
-            print("No box selected")
-            msg = SupportClasses_GUI.MessagePopup(
-                "w", "No segment", "No segment selected to match"
-            )
-            msg.exec_()
-            return []
-        else:
-            self.statusLeft.setText("Finding matches...")
-            # Only want to draw new segments, so find out how many there are now
-            seglen = len(self.segments)
-            # Get the segment -- note that takes the full y range
-            if type(self.listRectanglesa2[self.box1id]) == self.ROItype:
-                x1 = self.listRectanglesa2[self.box1id].pos().x()
-                x2 = x1 + self.listRectanglesa2[self.box1id].size().x()
-            else:
-                x1, x2 = self.listRectanglesa2[self.box1id].getRegion()
-            # Get the data for the spectrogram
-            # TODO utilize self.sp / SignalProc more here
-            sgRaw = self.sp.spectrogram(
-                window=str(self.windowType),
-                sgType=str(self.sgType),
-                sgScale=str(self.sgScale),
-                nfilters=int(str(self.nfilters)),
-                mean_normalise=self.sgMeanNormalise,
-                equal_loudness=self.sgEqualLoudness,
-                onesided=self.sgOneSided,
-            )
-            segment = sgRaw[int(x1) : int(x2), :]
-            len_seg = (x2 - x1) * self.config["incr"] / self.sampleRate
-            indices = self.seg.findCCMatches(segment, sgRaw, thr)
-            # indices are in spectrogram pixels, need to turn into times
-            for i in indices:
-                # Miss out the one selected: note the hack parameter
-                if np.abs(i - x1) > self.config["overlap_allowed"]:
-                    time = i * self.config["incr"] / self.sampleRate
-                    segments.append([time, time + len_seg])
-                    # self.addSegment(time, time+len_seg,0,0,self.segments[self.box1id][4])
-            self.statusLeft.setText("Ready")
-        return segments
-
-    def classifySegments(self):
-        """Listener for Action->Cluster segments menu item, cluster segments marked in the current file. Only to display
-        the auto generated clusters
-        """
-        if len(self.segments) > 1:
-            cl = Clustering.Clustering([], [], 5)
-            segments, nclasses, duration = cl.cluster(
-                self.filename, self.sampleRate, None, feature="we"
-            )
-            self.clusterD = Dialogs.Cluster(
-                segments, self.sampleRate, nclasses, self.config
-            )
-            self.clusterD.show()
-        else:
-            print("need segments to cluster!")
             return
 
     # ===============
@@ -7041,15 +5297,6 @@ class AviaNZ(QMainWindow):
         self.operatorReviewerDialog.close()
         self.segmentsToSave = True
 
-    def manageFilters(self):
-        filterManagerSimple = Dialogs.FilterManager(self.filtersDir)
-        filterManagerSimple.exec_()
-
-    def customiseFiltersROC(self):
-        self.filterManager = DialogsTraining.FilterCustomiseROC(self.filtersDir)
-        self.filterManager.btnSave.clicked.connect(self.saveRecogniserROC)
-        self.filterManager.exec_()
-
     def classifyBirdNET(self):
         self.BirdNETDialog = BirdNET.BirdNETDialog(self)
         self.BirdNETDialog.exec_()
@@ -7079,8 +5326,6 @@ class AviaNZ(QMainWindow):
         self.segmentsToSave = True
 
     def saveImage(self, imageFile=""):
-        if self.cheatsheet:
-            self.showMaximized()  # for nice spec images
 
         exporter = pge.ImageExporter(self.w_spec.scene())
 
@@ -7439,8 +5684,8 @@ class AviaNZ(QMainWindow):
         self.t = ParameterTree()
         self.t.setParameters(self.p, showTop=False)
         self.t.show()
-        self.t.setWindowTitle("AviaNZ - Interface Settings")
-        self.t.setWindowIcon(QIcon("img/Avianz.ico"))
+        self.t.setWindowTitle("PAMalyzer - Interface Settings")
+        self.t.setWindowIcon(QIcon("img/PAMalyzer.ico"))
         self.t.setFixedHeight(900)
         self.t.setMinimumWidth(520)
 
@@ -7916,11 +6161,6 @@ class AviaNZ(QMainWindow):
             self.shortBirdList, self.config["BirdListShort"], self.configdir
         )
 
-    def restart(self):
-        """Listener for the restart option, which uses exit(1) to restart the program at the splash screen"""
-        print("Restarting")
-        QApplication.exit(1)
-
     def closeEvent(self, event=None):
         """Catch the user closing the window by clicking the Close button or otherwise."""
         print("Quitting")
@@ -7940,7 +6180,7 @@ class AviaNZ(QMainWindow):
             else:
                 # print(source)
                 # print(destination," doesn't exist")
-                copyfile(source, destination)
+                shutil.copyfile(source, destination)
 
     def eventFilter(self, obj, event):
         """Handles two types of events:

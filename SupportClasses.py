@@ -203,71 +203,6 @@ class ConfigLoader(object):
             msg.exec_()
             raise
 
-    def filters(self, dir, bats=True):
-        """Returns a dict of filter JSONs,
-        named after the corresponding file names.
-        bats - include bat filters?
-        """
-        print("Loading call filters from folder %s" % dir)
-        try:
-            filters = [
-                f for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))
-            ]
-        except Exception:
-            print("Folder %s not found, no filters loaded" % dir)
-            return None
-
-        goodfilters = dict()
-        for filtfile in filters:
-            if not filtfile.endswith("txt"):
-                continue
-            # Very primitive way to recognize bat filters
-            if not bats and filtfile.endswith("Bats.txt"):
-                continue
-            try:
-                ff = open(os.path.join(dir, filtfile))
-                filt = json.load(ff)
-                ff.close()
-
-                # skip this filter if it looks fishy:
-                if (
-                    not isinstance(filt, dict)
-                    or "species" not in filt
-                    or "SampleRate" not in filt
-                    or "Filters" not in filt
-                    or len(filt["Filters"]) < 1
-                ):
-                    raise ValueError("Filter JSON format wrong, skipping")
-                # note that method may be empty for backwards compatibility:
-                if "method" in filt and filt["method"] not in ["wv", "chp"]:
-                    raise ValueError(
-                        "Filter JSON format wrong (unrecognised method), skipping"
-                    )
-                for subfilt in filt["Filters"]:
-                    if (
-                        not isinstance(subfilt, dict)
-                        or "calltype" not in subfilt
-                        or "WaveletParams" not in subfilt
-                        or "TimeRange" not in subfilt
-                    ):
-                        raise ValueError("Subfilter JSON format wrong, skipping")
-                    if (
-                        "thr" not in subfilt["WaveletParams"]
-                        or "nodes" not in subfilt["WaveletParams"]
-                        or len(subfilt["TimeRange"]) < 4
-                    ):
-                        raise ValueError(
-                            "Subfilter JSON format wrong (details), skipping"
-                        )
-
-                # if filter passed checks, store it,
-                # using filename (without extension) as the key
-                goodfilters[filtfile[:-4]] = filt
-            except Exception as e:
-                print("Could not load filter:", filtfile, e)
-        print("Loaded filters:", list(goodfilters.keys()))
-        return goodfilters
-
     def calltypes(self, dir):
         print("Loading calltype files from folder %s" % dir)
         try:
@@ -303,97 +238,6 @@ class ConfigLoader(object):
                 print("Could not load Calltype:", callfile, e)
         print("Loaded Calltypes:", list(goodcalltypes.keys()))
         return goodcalltypes
-
-    def CNNmodels(self, filters, dircnn, targetspecies):
-        """Returns a dict of target CNN models
-        Filters - dict of loaded filter files
-        Targetspecies - list of species names to load
-        """
-        print("Loading CNN models from folder %s" % dircnn)
-        targetmodels = dict()
-        for species in targetspecies:
-            filt = filters[species]
-            if "CNN" not in filt:
-                continue
-            elif filt["CNN"]:
-                if species == "NZ Bats":
-                    try:
-                        model = load_model(
-                            os.path.join(dircnn, filt["CNN"]["CNN_name"] + ".h5")
-                        )
-                        targetmodels[species] = [
-                            model,
-                            filt["CNN"]["win"],
-                            filt["CNN"]["inputdim"],
-                            filt["CNN"]["output"],
-                            filt["CNN"]["windowInc"],
-                            filt["CNN"]["thr"],
-                        ]
-                        print(
-                            "Loaded model:",
-                            os.path.join(dircnn, filt["CNN"]["CNN_name"]),
-                        )
-                    except Exception as e:
-                        print(
-                            "Could not load CNN model from file:",
-                            os.path.join(dircnn, filt["CNN"]["CNN_name"]),
-                            e,
-                        )
-                else:
-                    try:
-                        print(os.path.join(dircnn, filt["CNN"]["CNN_name"]) + ".h5")
-                        json_file = open(
-                            os.path.join(dircnn, filt["CNN"]["CNN_name"]) + ".json", "r"
-                        )
-                        loaded_model_json = json_file.read()
-                        print(loaded_model_json)
-                        print("**")
-                        json_file.close()
-                        model = model_from_json(loaded_model_json)
-                        print(model)
-                        print("***")
-                        model.load_weights(
-                            os.path.join(dircnn, filt["CNN"]["CNN_name"]) + ".h5"
-                        )
-                        print("****")
-                        print(
-                            "Loaded model:",
-                            os.path.join(dircnn, filt["CNN"]["CNN_name"]),
-                        )
-                        model.compile(
-                            loss=filt["CNN"]["loss"],
-                            optimizer=filt["CNN"]["optimizer"],
-                            metrics=["accuracy"],
-                        )
-                        if "fRange" in filt["CNN"]:
-                            targetmodels[filt["CNN"]["CNN_name"]] = [
-                                model,
-                                filt["CNN"]["win"],
-                                filt["CNN"]["inputdim"],
-                                filt["CNN"]["output"],
-                                filt["CNN"]["windowInc"],
-                                filt["CNN"]["thr"],
-                                True,
-                                filt["CNN"]["fRange"],
-                            ]
-                        else:
-                            targetmodels[filt["CNN"]["CNN_name"]] = [
-                                model,
-                                filt["CNN"]["win"],
-                                filt["CNN"]["inputdim"],
-                                filt["CNN"]["output"],
-                                filt["CNN"]["windowInc"],
-                                filt["CNN"]["thr"],
-                                False,
-                            ]
-                    except Exception as e:
-                        print(
-                            "Could not load CNN model from file:",
-                            os.path.join(dircnn, filt["CNN"]["CNN_name"]),
-                        )
-                        print(e)
-        print("Loaded CNN models:", list(targetmodels.keys()))
-        return targetmodels
 
     def shortbl(self, file, configdir):
         # A fallback shortlist will be confirmed to exist in configdir.
@@ -538,23 +382,6 @@ class ConfigLoader(object):
             msg.exec_()
             return None
 
-    def learningParams(self, file):
-        print("Loading software settings from file %s" % file)
-        try:
-            configfile = open(file)
-            config = json.load(configfile)
-            configfile.close()
-            return config
-        except ValueError:
-            # if JSON looks corrupt, quit:
-            msg = SupportClasses_GUI.MessagePopup(
-                "w",
-                "Bad config file",
-                "ERROR: file " + file + " corrupt, delete it to restore default",
-            )
-            msg.exec_()
-            raise
-
     # Dumps the provided JSON array to the corresponding bird file.
     def blwrite(self, content, file, configdir):
         print("Updating species list in file %s" % file)
@@ -658,59 +485,56 @@ class ExcelIO:
 
             # Loop over the segments
             for seg in speciesSegs:
-                # Print the filename
-                ws.cell(row=r, column=1, value=segsl.filename)
+                for lab in seg[4]:
+                    # Print the filename
+                    ws.cell(row=r, column=1, value=segsl.filename)
 
-                # Time limits
-                ws.cell(
-                    row=r,
-                    column=2,
-                    value=str(
-                        startTimeFile.addMSecs(seg[0] * 1000).toString(timeStrFormat)
-                    ),
-                )
-                ws.cell(
-                    row=r,
-                    column=3,
-                    value=str(
-                        startTimeFile.addMSecs(seg[1] * 1000).toString(timeStrFormat)
-                    ),
-                )
-                # Freq limits
-                if seg[3] != 0:
-                    ws.cell(row=r, column=4, value=int(seg[2]))
-                    ws.cell(row=r, column=5, value=int(seg[3]))
-                if currsp == "Any sound":
-                    # print species and certainty and call type
-                    text = [lab["species"] for lab in seg[4]]
-                    ws.cell(row=r, column=6, value=", ".join(text))
-                    text = [
-                        QLocale.toString(QLocale(), lab["certainty"]) for lab in seg[4]
-                    ]
-                    ws.cell(row=r, column=7, value=", ".join(text))
-                    strct = []
-                    for lab in seg[4]:
-                        if "calltype" in lab:
-                            strct.append(str(lab["calltype"]))
-                        else:
-                            strct.append("-")
-                    ws.cell(row=r, column=8, value=", ".join(strct))
-                else:
-                    # only print certainty and call type
-                    strcert = []
-                    strct = []
-                    for lab in seg[4]:
-                        if lab["species"] == currsp:
-                            strcert.append(
-                                QLocale.toString(QLocale(), lab["certainty"])
+                    # Time limits
+                    ws.cell(
+                        row=r,
+                        column=2,
+                        value=str(
+                            startTimeFile.addMSecs(seg[0] * 1000).toString(
+                                timeStrFormat
                             )
+                        ),
+                    )
+                    ws.cell(
+                        row=r,
+                        column=3,
+                        value=str(
+                            startTimeFile.addMSecs(seg[1] * 1000).toString(
+                                timeStrFormat
+                            )
+                        ),
+                    )
+                    # Freq limits
+                    if seg[3] != 0:
+                        ws.cell(row=r, column=4, value=int(seg[2]))
+                        ws.cell(row=r, column=5, value=int(seg[3]))
+                    if currsp == "Any sound":
+                        # print species and certainty and call type
+                        text = lab["species"]
+                        ws.cell(row=r, column=6, value=text)
+                        text = QLocale.toString(QLocale(), lab["certainty"])
+                        ws.cell(row=r, column=7, value=text)
+
+                        if "calltype" in lab:
+                            strct = str(lab["calltype"])
+                        else:
+                            strct = "-"
+                        ws.cell(row=r, column=8, value=strct)
+                    else:
+                        # only print certainty and call type
+                        if lab["species"] == currsp:
+                            strcert = QLocale.toString(QLocale(), lab["certainty"])
                             if "calltype" in lab:
-                                strct.append(str(lab["calltype"]))
+                                strct = str(lab["calltype"])
                             else:
-                                strct.append("-")
-                    ws.cell(row=r, column=6, value=", ".join(strcert))
-                    ws.cell(row=r, column=7, value=", ".join(strct))
-                r += 1
+                                strct = "-"
+                        ws.cell(row=r, column=6, value=strcert)
+                        ws.cell(row=r, column=7, value=strct)
+                    r += 1
 
     # This stores pres/abs and max certainty for the species in each file
     # segscert: a 2D list of segs x [start, end, certainty]
@@ -801,13 +625,21 @@ class ExcelIO:
         precisionMS=False,
         resolution=10,
         simple=False,
+        fileperspecies=True,
+        species=None,
     ):
         # will export species present in self, + passed as arg, + "all species" excel
         speciesList = set(speciesList)
-        for segl in segments:
-            for seg in segl:
-                speciesList.update([lab["species"] for lab in seg[4]])
-        speciesList.add("Any sound")
+        if fileperspecies:
+            for segl in segments:
+                for seg in segl:
+                    speciesList.update([lab["species"] for lab in seg[4]])
+            speciesList.add("Any sound")
+        elif species == "Species":
+            speciesList.add("Any sound")
+        else:
+            speciesList.add(species)
+
         print("The following species were detected for export:", speciesList)
 
         # check source .wav file names -

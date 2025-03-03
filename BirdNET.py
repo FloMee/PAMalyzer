@@ -77,7 +77,7 @@ class BirdNETDialog(QDialog):
 
         self.slist_path = ""
         self.setWindowTitle("Classify Recordings with BirdNET")
-        self.setWindowIcon(QIcon("img/Avianz.ico"))
+        self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
 
         self.setWindowFlags(
             (self.windowFlags() ^ Qt.WindowContextHelpButtonHint)
@@ -169,7 +169,7 @@ class BirdNETDialog(QDialog):
             "A “white list” that includes the species of "
             "interest; Must be a subset of the original species-lists of "
             "BirdNET-Lite or BirdNET-Analyzer respectively and in the selected "
-            "language; Find these files in the installation directory of AviaNZ "
+            "language; Find these files in the installation directory of PAMalyzer "
             "under labels."
         )
         self.btn_slist.clicked.connect(self.chooseSpeciesList)
@@ -491,8 +491,8 @@ class BirdNET(QWidget):
         self.param = None
         self.progress = QProgressDialog()
         self.progress.setCancelButton(None)
-        self.progress.setWindowTitle("AviaNZ")
-        self.progress.setWindowIcon(QIcon("img/Avianz.ico"))
+        self.progress.setWindowTitle("PAMalyzer")
+        self.progress.setWindowIcon(QIcon("img/PAMalyzer.ico"))
         self.progress.setAutoClose(True)
         self.progress.setRange(0, len(self.filelist))
         self.threadpool = QThreadPool()
