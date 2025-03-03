@@ -538,6 +538,52 @@ class Tag2Annotation(QDialog):
         self.txtSession.setText(dirName)
 
 
+class ExportFilesDialog(QDialog):
+    def __init__(self, parent=None):
+        QDialog.__init__(self, parent)
+        self.setWindowTitle("Export Files")
+        self.setWindowIcon(QIcon("img/Avianz.ico"))
+        self.setWindowFlags(
+            (self.windowFlags() ^ Qt.WindowContextHelpButtonHint)
+            | Qt.WindowCloseButtonHint
+        )
+        self.setMinimumWidth(700)
+
+        self.txtDst = QLineEdit()
+        self.txtDst.setMinimumWidth(400)
+        self.txtDst.setText("")
+        self.btnBrowseDst = QPushButton("&Browse Destination Directory")
+        self.btnBrowseDst.setFixedWidth(220)
+        self.btnBrowseDst.clicked.connect(self.browseDst)
+
+        self.btnCopyFiles = SupportClasses_GUI.MainPushButton("Export Files")
+
+        Box = QVBoxLayout()
+        Box.addWidget(
+            QLabel(
+                "This allows you to copy the files with the specified minimum confidence segments of the selected species to the specified directory, currently that's {} files".format(
+                    len(parent.exportFilelist)
+                )
+            )
+        )
+        Box.addWidget(QLabel())
+        Box2 = QHBoxLayout()
+        Box2.addWidget(self.btnBrowseDst)
+        Box2.addWidget(self.txtDst)
+        Box.addLayout(Box2)
+        Box.addWidget(QLabel())
+        Box.addWidget(self.btnCopyFiles)
+
+        # Now put everything into the frame
+        self.setLayout(Box)
+
+    def browseDst(self):
+        dirName = QFileDialog.getExistingDirectory(
+            self, "Choose the destination folder"
+        )
+        self.txtDst.setText(dirName)
+
+
 # ======
 class BackupAnnotation(QDialog):
     # Class for XML Tag to AviaNZ annotation

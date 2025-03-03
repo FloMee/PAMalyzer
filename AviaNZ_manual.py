@@ -5353,6 +5353,27 @@ class AviaNZ(QMainWindow):
         print("Exporting raw spectrogram to file %s" % imageFile)
         self.specPlot.save(imageFile)
 
+    def exportFiles(self):
+        fileDirList = self.database.get_files_with_species(
+            self.currentSpecies, self.SoundFileDir, self.certSlider.value()
+        )
+        self.exportFilelist = [os.path.join(dir, file) for file, dir in fileDirList]
+        print(self.exportFilelist)
+        self.exportDialog = Dialogs.ExportFilesDialog(self)
+        self.exportDialog.show()
+        self.exportDialog.activateWindow()
+        self.exportDialog.btnCopyFiles.clicked.connect(self.copyFiles)
+
+    def copyFiles(self):
+        for src in self.exportFilelist:
+            dst = os.path.join(
+                self.exportDialog.txtDst.text(),
+                src[len(os.path.commonpath([self.SoundFileDir, src])) + 1 :],
+            )
+            pathlib.Path(os.path.dirname(dst)).mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+        self.exportDialog.close()
+
     def updateDatabase(self):
 
         self.tempsl = Segment.SegmentList()
