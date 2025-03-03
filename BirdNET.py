@@ -547,7 +547,7 @@ class BirdNET(QWidget):
             self.AviaNZ.SoundFileDir, os.path.basename(self.AviaNZ.filename)
         )
 
-    @Slot(Segment.SegmentList, str)
+    @pyqtSlot(Segment.SegmentList, str)
     def updateDatabase(self, segList, filename):
         segList.getData(self.AviaNZ, filename[:-5])
         segList.saveJSON(filename)
