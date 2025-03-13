@@ -189,10 +189,10 @@ class AviaNZ(QMainWindow):
             self.SoundFileDir = os.path.dirname(firstFile)
             if not os.path.isdir(self.SoundFileDir) or not os.path.isfile(firstFile):
                 self.SoundFileDir = self.config["SoundFileDir"]
-                firstFile = self.SoundFileDir + "/" + "kiwi_1min.wav"
+                firstFile = os.path.join(self.SoundFileDir, "kiwi_1min.wav")
         else:
             self.SoundFileDir = self.config["SoundFileDir"]
-            firstFile = self.SoundFileDir + "/" + "kiwi_1min.wav"
+            firstFile = os.path.join(self.SoundFileDir, "kiwi_1min.wav")
         self.SoundFileDirOld = ""
         self.filename = None
         self.focusRegion = None
@@ -1556,7 +1556,7 @@ class AviaNZ(QMainWindow):
             if lof[i].isDir() or (i == len(lof) - 1 and lof[i].fileName() != current):
                 dir = QDir(self.SoundFileDir)
                 dir.cd(lof[i].fileName())
-                self.SoundFileDir = str(dir.absolutePath())
+                self.SoundFileDir = os.path.abspath(dir.absolutePath())
 
         # only repopulate the list of files if dir has changed
         if self.SoundFileDir != self.SoundFileDirOld:
@@ -5380,7 +5380,7 @@ class AviaNZ(QMainWindow):
         self.tempsl = Segment.SegmentList()
         for root, dirs, files in os.walk(self.SoundFileDir):
             for filename in files:
-                filenamef = os.path.join(root, filename)
+                filenamef = os.path.abspath(os.path.join(root, filename))
                 if filename.lower().endswith(
                     ".wav"
                 ) or filename.lower().endswith(".bmp"):

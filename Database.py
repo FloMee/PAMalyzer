@@ -153,7 +153,7 @@ class DatabaseHandler:
             INNER JOIN segment_species ON segments.rowid = segment_species.segment_id 
             WHERE recording.directory LIKE ? AND segment_species.species_scientific_name = (?) AND
             segment_species.confidence >= ? GROUP BY recording.filename""",
-            (os.path.abspath(dirname) + "%", species, minconf),
+            (dirname + "%", species, minconf),
         )
         return self.cursor.fetchall()
 
@@ -163,7 +163,7 @@ class DatabaseHandler:
             INNER JOIN segments ON recording.filename=segments.filename 
             INNER JOIN segment_species ON segments.rowid = segment_species.segment_id 
             WHERE recording.directory LIKE ? GROUP BY segment_species.species_scientific_name""",
-            (dirname.absoluteFilePath() + "%",),
+            (dirname + "%",),
         )
         return self.cursor.fetchall()
 

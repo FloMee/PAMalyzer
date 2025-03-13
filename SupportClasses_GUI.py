@@ -1470,9 +1470,8 @@ class LightedFileList(QListWidget):
                     # We still might need to walk the subfolders for sp lists and wav formats!
                     if not recursive:
                         continue
-
                     dirspcert = self.parent.database.get_dir_species_max_confidence(
-                        file
+                        os.path.abspath(file)
                     )
                     for sp, cert in dirspcert:
                         if sp in self.spListCert.keys() and self.spListCert[sp] > cert:
