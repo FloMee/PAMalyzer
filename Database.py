@@ -167,6 +167,30 @@ class DatabaseHandler:
         )
         return self.cursor.fetchall()
 
+    def get_dir_species_segments(self, dirname, species, minconf):
+        self.cursor.execute(
+            """SELECT recording.directory, recording.filename, segments.start, segments.end, 
+            segment_species.species_scientific_name, MAX(segment_species.confidence) FROM recording 
+            INNER JOIN segments ON recording.filename=segments.filename 
+            INNER JOIN segment_species ON segments.rowid = segment_species.segment_id 
+            WHERE recording.directory LIKE ? AND segment_species.species_scientific_name = (?) AND
+            segment_species.confidence >= ? GROUP BY segments.start, segments.end, segment_species.species_scientific_name""",
+            (dirname + "%", species, minconf),
+        )
+        return self.cursor.fetchall()
+
+    def get_dir_segments(self, dirname, minconf):
+        self.cursor.execute(
+            """SELECT recording.directory, recording.filename, segments.start, segments.end, 
+            segment_species.species_scientific_name, MAX(segment_species.confidence) FROM recording 
+            INNER JOIN segments ON recording.filename=segments.filename 
+            INNER JOIN segment_species ON segments.rowid = segment_species.segment_id 
+            WHERE recording.directory LIKE ? AND
+            segment_species.confidence >= ? GROUP BY segments.start, segments.end, segment_species.species_scientific_name""",
+            (dirname + "%", minconf),
+        )
+        return self.cursor.fetchall()
+
     def get_file_species_max_confidence(self, dirname):
         self.cursor.execute(
             """SELECT recording.directory, recording.filename, segment_species.species_scientific_name, MAX(segment_species.confidence) FROM recording 

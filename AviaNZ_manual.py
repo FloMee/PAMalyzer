@@ -393,6 +393,7 @@ class AviaNZ(QMainWindow):
             "Update database for current directory", self.updateDatabase
         )
         actionMenu.addAction("Export files", self.exportFiles)
+        actionMenu.addAction("Export segments", self.export_segments)
 
         # "Recognisers" menu
         recMenu = self.menuBar().addMenu("&Recognisers")
@@ -5355,6 +5356,7 @@ class AviaNZ(QMainWindow):
         self.specPlot.save(imageFile)
 
     def exportFiles(self):
+        """Copy files with selected species and segments with confidence > selected confidence to specified folder"""
         fileDirList = self.database.get_files_with_species(
             self.currentSpecies, self.SoundFileDir, self.certSlider.value()
         )
@@ -5365,6 +5367,31 @@ class AviaNZ(QMainWindow):
         self.exportDialog.activateWindow()
         self.exportDialog.btnCopyFiles.clicked.connect(self.copyFiles)
 
+    def export_segments(self):
+        """Listener for "Export segments" from actions menu;
+        exports segments for selected species to specified folder"""
+
+        if self.currentSpecies == "Species":
+            fileDirList = self.database.get_dir_segments(
+                self.SoundFileDir, self.certSlider.value()
+            )
+        else:
+            fileDirList = self.database.get_dir_species_segments(
+                self.SoundFileDir, self.currentSpecies, self.certSlider.value()
+            )
+        self.export_segments_dict = {}
+        for entry in fileDirList:
+            filename = os.path.join(entry[0], entry[1])
+            segment = (entry[2], entry[3], entry[4], entry[5])
+            if filename in self.export_segments_dict.keys():
+                self.export_segments_dict[filename].append(segment)
+            else:
+                self.export_segments_dict[filename] = [segment]
+        self.exportDialog = Dialogs.ExportSegmentsDialog(self, len(fileDirList))
+        self.exportDialog.show()
+        self.exportDialog.activateWindow()
+        self.exportDialog.btnCopySegments.clicked.connect(self.copy_segments)
+
     def copyFiles(self):
         for src in self.exportFilelist:
             dst = os.path.join(
@@ -5373,6 +5400,32 @@ class AviaNZ(QMainWindow):
             )
             pathlib.Path(os.path.dirname(dst)).mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dst)
+        self.exportDialog.close()
+
+    def copy_segments(self):
+        """Reads the audio files from self.export_segments_dict, extracts the segments and saves them as individual audio files"""
+        dst = self.exportDialog.txtDst.text()
+        for src in self.export_segments_dict:
+            # read audio file
+            audio = wavio.read(src)
+            for seg in self.export_segments_dict[src]:
+                # concatenate destination file path
+                file_dst = os.path.join(
+                    dst,
+                    seg[2],
+                    "{}_{:.1f}-{:.1f}.wav".format(
+                        pathlib.Path(os.path.basename(src)).stem, seg[0], seg[1]
+                    ),
+                )
+                if not os.path.exists(file_dst):
+                    if not os.path.exists(os.path.dirname(file_dst)):
+                        os.mkdir(os.path.dirname(file_dst))
+                    wavio.write(
+                        file_dst,
+                        audio.data[int(seg[0] * audio.rate) : int(seg[1] * audio.rate)],
+                        audio.rate,
+                    )
+
         self.exportDialog.close()
 
     def updateDatabase(self):

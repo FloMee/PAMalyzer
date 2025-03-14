@@ -584,6 +584,52 @@ class ExportFilesDialog(QDialog):
         self.txtDst.setText(dirName)
 
 
+class ExportSegmentsDialog(QDialog):
+    def __init__(self, parent=None, n_segments=0):
+        QDialog.__init__(self, parent)
+        self.setWindowTitle("Export Segments")
+        self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
+        self.setWindowFlags(
+            (self.windowFlags() ^ Qt.WindowContextHelpButtonHint)
+            | Qt.WindowCloseButtonHint
+        )
+        self.setMinimumWidth(700)
+
+        self.txtDst = QLineEdit()
+        self.txtDst.setMinimumWidth(400)
+        self.txtDst.setText("")
+        self.btnBrowseDst = QPushButton("&Browse Destination Directory")
+        self.btnBrowseDst.setFixedWidth(220)
+        self.btnBrowseDst.clicked.connect(self.browseDst)
+
+        self.btnCopySegments = SupportClasses_GUI.MainPushButton("Export Segments")
+
+        Box = QVBoxLayout()
+        Box.addWidget(
+            QLabel(
+                "This allows you to copy the segments with the specified minimum confidence of the selected species to the specified directory, currently that's {} segments".format(
+                    n_segments
+                )
+            )
+        )
+        Box.addWidget(QLabel())
+        Box2 = QHBoxLayout()
+        Box2.addWidget(self.btnBrowseDst)
+        Box2.addWidget(self.txtDst)
+        Box.addLayout(Box2)
+        Box.addWidget(QLabel())
+        Box.addWidget(self.btnCopySegments)
+
+        # Now put everything into the frame
+        self.setLayout(Box)
+
+    def browseDst(self):
+        dirName = QFileDialog.getExistingDirectory(
+            self, "Choose the destination folder"
+        )
+        self.txtDst.setText(dirName)
+
+
 # ======
 class BackupAnnotation(QDialog):
     # Class for XML Tag to AviaNZ annotation
