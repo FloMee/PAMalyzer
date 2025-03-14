@@ -76,6 +76,7 @@ class BirdNETDialog(QDialog):
         self.parent = parent
 
         self.slist_path = ""
+        self.classifierPath = ""
         self.setWindowTitle("Classify Recordings with BirdNET")
         self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
 
@@ -252,6 +253,20 @@ class BirdNETDialog(QDialog):
         self.sf_thresh.setDecimals(6)
         self.sf_thresh.setDisabled(True)
 
+        self.customClassifier = QLineEdit()
+        self.customClassifier.setReadOnly(True)
+        self.customClassifier.setClearButtonEnabled(True)
+        self.customClassifier.findChild(QToolButton).setEnabled(True)
+        self.customClassifier.textChanged.connect(self.updateDialog)
+
+        self.btn_customClassifier = QPushButton("Select custom classifier")
+        self.btn_customClassifier.setToolTip(
+            "Select the classifier that is used by BirdNET-Analyzer. "
+            "This can be either one of the classifiers that are shipped with "
+            "BirdNET or a self trained custom classifier based on BirdNET-Analyzer"
+        )
+        self.btn_customClassifier.clicked.connect(self.chooseCustomClassifier)
+
         self.btnAdvanced = QPushButton("Show Advanced Settings")
         self.btnAdvanced.clicked.connect(self.updateSettings)
 
@@ -312,6 +327,9 @@ class BirdNETDialog(QDialog):
         param_advanced.addWidget(self.sf_thresh_label, 14, 0)
         param_advanced.addWidget(self.sf_thresh, 14, 1)
 
+        param_advanced.addWidget(self.customClassifier, 15, 0)
+        param_advanced.addWidget(self.btn_customClassifier, 15, 1)
+
         param_basic.addWidget(self.btnAdvanced, 14, 1)
         analyze_layout.addWidget(self.btnAnalyze)
 
@@ -350,6 +368,13 @@ class BirdNETDialog(QDialog):
         self.slist.setText(os.path.basename(species_list[0]))
         self.slist_path = species_list[0]
         # self.updateDialog()
+
+    def chooseCustomClassifier(self):
+        customClassifier = QFileDialog.getOpenFileName(
+            self, "Choose BirdNET-Analyzer model", filter="Model (*.tflite)"
+        )
+        self.customClassifier.setText(os.path.basename(customClassifier[0]))
+        self.classifierPath = customClassifier[0]
 
     def validateInputParameters(self):
         correct = True
@@ -391,6 +416,7 @@ class BirdNETDialog(QDialog):
                 "locale": self.locale.currentText(),
                 "batchsize": self.batchsize.value(),
                 "sf_thresh": self.sf_thresh.value(),
+                "classifier": self.classifierPath if self.classifierPath else None,
             }
 
             msg = QMessageBox()
@@ -442,6 +468,8 @@ class BirdNETDialog(QDialog):
             self.lon.setDisabled(False)
             self.week.setDisabled(False)
             self.btn_slist.setDisabled(False)
+            self.customClassifier.setVisible(False)
+            self.btn_customClassifier.setVisible(False)
             if self.datetime_format.text() != "":
                 self.week.setDisabled(True)
             elif self.week.value() != 0:
@@ -458,6 +486,8 @@ class BirdNETDialog(QDialog):
             self.batchsize_label.setVisible(True)
             self.sf_thresh.setVisible(True)
             self.sf_thresh_label.setVisible(True)
+            self.customClassifier.setVisible(True)
+            self.btn_customClassifier.setVisible(True)
             if self.lat.value() != -1 or self.lon.value() != -1:
                 self.slist.clear()
                 self.btn_slist.setDisabled(True)
@@ -517,6 +547,10 @@ class BirdNET(QWidget):
         if self.param["lite"]:
             lblpath = os.path.join(
                 "labels", "Lite", "labels_{}.txt".format(self.param["locale"])
+            )
+        elif self.param["classifier"]:
+            lblpath = lblpath = (
+                self.param["classifier"].rpartition(".")[0] + "_Labels.txt"
             )
         else:
             lblpath = os.path.join(
@@ -612,6 +646,7 @@ class BirdNET_Worker(QRunnable):
         self.mea = param["mea"]
         self.datetime_format = param["datetime_format"]
         self.batchsize = param["batchsize"]
+        self.classifier = param["classifier"]
         self.labels = labels
         self.fileProcessed = MyEmitter()
         self.filelistProcessed = MyEmitter()
@@ -632,6 +667,8 @@ class BirdNET_Worker(QRunnable):
                 mdlpath = os.path.join(
                     "models", "Lite", "BirdNET_6K_GLOBAL_MODEL.tflite"
                 )
+            elif self.classifier:
+                mdlpath = self.classifier
             else:
                 mdlpath = os.path.join(
                     "models", "Analyzer", "BirdNET_GLOBAL_6K_V2.4_Model_FP32.tflite"
@@ -1039,10 +1076,12 @@ class BirdNET_Worker(QRunnable):
                     entry[0] in white_list or len(white_list) == 0
                 ):
                     seg.addLabel(
-                        entry[0].split("_")[1],
+                        entry[0].split("_")[1].split(".")[0],
                         float(entry[1]) * 100,
                         filter="BirdNET-Lite" if self.lite else "BirdNET-Analyzer",
-                        calltype="non-specified",
+                        calltype=entry[0].split("_")[1].split(".")[1]
+                        if len(entry[0].split("_")[1].split(".")) > 1
+                        else "non-specified",
                     )
             if len(seg[4]) > 0 and save:
                 seg_list.addSegment(seg)
