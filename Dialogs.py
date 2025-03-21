@@ -25,7 +25,7 @@
 import os
 import shutil
 
-from PyQt5 import QtCore, QtGui
+from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import (
     QLabel,
@@ -1339,22 +1339,22 @@ class HumanClassify1(QDialog):
         self.numberLeft.setAlignment(Qt.AlignCenter)
 
         iconSize = QSize(45, 45)
-        self.buttonPrev = QtGui.QToolButton()
+        self.buttonPrev = QtWidgets.QToolButton()
         self.buttonPrev.setIcon(QtGui.QIcon("img/undo.png"))
         self.buttonPrev.setIconSize(iconSize)
         self.buttonPrev.setStyleSheet("padding: 5px 5px 5px 5px")
 
-        self.buttonNext = QtGui.QToolButton()
+        self.buttonNext = QtWidgets.QToolButton()
         self.buttonNext.setIcon(QtGui.QIcon("img/questionL.png"))
         self.buttonNext.setIconSize(iconSize)
         self.buttonNext.setStyleSheet("padding: 5px 5px 5px 5px")
 
-        self.correct = QtGui.QToolButton()
+        self.correct = QtWidgets.QToolButton()
         self.correct.setIcon(QtGui.QIcon("img/check-mark2.png"))
         self.correct.setIconSize(iconSize)
         self.correct.setStyleSheet("padding: 5px 5px 5px 5px")
 
-        self.delete = QtGui.QToolButton()
+        self.delete = QtWidgets.QToolButton()
         self.delete.setIcon(QtGui.QIcon("img/deleteL.png"))
         self.delete.setIconSize(iconSize)
         self.delete.setStyleSheet("padding: 5px 5px 5px 5px")
@@ -1423,7 +1423,7 @@ class HumanClassify1(QDialog):
             self.ctbtns.append(btn)
 
         # button to switch to call type view
-        self.viewSpButton = QtGui.QToolButton()
+        self.viewSpButton = QtWidgets.QToolButton()
         self.viewSpButton.setIcon(QIcon("img/splarge-ct.png"))
         self.viewSpButton.setIconSize(QSize(42, 25))
         self.viewSpButton.setToolTip("Toggle between species/calltype views")
@@ -1487,12 +1487,12 @@ class HumanClassify1(QDialog):
         hboxNextPrev.addWidget(self.delete)
         hboxNextPrev.addWidget(self.numberLeft)
 
-        self.playButton = QtGui.QToolButton()
-        self.playButton.setIcon(self.style().standardIcon(QtGui.QStyle.SP_MediaPlay))
+        self.playButton = QtWidgets.QToolButton()
+        self.playButton.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay))
         self.playButton.setIconSize(QSize(40, 40))
         self.playButton.clicked.connect(self.playSeg)
 
-        self.scroll = QtGui.QScrollArea()
+        self.scroll = QtWidgets.QScrollArea()
         self.scroll.setWidget(self.wPlot)
         self.scroll.setWidgetResizable(True)
         self.scroll.setMinimumHeight(270)
@@ -1506,8 +1506,8 @@ class HumanClassify1(QDialog):
         self.specControls.volChanged.connect(self.volSliderMoved)
 
         # zoom buttons
-        self.zoomInBtn = QtGui.QToolButton()
-        self.zoomOutBtn = QtGui.QToolButton()
+        self.zoomInBtn = QtWidgets.QToolButton()
+        self.zoomOutBtn = QtWidgets.QToolButton()
         self.zoomInBtn.setIcon(QtGui.QIcon("img/zoom-in.png"))
         self.zoomOutBtn.setIcon(QtGui.QIcon("img/search.png"))
         self.zoomInBtn.setIconSize(QSize(24, 24))
@@ -1552,14 +1552,14 @@ class HumanClassify1(QDialog):
             self.stopPlayback()
         else:
             self.playButton.setIcon(
-                self.style().standardIcon(QtGui.QStyle.SP_MediaStop)
+                self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop)
             )
             self.playButton.setIconSize(QSize(40, 40))
             self.media_obj2.loadArray(self.audiodata)
 
     def stopPlayback(self):
         self.media_obj2.pressedStop()
-        self.playButton.setIcon(self.style().standardIcon(QtGui.QStyle.SP_MediaPlay))
+        self.playButton.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay))
         self.playButton.setIconSize(QSize(40, 40))
 
     def volSliderMoved(self, value):
@@ -2207,7 +2207,7 @@ class HumanClassify2(QDialog):
         vboxTop.addWidget(self.specControls)
 
         # Controls at the bottom
-        # self.buttonPrev = QtGui.QToolButton()
+        # self.buttonPrev = QtWidgets.QToolButton()
         # self.buttonPrev.setArrowType(Qt.LeftArrow)
         # self.buttonPrev.setIconSize(QSize(30,30))
         # self.buttonPrev.clicked.connect(self.prevPage)
@@ -2989,7 +2989,7 @@ class Cluster(QDialog):
         self.flowLayout = pg.LayoutWidget()
         self.flowLayout.setGeometry(QtCore.QRect(0, 0, 380, 247))
 
-        self.scrollArea = QtGui.QScrollArea(self)
+        self.scrollArea = QtWidgets.QScrollArea(self)
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setWidget(self.flowLayout)
 

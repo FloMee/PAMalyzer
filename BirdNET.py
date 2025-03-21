@@ -40,7 +40,7 @@ import time
 import copy
 import traceback
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import Qt, QThreadPool, QRunnable, Signal, pyqtSlot, QObject, QDir
+from PyQt5.QtCore import Qt, QThreadPool, QRunnable, pyqtSignal, pyqtSlot, QObject, QDir
 from PyQt5.QtWidgets import (
     QDialog,
     QSlider,
@@ -620,9 +620,9 @@ class BirdNET(QWidget):
 
 
 class MyEmitter(QObject):
-    send = Signal(Segment.SegmentList, str)
-    done = Signal(list)
-    update = Signal()
+    send = pyqtSignal(Segment.SegmentList, str)
+    done = pyqtSignal(list)
+    update = pyqtSignal()
 
 
 class BirdNET_Worker(QRunnable):

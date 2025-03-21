@@ -24,7 +24,7 @@
 import sys, os, json, platform, re, shutil, fnmatch
 import pathlib
 
-from PyQt5 import QtCore, QtGui
+from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem, QKeySequence, QPixmap
 from PyQt5.QtWidgets import (
     QApplication,
@@ -252,7 +252,7 @@ class AviaNZ(QMainWindow):
         Some of them are initialised according to the data in the configuration file."""
 
         fileMenu = self.menuBar().addMenu("&File")
-        openIcon = self.style().standardIcon(QtGui.QStyle.SP_DialogOpenButton)
+        openIcon = self.style().standardIcon(QtWidgets.QStyle.SP_DialogOpenButton)
         fileMenu.addAction(openIcon, "&Open sound file", self.openFile, "Ctrl+O")
         # fileMenu.addAction("&Change Directory", self.chDir)
         fileMenu.addAction(
@@ -579,14 +579,14 @@ class AviaNZ(QMainWindow):
         # Buttons to move to next/previous five minutes
         self.prev5mins = QToolButton()
         self.prev5mins.setIcon(
-            self.style().standardIcon(QtGui.QStyle.SP_MediaSeekBackward)
+            self.style().standardIcon(QtWidgets.QStyle.SP_MediaSeekBackward)
         )
         self.prev5mins.setMinimumSize(35, 30)
         self.prev5mins.setToolTip("Previous page")
         self.prev5mins.clicked.connect(self.movePrev5mins)
         self.next5mins = QToolButton()
         self.next5mins.setIcon(
-            self.style().standardIcon(QtGui.QStyle.SP_MediaSeekForward)
+            self.style().standardIcon(QtWidgets.QStyle.SP_MediaSeekForward)
         )
         self.next5mins.setMinimumSize(35, 30)
         self.next5mins.setToolTip("Next page")
@@ -760,7 +760,7 @@ class AviaNZ(QMainWindow):
 
         # Button to move to the previous file in the list
         # self.previousFileBtn=QToolButton()
-        # self.previousFileBtn.setIcon(self.style().standardIcon(QtGui.QStyle.SP_MediaSkipBackward))
+        # self.previousFileBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaSkipBackward))
         # self.previousFileBtn.clicked.connect(lambda: self.openPreviousFile(skipHidden=True))
         # self.previousFileBtn.setToolTip("Open previous file [Up]")
         # self.w_files.addWidget(self.previousFileBtn,row=6,col=0)
@@ -775,7 +775,7 @@ class AviaNZ(QMainWindow):
 
         # Button to move to the next file in the list
         # self.nextFileBtn=QToolButton()
-        # self.nextFileBtn.setIcon(self.style().standardIcon(QtGui.QStyle.SP_MediaSkipForward))
+        # self.nextFileBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaSkipForward))
         # self.nextFileBtn.clicked.connect(lambda: self.openNextFile(skipHidden=True))
         # self.nextFileBtn.setToolTip("Open next file [Down]")
         # self.w_files.addWidget(self.nextFileBtn,row=6,col=1)
@@ -789,21 +789,21 @@ class AviaNZ(QMainWindow):
         )
 
         # The buttons inside the controls dock
-        self.playButton = QtGui.QToolButton()
-        self.playButton.setIcon(self.style().standardIcon(QtGui.QStyle.SP_MediaPlay))
+        self.playButton = QtWidgets.QToolButton()
+        self.playButton.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay))
         self.playButton.setIconSize(QtCore.QSize(20, 20))
         self.playButton.setToolTip("Play visible [Space]")
         self.playButton.clicked.connect(self.playVisible)
         self.playKey = QShortcut(QKeySequence("Space"), self)
         self.playKey.activated.connect(self.playVisible)
 
-        self.stopButton = QtGui.QToolButton()
-        self.stopButton.setIcon(self.style().standardIcon(QtGui.QStyle.SP_MediaStop))
+        self.stopButton = QtWidgets.QToolButton()
+        self.stopButton.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop))
         self.stopButton.setIconSize(QtCore.QSize(20, 20))
         self.stopButton.setToolTip("Stop playback")
         self.stopButton.clicked.connect(self.stopPlayback)
 
-        self.playSegButton = QtGui.QToolButton()
+        self.playSegButton = QtWidgets.QToolButton()
         self.playSegButton.setIcon(QIcon("img/playsegment.png"))
         self.playSegButton.setIconSize(QtCore.QSize(20, 20))
         self.playSegButton.setToolTip("Play selected")
@@ -811,14 +811,14 @@ class AviaNZ(QMainWindow):
         self.playSegKey = QShortcut(QKeySequence("Ctrl+Space"), self)
         self.playSegKey.activated.connect(self.playSelectedSegment)
 
-        self.playSlowButton = QtGui.QToolButton()
+        self.playSlowButton = QtWidgets.QToolButton()
         self.playSlowButton.setIcon(QIcon("img/playSlow-w.png"))
         self.playSlowButton.setIconSize(QtCore.QSize(35, 20))
         self.playSlowButton.setToolTip("Play slowly")
         self.playSlowButton.clicked.connect(self.playSlowSegment)
 
-        # self.speedButton = QtGui.QToolButton()
-        # self.speedButton.setPopupMode(QtGui.QToolButton.InstantPopup)
+        # self.speedButton = QtWidgets.QToolButton()
+        # self.speedButton.setPopupMode(QtWidgets.QToolButton.InstantPopup)
         # self.speedButton.setText(u'\u00BD')
         # self.speedButton.setIconSize(QtCore.QSize(20, 20))
         # self.speedButton.setToolTip("Playback speed")
@@ -836,19 +836,19 @@ class AviaNZ(QMainWindow):
         # self.speedButton.setMenu(speedMenu)
         self.playSlowButton.setMenu(speedMenu)
 
-        self.quickDenButton = QtGui.QToolButton()
+        self.quickDenButton = QtWidgets.QToolButton()
         self.quickDenButton.setIcon(QIcon("img/denoisesegment.png"))
         self.quickDenButton.setIconSize(QtCore.QSize(20, 20))
         self.quickDenButton.setToolTip("Denoise segment")
         self.quickDenButton.clicked.connect(self.denoiseSeg)
 
-        self.viewSpButton = QtGui.QToolButton()
+        self.viewSpButton = QtWidgets.QToolButton()
         self.viewSpButton.setIcon(QIcon("img/splarge-ct.png"))
         self.viewSpButton.setIconSize(QtCore.QSize(35, 20))
         self.viewSpButton.setToolTip("Toggle between species/calltype views [Tab]")
         self.viewSpButton.clicked.connect(self.toggleViewSp)
 
-        self.playBandLimitedSegButton = QtGui.QToolButton()
+        self.playBandLimitedSegButton = QtWidgets.QToolButton()
         self.playBandLimitedSegButton.setIcon(QtGui.QIcon("img/playBandLimited.png"))
         self.playBandLimitedSegButton.setIconSize(QtCore.QSize(20, 20))
         self.playBandLimitedSegButton.setToolTip("Play selected-band limited")
@@ -1906,7 +1906,7 @@ class AviaNZ(QMainWindow):
             # Set the length of the scrollbar.
             self.scrollSlider.setRange(
                 0,
-                np.shape(self.sg)[0] - self.convertAmpltoSpec(self.widthWindow.value()),
+                int(np.shape(self.sg)[0] - self.convertAmpltoSpec(self.widthWindow.value())),
             )
             self.scrollSlider.setValue(0)
 
@@ -2357,7 +2357,7 @@ class AviaNZ(QMainWindow):
         )
         self.p_spec.setXRange(minX, maxX, padding=0)
 
-        self.scrollSlider.setValue(minX)
+        self.scrollSlider.setValue(int(minX))
         self.config["windowWidth"] = self.convertSpectoAmpl(maxX - minX)
         # self.saveConfig = True
         self.timeaxis.update()
@@ -2422,11 +2422,11 @@ class AviaNZ(QMainWindow):
         self.specaxis.setTicks(
             [
                 [
-                    (0, round(labels[0] / 1000, 2)),
-                    (SpecRange / 4, round(labels[1] / 1000, 2)),
-                    (SpecRange / 2, round(labels[2] / 1000, 2)),
-                    (3 * SpecRange / 4, round(labels[3] / 1000, 2)),
-                    (SpecRange, round(labels[4] / 1000, 2)),
+                    (0, str(round(labels[0] / 1000, 2))),
+                    (SpecRange / 4, str(round(labels[1] / 1000, 2))),
+                    (SpecRange / 2, str(round(labels[2] / 1000, 2))),
+                    (3 * SpecRange / 4, str(round(labels[3] / 1000, 2))),
+                    (SpecRange, str(round(labels[4] / 1000, 2))),
                 ]
             ]
         )
@@ -3923,7 +3923,7 @@ class AviaNZ(QMainWindow):
             self.overviewImageRegion.setRegion([minX, newmaxX])
 
         self.scrollSlider.setMaximum(
-            np.shape(self.sg)[0] - self.convertAmpltoSpec(self.widthWindow.value())
+            int(np.shape(self.sg)[0] - self.convertAmpltoSpec(self.widthWindow.value()))
         )
 
         # Decide whether or not to show milliseconds
@@ -5011,16 +5011,16 @@ class AviaNZ(QMainWindow):
                 )
             self.bar.setMovable(False)
             self.playButton.setIcon(
-                self.style().standardIcon(QtGui.QStyle.SP_MediaPause)
+                self.style().standardIcon(QtWidgets.QStyle.SP_MediaPause)
             )
             self.playSegButton.setIcon(
-                self.style().standardIcon(QtGui.QStyle.SP_MediaStop)
+                self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop)
             )
             self.playSlowButton.setIcon(
-                self.style().standardIcon(QtGui.QStyle.SP_MediaStop)
+                self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop)
             )
             self.playBandLimitedSegButton.setIcon(
-                self.style().standardIcon(QtGui.QStyle.SP_MediaStop)
+                self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop)
             )
 
             # OS X doesn't repaint them by default smh
@@ -5060,16 +5060,16 @@ class AviaNZ(QMainWindow):
 
                 self.bar.setMovable(False)
                 self.playButton.setIcon(
-                    self.style().standardIcon(QtGui.QStyle.SP_MediaPause)
+                    self.style().standardIcon(QtWidgets.QStyle.SP_MediaPause)
                 )
                 self.playSegButton.setIcon(
-                    self.style().standardIcon(QtGui.QStyle.SP_MediaStop)
+                    self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop)
                 )
                 self.playSlowButton.setIcon(
-                    self.style().standardIcon(QtGui.QStyle.SP_MediaStop)
+                    self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop)
                 )
                 self.playBandLimitedSegButton.setIcon(
-                    self.style().standardIcon(QtGui.QStyle.SP_MediaStop)
+                    self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop)
                 )
 
                 # OS X doesn't repaint them by default smh
@@ -5104,16 +5104,16 @@ class AviaNZ(QMainWindow):
                 self.setPlaySliderLimits(start, stop)
                 self.bar.setMovable(False)
                 self.playButton.setIcon(
-                    self.style().standardIcon(QtGui.QStyle.SP_MediaPause)
+                    self.style().standardIcon(QtWidgets.QStyle.SP_MediaPause)
                 )
                 self.playSegButton.setIcon(
-                    self.style().standardIcon(QtGui.QStyle.SP_MediaStop)
+                    self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop)
                 )
                 self.playSlowButton.setIcon(
-                    self.style().standardIcon(QtGui.QStyle.SP_MediaStop)
+                    self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop)
                 )
                 self.playBandLimitedSegButton.setIcon(
-                    self.style().standardIcon(QtGui.QStyle.SP_MediaStop)
+                    self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop)
                 )
 
                 # OS X doesn't repaint them by default smh
@@ -5152,16 +5152,16 @@ class AviaNZ(QMainWindow):
                 self.setPlaySliderLimits(start, stop)
                 self.bar.setMovable(False)
                 self.playButton.setIcon(
-                    self.style().standardIcon(QtGui.QStyle.SP_MediaPause)
+                    self.style().standardIcon(QtWidgets.QStyle.SP_MediaPause)
                 )
                 self.playSegButton.setIcon(
-                    self.style().standardIcon(QtGui.QStyle.SP_MediaStop)
+                    self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop)
                 )
                 self.playSlowButton.setIcon(
-                    self.style().standardIcon(QtGui.QStyle.SP_MediaStop)
+                    self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop)
                 )
                 self.playBandLimitedSegButton.setIcon(
-                    self.style().standardIcon(QtGui.QStyle.SP_MediaStop)
+                    self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop)
                 )
 
                 # OS X doesn't repaint them by default smh
@@ -5189,7 +5189,7 @@ class AviaNZ(QMainWindow):
         self.bar.setMovable(True)
 
         # Reset all button icons:
-        self.playButton.setIcon(self.style().standardIcon(QtGui.QStyle.SP_MediaPlay))
+        self.playButton.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay))
         self.playSegButton.setIcon(QIcon("img/playsegment.png"))
         self.playSlowButton.setIcon(QIcon("img/playSlow-w.png"))
         self.playBandLimitedSegButton.setIcon(QIcon("img/playBandLimited.png"))
@@ -5211,7 +5211,7 @@ class AviaNZ(QMainWindow):
         self.bar.setValue(-1000)
 
         # Reset all button icons:
-        self.playButton.setIcon(self.style().standardIcon(QtGui.QStyle.SP_MediaPlay))
+        self.playButton.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay))
         self.playSegButton.setIcon(QIcon("img/playsegment.png"))
         self.playSlowButton.setIcon(QIcon("img/playSlow-w.png"))
         self.playBandLimitedSegButton.setIcon(QIcon("img/playBandLimited.png"))
