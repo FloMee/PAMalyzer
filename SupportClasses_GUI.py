@@ -1422,7 +1422,7 @@ class LightedFileList(QListWidget):
                 filters=QDir.AllDirs | QDir.NoDot | QDir.Files,
                 sort=QDir.DirsFirst,
             )
-            self.soundDir = soundDir
+            self.soundDir = os.path.abspath(soundDir)
             file_sp_conf = self.parent.database.get_file_species_max_confidence(
                 self.soundDir
             )
