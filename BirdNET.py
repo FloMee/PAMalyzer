@@ -583,7 +583,7 @@ class BirdNET(QWidget):
 
     @pyqtSlot(Segment.SegmentList, str)
     def updateDatabase(self, segList, filename):
-        segList.getData(self.AviaNZ, filename[:-5])
+        segList.getData(self.AviaNZ, filename)
         segList.saveJSON(filename)
 
     def main(self):
@@ -1043,26 +1043,19 @@ class BirdNET_Worker(QRunnable):
 
         return detections
 
-    def writeAvianzOutput(self, detections, file, white_list, append=True):
+    def writeAvianzOutput(self, detections, file, white_list):
         """Write detections to Segments, write Segments to SegmentList, save
         SegmentList.
         """
         seg_list = Segment.SegmentList()
-        rfilepath = file + ".data"
 
-        if append and os.path.exists(rfilepath):
-            # TODO: get Duration from file
+        # TODO: get Duration from file
 
-            seg_list.parseJSON(rfilepath)
-
-        else:
-            # TODO: get Duration from file
-
-            seg_list.metadata = {
-                "Operator": self.parent.AviaNZ.operator,
-                "Reviewer": self.parent.AviaNZ.reviewer,
-                "Duration": 60,
-            }
+        seg_list.metadata = {
+            "Operator": self.parent.AviaNZ.operator,
+            "Reviewer": self.parent.AviaNZ.reviewer,
+            "Duration": 60,
+        }
 
         for d in detections:
             save = True
@@ -1086,7 +1079,7 @@ class BirdNET_Worker(QRunnable):
             if len(seg[4]) > 0 and save:
                 seg_list.addSegment(seg)
 
-        self.sendSegList.send.emit(seg_list, rfilepath)
+        self.sendSegList.send.emit(seg_list, file)
 
     def movingExpAverage(self, timetable, n=3):
         """Calculate moving exponential average over 3 Segments per Default."""

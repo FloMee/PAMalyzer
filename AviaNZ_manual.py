@@ -6193,7 +6193,7 @@ class AviaNZ(QMainWindow):
             self.segments.metadata["Operator"] = self.operator
             self.segments.metadata["Reviewer"] = self.reviewer
 
-            self.segments.saveJSON(str(self.filename) + ".data")
+            self.segments.saveJSON(str(self.filename))
 
             # refresh this file's icon in file list dock
             self.refreshFileColor()

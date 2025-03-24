@@ -472,7 +472,7 @@ class SegmentList(list):
         annots = [self.metadata]
         for seg in self:
             annots.append(seg)
-        self.parent.database.insert_segments(self, self.metadata["Operator"], file[:-5])
+        self.parent.database.insert_segments(self, self.metadata["Operator"], file)
         return 1
 
     def orderTime(self):
