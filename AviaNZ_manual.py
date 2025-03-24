@@ -1234,6 +1234,7 @@ class AviaNZ(QMainWindow):
                 spMenu = self.menuBirdList.addMenu(lab["species"])
 
                 # get call types from call type files
+                possibleCTs = set()
                 for ctfile in self.CalltypeDicts.values():
                     if ctfile["species"] == lab["species"]:
                         possibleCTs.update(ctfile["calltypes"])
