@@ -21,7 +21,12 @@
 
 # ? click, shutil
 
-import sys, os, json, platform, re, shutil, fnmatch
+import os
+import json
+import platform
+import re
+import shutil
+import fnmatch
 import pathlib
 
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -38,7 +43,6 @@ from PyQt5.QtWidgets import (
     QScrollBar,
     QDoubleSpinBox,
     QPushButton,
-    QListWidgetItem,
     QMenu,
     QFrame,
     QMessageBox,
@@ -70,7 +74,15 @@ import pyqtgraph.functions as fn
 import pyqtgraph.exporters as pge
 from pyqtgraph.parametertree import Parameter, ParameterTree
 
-import SupportClasses, SupportClasses_GUI
+import webbrowser
+import copy
+import math
+import time
+import openpyxl
+import xml.etree.ElementTree as ET
+
+import SupportClasses
+import SupportClasses_GUI
 import Dialogs
 import SignalProc
 import Segment
@@ -78,11 +90,6 @@ import WaveletFunctions
 import colourMaps
 import BirdNET
 import Database
-
-import webbrowser, copy, math
-import time
-import openpyxl
-import xml.etree.ElementTree as ET
 
 pg.setConfigOption("background", "w")
 pg.setConfigOption("foreground", "k")
@@ -1246,6 +1253,7 @@ class AviaNZ(QMainWindow):
                 spMenu = self.menuBirdList.addMenu(lab["species"])
 
                 # get call types from call type files
+                possibleCTs = set()
                 for ctfile in self.CalltypeDicts.values():
                     if ctfile["species"] == lab["species"]:
                         possibleCTs.update(ctfile["calltypes"])
@@ -3058,14 +3066,14 @@ class AviaNZ(QMainWindow):
                     # Context menu
                     self.fillBirdList(unsure=True)
                     self.menuBirdList.popup(
-                        QPoint(evt.screenPos().x(), evt.screenPos().y())
+                        QPoint(int(evt.screenPos().x()), int(evt.screenPos().y()))
                     )
                 else:
                     self.addSegment(self.start_ampl_loc, max(mousePoint.x(), 0.0))
                     # Context menu
                     self.fillBirdList()
                     self.menuBirdList.popup(
-                        QPoint(evt.screenPos().x(), evt.screenPos().y())
+                        QPoint(int(evt.screenPos().x()), int(evt.screenPos().y()))
                     )
                 self.p_ampl.setFocus()
 
@@ -3158,7 +3166,7 @@ class AviaNZ(QMainWindow):
                             else:
                                 self.fillBirdList()
                             self.menuBirdList.popup(
-                                QPoint(evt.screenPos().x(), evt.screenPos().y())
+                                QPoint(int(evt.screenPos().x()), int(evt.screenPos().y()))
                             )
 
     def mouseClicked_spec(self, evt):
@@ -3253,14 +3261,14 @@ class AviaNZ(QMainWindow):
                     # Context menu
                     self.fillBirdList(unsure=True)
                     self.menuBirdList.popup(
-                        QPoint(evt.screenPos().x(), evt.screenPos().y())
+                        QPoint(int(evt.screenPos().x()), int(evt.screenPos().y()))
                     )
                 else:
                     self.addSegment(x1, x2, y1, y2)
                     # Context menu
                     self.fillBirdList()
                     self.menuBirdList.popup(
-                        QPoint(evt.screenPos().x(), evt.screenPos().y())
+                        QPoint(int(evt.screenPos().x()), int(evt.screenPos().y()))
                     )
                 self.p_spec.setFocus()
 
@@ -3368,7 +3376,7 @@ class AviaNZ(QMainWindow):
                             else:
                                 self.fillBirdList()
                             self.menuBirdList.popup(
-                                QPoint(evt.screenPos().x(), evt.screenPos().y())
+                                QPoint(int(evt.screenPos().x()), int(evt.screenPos().y()))
                             )
 
     def GrowBox_ampl(self, pos):
