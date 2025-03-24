@@ -21,7 +21,12 @@
 
 # ? click, shutil
 
-import sys, os, json, platform, re, shutil, fnmatch
+import os
+import json
+import platform
+import re
+import shutil
+import fnmatch
 import pathlib
 
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -38,7 +43,6 @@ from PyQt5.QtWidgets import (
     QScrollBar,
     QDoubleSpinBox,
     QPushButton,
-    QListWidgetItem,
     QMenu,
     QFrame,
     QMessageBox,
@@ -70,18 +74,21 @@ import pyqtgraph.functions as fn
 import pyqtgraph.exporters as pge
 from pyqtgraph.parametertree import Parameter, ParameterTree
 
-import SupportClasses, SupportClasses_GUI
+import webbrowser
+import copy
+import math
+import time
+import openpyxl
+import xml.etree.ElementTree as ET
+
+import SupportClasses
+import SupportClasses_GUI
 import Dialogs
 import SignalProc
 import Segment
 import WaveletFunctions
 import colourMaps
 import BirdNET
-
-import webbrowser, copy, math
-import time
-import openpyxl
-import xml.etree.ElementTree as ET
 
 pg.setConfigOption("background", "w")
 pg.setConfigOption("foreground", "k")
