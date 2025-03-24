@@ -1492,7 +1492,7 @@ class LightedFileList(QListWidget):
                         else []
                     )
                     self.set_item_data(
-                        item, fullname + ".data", mincertS, filespconf=fspc
+                        item, filespconf=fspc
                     )
                     # format collection only implemented for WAVs currently
                     if readFmt:
@@ -1540,7 +1540,7 @@ class LightedFileList(QListWidget):
             return
 
         curritem = index[0]
-        # Repainting identical to paintItem
+        # Repainting
         if mincert == -1:
             # .data exists, but no annotations
             self.pixmap.fill(QColor(255, 255, 255, 0))
@@ -1566,69 +1566,12 @@ class LightedFileList(QListWidget):
             curritem.setIcon(QIcon(self.pixmap))
             # self.minCertainty cannot be changed by a cert=100 segment
 
-    def set_item_data(self, item, mincertS=0, species="Species", filespconf=[]):
+    def set_item_data(self, item, filespconf=[]):
         """Sets the date as item data and draw the traffic light for a single item"""
         item.setData(QtCore.Qt.UserRole, filespconf)
 
         # collect some extra info about this file as we've read it anyway
         for sp, cert in filespconf:
-            if sp in self.spListCert.keys() and self.spListCert[sp] > cert:
-                continue
-            else:
-                self.spListCert[sp] = cert
-
-    def paintItem(self, item, datafile, mincertS=0, species="Species"):
-        """Read the JSON and draw the traffic light for a single item"""
-        filesp = []
-        filespcert = []
-        isfile = False
-        mincert = -1
-        maxcert = 0
-        if os.path.isfile(datafile):
-            isfile = True
-            # Try loading the segments to get min certainty
-            try:
-                self.tempsl.parseJSON(datafile, silent=True)
-                if len(self.tempsl) == 0:
-                    # .data exists, but empty - "file was looked at"
-                    mincert = -1
-                else:
-                    cert = [
-                        lab["certainty"]
-                        for seg in self.tempsl
-                        for lab in seg[4]
-                        if lab["species"] == species or species == "Species"
-                    ]
-                    if cert and max(cert) >= mincertS:
-                        mincert = min(cert)
-                        maxcert = max(cert)
-                    else:
-                        mincert = -1
-                        maxcert = 0
-                    # also collect any species present
-                    filesp = [lab["species"] for seg in self.tempsl for lab in seg[4]]
-                    filespcert = [
-                        (lab["species"], lab["certainty"])
-                        for seg in self.tempsl
-                        for lab in seg[4]
-                    ]
-                self.parent.database.insert_segments(
-                    self.tempsl, self.parent.operator, datafile[:-5]
-                )
-                # write filespcert to item data to later restrict filelist
-                item.setData(QtCore.Qt.UserRole, filespcert)
-
-            except Exception as e:
-                # .data exists, but unreadable
-                print("Could not determine certainty for file", datafile)
-                print(e)
-                mincert = -1
-
-        self.paintIcon(item, isfile, mincert, maxcert)
-
-        # collect some extra info about this file as we've read it anyway
-        self.spList.update(filesp)
-        for sp, cert in filespcert:
             if sp in self.spListCert.keys() and self.spListCert[sp] > cert:
                 continue
             else:
@@ -1695,9 +1638,6 @@ class LightedFileList(QListWidget):
         for item in self.iterAllItems():
             # if not item.text().endswith("/"):
             if not item.text() == "../":
-                # filename = os.path.join(self.soundDir, item.text()+".data")
-                # self.paintItem(item, filename, mincert, species)
-                # print(item.data(QtCore.Qt.UserRole))
                 data = item.data(QtCore.Qt.UserRole)
                 datafile = True
                 maxcert = 0
