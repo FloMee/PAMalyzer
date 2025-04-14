@@ -1362,8 +1362,8 @@ class AviaNZ(QMainWindow):
             1,
             sorted(
                 [
-                    "{} {:.0f}".format(key, value)
-                    for key, value in self.listFiles.spListCert.items()
+                    "{} {:.0f}".format(key, value) 
+                    for key, value in self.listFiles.spListCert.items() if value > self.certSlider.value()
                 ]
             ),
         )
@@ -1584,6 +1584,7 @@ class AviaNZ(QMainWindow):
             self.listFiles.restrict(self.currentSpecies, self.certSlider.value())
             self.listFiles.sortItems()
             self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
+        self.updateListSpecies()
 
     def loadFile(self, name=None, cs=False):
         """This does the work of loading a file.
