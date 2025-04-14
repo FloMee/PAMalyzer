@@ -24,6 +24,9 @@ class DatabaseHandler:
         # table operator: name
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS operator(name CHAR)""")
 
+        # table operator: name
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS filters(name CHAR)""")
+
         # table species: scientific_name, common_name
         self.cursor.execute(
             """CREATE TABLE IF NOT EXISTS species(scientific_name CHAR,
@@ -48,8 +51,11 @@ class DatabaseHandler:
             """CREATE TABLE IF NOT EXISTS segment_species(species_scientific_name,
             confidence REAL,
             segment_id,
+            filter_id,
             FOREIGN KEY(species_scientific_name) REFERENCES species(scientific_name),
-            FOREIGN KEY(segment_id) REFERENCES segments(rowid))"""
+            FOREIGN KEY(segment_id) REFERENCES segments(rowid),
+            FOREIGN KEY(filter_id) REFERENCES filters(rowid))
+            """
         )
         
         self.cursor.execute(
@@ -100,6 +106,19 @@ class DatabaseHandler:
             self.con.commit()
             op_id = self.cursor.lastrowid
         return op_id
+    
+    def add_filter(self, filter):
+        self.cursor.execute(
+            """SELECT rowid FROM filters WHERE name = (?)""", (filter,)
+        )
+        existing_row_id = self.cursor.fetchone()
+        if existing_row_id:
+            filter_id = existing_row_id[0]
+        else:
+            self.cursor.execute("""INSERT INTO filters VALUES (?)""", (filter,))
+            self.con.commit()
+            filter_id = self.cursor.lastrowid
+        return filter_id
 
     def add_file(self, filename, dirname):
         file_dict = {"filename": filename, "directory": dirname}
@@ -134,11 +153,13 @@ class DatabaseHandler:
         return self.cursor.fetchone()[0]
 
     def add_species(self, species_list, seg_id):
+        filter_id = self.add_filter(species_list["filter"])
         sp_dict = {
             "scientific_name": species_list["species"],
             "common_name": species_list["species"],
             "confidence": species_list["certainty"],
             "segment_id": seg_id,
+            "filter_id": filter_id,
         }
         self.cursor.execute(
             """INSERT INTO species
@@ -150,11 +171,12 @@ class DatabaseHandler:
         )
         self.cursor.execute(
             """INSERT INTO segment_species
-                SELECT :scientific_name, :confidence, :segment_id
+                SELECT :scientific_name, :confidence, :segment_id, :filter_id
                 WHERE NOT EXISTS(SELECT 1 FROM segment_species 
                 WHERE species_scientific_name = (:scientific_name) 
                 AND confidence = (:confidence) 
-                AND segment_id = (:segment_id))""",
+                AND segment_id = (:segment_id)
+                AND filter_id = (:filter_id))""",
             sp_dict,
         )
 
@@ -179,7 +201,7 @@ class DatabaseHandler:
         )
         return self.cursor.fetchall()
 
-    def get_dir_species_segments(self, dirname, species, minconf):
+    def get_grouped_dir_species_segments(self, dirname, species, minconf):
         self.cursor.execute(
             """SELECT recording.directory, recording.filename, segments.start, segments.end, 
             segment_species.species_scientific_name, MAX(segment_species.confidence) FROM recording 
@@ -215,9 +237,12 @@ class DatabaseHandler:
 
     def get_file_segments(self, filename):
         self.cursor.execute(
-            """SELECT segments.start, segments.end, segments.low, segments.high, segment_species.species_scientific_name, segment_species.confidence FROM recording 
+            """SELECT segments.start, segments.end, segments.low, segments.high,
+            segment_species.species_scientific_name, segment_species.confidence,
+            filters.name FROM recording 
             INNER JOIN segments ON recording.filename=segments.filename 
-            INNER JOIN segment_species ON segments.rowid = segment_species.segment_id 
+            INNER JOIN segment_species ON segments.rowid = segment_species.segment_id
+            INNER JOIN filters ON segment_species.filter_id = filters.rowid
             WHERE recording.filename = ? """,
             (filename,),
         )

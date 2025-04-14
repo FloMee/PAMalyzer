@@ -5385,7 +5385,7 @@ class AviaNZ(QMainWindow):
                 self.SoundFileDir, self.certSlider.value()
             )
         else:
-            fileDirList = self.database.get_dir_species_segments(
+            fileDirList = self.database.get_grouped_dir_species_segments(
                 self.SoundFileDir, self.currentSpecies, self.certSlider.value()
             )
         self.export_segments_dict = {}

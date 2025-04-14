@@ -85,11 +85,11 @@ class Segment(list):
             if "certainty" not in lab or not isinstance(lab["certainty"], (int, float)):
                 print("ERROR: certainty bad or missing from label")
                 return
-            if "filter" in lab and lab["filter"] != "M" and "calltype" not in lab:
-                print(
-                    "ERROR: calltype required when automated filter provided in label"
-                )
-                return
+            # if "filter" in lab and lab["filter"] != "M" and "calltype" not in lab:
+            #     print(
+            #         "ERROR: calltype required when automated filter provided in label"
+            #     )
+            #     return
 
         # fix types to avoid numpy types etc
         self[0] = float(self[0])
@@ -389,12 +389,11 @@ class SegmentList(list):
         self.metadata = dict()
         self.metadata = {"Operator": "FloMee", "Reviewer": "FloMee"}
         self.metadata["Duration"] = wavio.readFmt(filename)[1]
-
         grouped = []
         sorted_annots = sorted(annots, key=lambda x: x[:4])
         for key, group in groupby(sorted_annots, key=lambda x: x[:4]):
             d = [
-                {"filter": "M", "species": annot[4], "certainty": annot[5]}
+                {"filter": annot[6], "species": annot[4], "certainty": annot[5]}
                 for annot in group
             ]
             grouped.append([*key, d])
