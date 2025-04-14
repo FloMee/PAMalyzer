@@ -494,7 +494,7 @@ class ExcelIO:
                         row=r,
                         column=2,
                         value=str(
-                            startTimeFile.addMSecs(seg[0] * 1000).toString(
+                            startTimeFile.addMSecs(int(seg[0] * 1000)).toString(
                                 timeStrFormat
                             )
                         ),
@@ -503,7 +503,7 @@ class ExcelIO:
                         row=r,
                         column=3,
                         value=str(
-                            startTimeFile.addMSecs(seg[1] * 1000).toString(
+                            startTimeFile.addMSecs(int(seg[1] * 1000)).toString(
                                 timeStrFormat
                             )
                         ),
