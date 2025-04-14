@@ -33,6 +33,13 @@ class DatabaseHandler:
             common_name CHAR)"""
         )
 
+        # table calltypes: scientific_name, calltype
+        self.cursor.execute(
+            """CREATE TABLE IF NOT EXISTS calltypes(scientific_name CHAR,
+            calltype CHAR,
+            FOREIGN KEY(scientific_name) REFERENCES species(scientific_name))"""
+        )
+
         # table segments: filename, start, end, low, high, operator_id
         self.cursor.execute(
             """CREATE TABLE IF NOT EXISTS segments(filename CHAR,
@@ -52,9 +59,11 @@ class DatabaseHandler:
             confidence REAL,
             segment_id,
             filter_id,
+            calltype_id,
             FOREIGN KEY(species_scientific_name) REFERENCES species(scientific_name),
             FOREIGN KEY(segment_id) REFERENCES segments(rowid),
-            FOREIGN KEY(filter_id) REFERENCES filters(rowid))
+            FOREIGN KEY(filter_id) REFERENCES filters(rowid),
+            FOREIGN KEY(calltype_id) REFERENCES calltypes(rowid))
             """
         )
         
@@ -71,7 +80,7 @@ class DatabaseHandler:
         # get current list of segments stored in the database
         seglist_db = self.get_file_segments(filename)
         # create list of segments from current segmentList
-        seglist = [(seg[0], seg[1], seg[2], seg[3], sp['species'], sp['certainty']) for seg in segmentList for sp in seg[4]]
+        seglist = [(seg[0], seg[1], seg[2], seg[3], sp['species'], sp['certainty'], sp['filter'], sp['calltype']) for seg in segmentList for sp in seg[4]]
 
         # delete from db if not in segmentList
         for seg_sp in seglist_db:
@@ -120,6 +129,21 @@ class DatabaseHandler:
             filter_id = self.cursor.lastrowid
         return filter_id
 
+    def add_calltype(self, data):
+        
+        self.cursor.execute(
+            """SELECT rowid FROM calltypes WHERE calltype = (:calltype) AND scientific_name = (:scientific_name)""", data,
+        )
+
+        existing_row_id = self.cursor.fetchone()
+        if existing_row_id:
+            calltype_id = existing_row_id[0]
+        else:
+            self.cursor.execute("""INSERT INTO calltypes VALUES (:scientific_name, :calltype)""", data,)
+            self.con.commit()
+            calltype_id = self.cursor.lastrowid
+        return calltype_id
+
     def add_file(self, filename, dirname):
         file_dict = {"filename": filename, "directory": dirname}
         self.cursor.execute(
@@ -160,6 +184,7 @@ class DatabaseHandler:
             "confidence": species_list["certainty"],
             "segment_id": seg_id,
             "filter_id": filter_id,
+            "calltype": species_list["calltype"],
         }
         self.cursor.execute(
             """INSERT INTO species
@@ -169,14 +194,18 @@ class DatabaseHandler:
                 AND common_name = (:common_name))""",
             sp_dict,
         )
+
+        sp_dict["calltype_id"] = self.add_calltype(sp_dict)
+
         self.cursor.execute(
             """INSERT INTO segment_species
-                SELECT :scientific_name, :confidence, :segment_id, :filter_id
+                SELECT :scientific_name, :confidence, :segment_id, :filter_id, :calltype_id
                 WHERE NOT EXISTS(SELECT 1 FROM segment_species 
                 WHERE species_scientific_name = (:scientific_name) 
                 AND confidence = (:confidence) 
                 AND segment_id = (:segment_id)
-                AND filter_id = (:filter_id))""",
+                AND filter_id = (:filter_id)
+                AND calltype_id = (:calltype_id))""",
             sp_dict,
         )
 
@@ -239,10 +268,11 @@ class DatabaseHandler:
         self.cursor.execute(
             """SELECT segments.start, segments.end, segments.low, segments.high,
             segment_species.species_scientific_name, segment_species.confidence,
-            filters.name FROM recording 
+            filters.name, calltypes.calltype FROM recording 
             INNER JOIN segments ON recording.filename=segments.filename 
             INNER JOIN segment_species ON segments.rowid = segment_species.segment_id
             INNER JOIN filters ON segment_species.filter_id = filters.rowid
+            INNER JOIN calltypes ON segment_species.calltype_id = calltypes.rowid   
             WHERE recording.filename = ? """,
             (filename,),
         )

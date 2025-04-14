@@ -393,7 +393,7 @@ class SegmentList(list):
         sorted_annots = sorted(annots, key=lambda x: x[:4])
         for key, group in groupby(sorted_annots, key=lambda x: x[:4]):
             d = [
-                {"filter": annot[6], "species": annot[4], "certainty": annot[5]}
+                {"filter": annot[6], "species": annot[4], "certainty": annot[5], "calltype": annot[7]}
                 for annot in group
             ]
             grouped.append([*key, d])
