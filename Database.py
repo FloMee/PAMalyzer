@@ -13,22 +13,24 @@ class DatabaseHandler:
         self.cursor = self.con.cursor()
 
     def create_tables(self):
+        """Creates the necessary tables for the database"""
+
+        # table recording: filename, directory
         self.cursor.execute(
             """CREATE TABLE IF NOT EXISTS recording(filename CHAR PRIMARY KEY,
             directory CHAR)"""
         )
+
+        # table operator: name
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS operator(name CHAR)""")
+
+        # table species: scientific_name, common_name
         self.cursor.execute(
             """CREATE TABLE IF NOT EXISTS species(scientific_name CHAR,
             common_name CHAR)"""
         )
-        self.cursor.execute(
-            """CREATE TABLE IF NOT EXISTS segment_species(species_scientific_name,
-            confidence REAL,
-            segment_id,
-            FOREIGN KEY(species_scientific_name) REFERENCES species(scientific_name),
-            FOREIGN KEY(segment_id) REFERENCES segments(rowid))"""
-        )
+
+        # table segments: filename, start, end, low, high, operator_id
         self.cursor.execute(
             """CREATE TABLE IF NOT EXISTS segments(filename CHAR,
             start REAL,
@@ -40,6 +42,16 @@ class DatabaseHandler:
             FOREIGN KEY(operator_id) REFERENCES operator(rowid))
             """
         )
+        
+        # table segment_species: connects segments and species
+        self.cursor.execute(
+            """CREATE TABLE IF NOT EXISTS segment_species(species_scientific_name,
+            confidence REAL,
+            segment_id,
+            FOREIGN KEY(species_scientific_name) REFERENCES species(scientific_name),
+            FOREIGN KEY(segment_id) REFERENCES segments(rowid))"""
+        )
+        
         self.cursor.execute(
             """CREATE UNIQUE INDEX IF NOT EXISTS idx_segments_unique ON segments (filename, start, end, low, high)"""
         )
