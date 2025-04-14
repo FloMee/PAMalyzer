@@ -542,7 +542,7 @@ class ExportFilesDialog(QDialog):
     def __init__(self, parent=None):
         QDialog.__init__(self, parent)
         self.setWindowTitle("Export Files")
-        self.setWindowIcon(QIcon("img/Avianz.ico"))
+        self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
         self.setWindowFlags(
             (self.windowFlags() ^ Qt.WindowContextHelpButtonHint)
             | Qt.WindowCloseButtonHint
