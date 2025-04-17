@@ -242,7 +242,23 @@ class DatabaseHandler:
         )
         return self.cursor.fetchall()
 
-    def get_dir_segments(self, dirname, minconf):
+    def get_dir_species_segments(self, dirname, species, minconf):
+        self.cursor.execute(
+            """SELECT recording.directory, recording.filename, segments.start, segments.end,
+            segments.low, segments.high, 
+            segment_species.species_scientific_name, segment_species.confidence, 
+            calltypes.calltype, filters.name FROM recording 
+            INNER JOIN segments ON recording.filename = segments.filename 
+            INNER JOIN segment_species ON segments.rowid = segment_species.segment_id 
+            INNER JOIN calltypes ON segment_species.calltype_id = calltypes.rowid
+            INNER JOIN filters ON segment_species.filter_id = filters.rowid
+            WHERE recording.directory LIKE ? AND segment_species.species_scientific_name = (?) AND
+            segment_species.confidence >= ?""",
+            (dirname + "%", species, minconf),
+        )
+        return self.cursor.fetchall()
+
+    def get_grouped_dir_segments(self, dirname, minconf):
         self.cursor.execute(
             """SELECT recording.directory, recording.filename, segments.start, segments.end, 
             segment_species.species_scientific_name, MAX(segment_species.confidence) FROM recording 
@@ -250,6 +266,22 @@ class DatabaseHandler:
             INNER JOIN segment_species ON segments.rowid = segment_species.segment_id 
             WHERE recording.directory LIKE ? AND
             segment_species.confidence >= ? GROUP BY segments.start, segments.end, segment_species.species_scientific_name""",
+            (dirname + "%", minconf),
+        )
+        return self.cursor.fetchall()
+    
+    def get_dir_segments(self, dirname, minconf):
+        self.cursor.execute(
+            """SELECT recording.directory, recording.filename, segments.start, segments.end, 
+            segments.low, segments.high, 
+            segment_species.species_scientific_name, segment_species.confidence, 
+            calltypes.calltype, filters.name FROM recording 
+            INNER JOIN segments ON recording.filename=segments.filename 
+            INNER JOIN segment_species ON segments.rowid = segment_species.segment_id
+            INNER JOIN calltypes ON segment_species.calltype_id = calltypes.rowid
+            INNER JOIN filters ON segment_species.filter_id = filters.rowid
+            WHERE recording.directory LIKE ? AND
+            segment_species.confidence >= ?""",
             (dirname + "%", minconf),
         )
         return self.cursor.fetchall()

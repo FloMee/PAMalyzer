@@ -4849,25 +4849,28 @@ class AviaNZ(QMainWindow):
         # Note: one excel will always be generated for the currently selected species
         # spList = set([self.currentSpecies])
 
-        # list all DATA files that can be processed
-        alldatas = []
-        for root, dirs, files in os.walk(str(self.SoundFileDir)):
-            for filename in files:
-                if filename.endswith(".data"):
-                    # print("Appending" ,filename)
-                    filenamef = os.path.join(root, filename)
-                    alldatas.append(filenamef)
+        if self.currentSpecies == "Species":
+            segment_data = self.database.get_dir_segments(self.SoundFileDir, self.certSlider.value())
+        else:
+            segment_data = self.database.get_dir_species_segments(self.SoundFileDir, self.currentSpecies, self.certSlider.value())
+        
+        all_files = []
+        for segment in segment_data:
+            filepath = os.path.join(segment[0], segment[1])
+            if filepath not in all_files:
+                all_files.append(filepath)
 
         with pg.BusyCursor():
             i = 1
-            for filename in alldatas:
+            for filename in all_files:
                 # print("Reading segments from", filename)
                 segments = Segment.SegmentList()
-                segments.parseJSON(filename, silent=True)
-
-                # # Determine all species detected in at least one file
-                # for seg in segments:
-                #     spList.update([lab["species"] for lab in seg[4]])
+                # segments.parseJSON(filename, silent=True)
+                
+                for segment in segment_data:
+                    if filename == os.path.join(segment[0], segment[1]):
+                        segments.addSegment([segment[2], segment[3], segment[4], segment[5],
+                        [{"filter": segment[9], "certainty": segment[7], "species": segment[6], "calltype": segment[8]}]])
 
                 # sort by time and save
                 segments.orderTime()
@@ -4877,7 +4880,7 @@ class AviaNZ(QMainWindow):
                 # Collect all .data contents (as SegmentList objects)
                 # for the Excel output (no matter if review dialog exit was clean)
                 allsegs.append(segments)
-                print("{}/{}".format(i, len(alldatas)))
+                print("{}/{}".format(i, len(all_files)))
                 i += 1
 
             # Export the actual Excel
@@ -5381,7 +5384,7 @@ class AviaNZ(QMainWindow):
         exports segments for selected species to specified folder"""
 
         if self.currentSpecies == "Species":
-            fileDirList = self.database.get_dir_segments(
+            fileDirList = self.database.get_grouped_dir_segments(
                 self.SoundFileDir, self.certSlider.value()
             )
         else:

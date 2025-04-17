@@ -524,6 +524,11 @@ class ExcelIO:
                         else:
                             strct = "-"
                         ws.cell(row=r, column=8, value=strct)
+                        if "filter" in lab:
+                            strft = str(lab["filter"])
+                        else:
+                            strft = "-"
+                        ws.cell(row=r, column=9, value=strft)
                     else:
                         # only print certainty and call type
                         if lab["species"] == currsp:
@@ -534,6 +539,11 @@ class ExcelIO:
                                 strct = "-"
                         ws.cell(row=r, column=6, value=strcert)
                         ws.cell(row=r, column=7, value=strct)
+                        if "filter" in lab:
+                            strft = str(lab["filter"])
+                        else:
+                            strft = "-"
+                        ws.cell(row=r, column=8, value=strft)
                     r += 1
 
     # This stores pres/abs and max certainty for the species in each file
@@ -683,9 +693,11 @@ class ExcelIO:
                     ws.cell(row=1, column=6, value="species")
                     ws.cell(row=1, column=7, value="confidence")
                     ws.cell(row=1, column=8, value="call type")
+                    ws.cell(row=1, column=9, value="filter")
                 else:
                     ws.cell(row=1, column=6, value="confidence")
                     ws.cell(row=1, column=7, value="call type")
+                    ws.cell(row=1, column=8, value="filter")
 
                     # Second sheet
                     wb.create_sheet(title="Presence Absence", index=2)
