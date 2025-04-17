@@ -195,7 +195,7 @@ class AviaNZ(QMainWindow):
             firstFile = self.config["RecentFiles"][-1]
             self.SoundFileDir = os.path.dirname(firstFile)
             if not os.path.isdir(self.SoundFileDir) or not os.path.isfile(firstFile):
-                self.SoundFileDir = self.config["SoundFileDir"]
+                self.SoundFileDir = os.path.abspath(self.config["SoundFileDir"])
                 firstFile = os.path.join(self.SoundFileDir, "kiwi_1min.wav")
         else:
             self.SoundFileDir = os.path.abspath(self.config["SoundFileDir"])

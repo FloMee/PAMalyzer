@@ -258,6 +258,9 @@ class SegmentList(list):
     """List of Segments. Deals with I/O - parsing JSON,
     and retrieving the right Segment from this list.
     """
+    def __init__(self):
+        super().__init__()
+        self.metadata = {}
 
     def parseJSON(self, file, duration=0, silent=False):
         """Takes in a filename and reads metadata to self.metadata,
