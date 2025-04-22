@@ -1570,7 +1570,7 @@ class AviaNZ(QMainWindow):
         # only repopulate the list of files if dir has changed
         if self.SoundFileDir != self.SoundFileDirOld:
             self.fillFileList(self.SoundFileDir, current)
-            self.SoundFileDirOld = os.path.dirname(fullcurrent)
+            self.SoundFileDirOld = self.SoundFileDir
 
         # if a file was clicked, open it
         if not os.path.isdir(fullcurrent):
@@ -6093,9 +6093,11 @@ class AviaNZ(QMainWindow):
                 self.p_spec.removeItem(self.listRectanglesa2[id])
                 self.p_spec.removeItem(self.listLabels[id])
             del self.listLabels[id]
-            del self.segments[id]
             del self.listRectanglesa1[id]
             del self.listRectanglesa2[id]
+            self.database.delete_segment(self.filename, self.SoundFileDir, self.segments[id])
+            del self.segments[id]
+
             self.segmentsToSave = True
             self.refreshFileColor()
 
