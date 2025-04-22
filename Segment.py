@@ -383,7 +383,7 @@ class SegmentList(list):
         """
         self.parent = parent
         try:
-            annots = self.parent.database.get_file_segments(os.path.basename(filename))
+            annots = self.parent.database.get_file_segments(os.path.basename(filename), os.path.dirname(filename))
         except Exception as e:
             print("ERROR: file %s failed to load with error:" % filename)
             print(e)
