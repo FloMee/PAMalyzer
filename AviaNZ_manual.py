@@ -1570,6 +1570,7 @@ class AviaNZ(QMainWindow):
         # only repopulate the list of files if dir has changed
         if self.SoundFileDir != self.SoundFileDirOld:
             self.fillFileList(self.SoundFileDir, current)
+            self.SoundFileDirOld = os.path.dirname(fullcurrent)
 
         # if a file was clicked, open it
         if not os.path.isdir(fullcurrent):
@@ -6123,7 +6124,8 @@ class AviaNZ(QMainWindow):
             reply = msg.exec_()
             if reply == QMessageBox.Yes:
                 self.removeSegments()
-                self.segmentsToSave = True
+                self.database.delete_file_segments(self.filename)
+                self.database.commit()
 
             # reset segment playback buttons
             self.refreshSegmentControls()

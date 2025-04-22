@@ -12,6 +12,9 @@ class DatabaseHandler:
         self.con = sqlite3.connect(self.db_path)
         self.cursor = self.con.cursor()
 
+    def commit(self):
+        self.con.commit()
+
     def create_tables(self):
         """Creates the necessary tables for the database"""
 
@@ -77,16 +80,6 @@ class DatabaseHandler:
         op_id = self.add_operator(segmentList.metadata["Operator"])
         self.add_file(filename, dirname)
 
-        # get current list of segments stored in the database
-        seglist_db = self.get_file_segments(filename)
-        # create list of segments from current segmentList
-        seglist = [(seg[0], seg[1], seg[2], seg[3], sp['species'], sp['certainty'], sp['filter'], sp['calltype']) for seg in segmentList for sp in seg[4]]
-
-        # delete from db if not in segmentList
-        for seg_sp in seglist_db:
-            if seg_sp not in seglist:
-                self.delete_segment_species(seg_sp)
-
         # add or update segments
         for segment in segmentList:
             seg_dict = {
@@ -98,10 +91,10 @@ class DatabaseHandler:
                 "filename": filename,
             }
             self.insert_segment(seg_dict)
-            seg_id = self.get_segment_id(seg_dict)
+            seg_id = self.cursor.fetchone()[0]
             for species in segment[4]:
                 self.add_species(species, seg_id)
-        self.con.commit()
+        self.commit()
 
     def add_operator(self, operator):
         self.cursor.execute(
@@ -112,7 +105,7 @@ class DatabaseHandler:
             op_id = existing_row_id[0]
         else:
             self.cursor.execute("""INSERT INTO operator VALUES (?)""", (operator,))
-            self.con.commit()
+            self.commit()
             op_id = self.cursor.lastrowid
         return op_id
     
@@ -124,9 +117,8 @@ class DatabaseHandler:
         if existing_row_id:
             filter_id = existing_row_id[0]
         else:
-            self.cursor.execute("""INSERT INTO filters VALUES (?)""", (filter,))
-            self.con.commit()
-            filter_id = self.cursor.lastrowid
+            self.cursor.execute("""INSERT INTO filters VALUES (?) RETURNING rowid""", (filter,))
+            filter_id = self.cursor.fetchone()[0]
         return filter_id
 
     def add_calltype(self, data):
@@ -139,9 +131,8 @@ class DatabaseHandler:
         if existing_row_id:
             calltype_id = existing_row_id[0]
         else:
-            self.cursor.execute("""INSERT INTO calltypes VALUES (:scientific_name, :calltype)""", data,)
-            self.con.commit()
-            calltype_id = self.cursor.lastrowid
+            self.cursor.execute("""INSERT INTO calltypes VALUES (:scientific_name, :calltype) RETURNING rowid""", data,)
+            calltype_id = self.cursor.fetchone()[0]
         return calltype_id
 
     def add_file(self, filename, dirname):
@@ -151,27 +142,64 @@ class DatabaseHandler:
                 VALUES (:filename, :directory)""",
             file_dict,
         )
-        self.con.commit()
+        self.commit()
 
     def insert_segment(self, segment):
 
         self.cursor.execute(
             """INSERT INTO segments
                 VALUES (:filename, :start, :end, :low, :high, :operator_id)
-                ON CONFLICT (filename, start, end, low, high) DO UPDATE SET operator_id = :operator_id""",
+                ON CONFLICT (filename, start, end, low, high) DO UPDATE SET operator_id = :operator_id
+                RETURNING rowid""",
             segment,
         )
-        self.con.commit()
+
+    def delete_file_segments(self, file):
+        self.cursor.execute(
+            """DELETE FROM segments 
+            WHERE filename IN (
+                SELECT segments.filename FROM segments
+                INNER JOIN recording ON segments.filename=recording.filename
+                WHERE segments.filename = ? AND recording.directory = ?
+            )""",
+            (os.path.basename(file), os.path.dirname(file)),
+        )
+
+    def delete_segment(self, filename, dirname, segment):
+        seg = {
+            "start": segment[0], 
+            "end": segment[1],
+            "low": segment[2],
+            "high": segment[3],
+            "filename": os.path.basename(filename),
+            "directory": dirname
+        }
+        
+        self.cursor.execute(
+            """DELETE FROM segments
+                WHERE rowid IN (SELECT segments.rowid FROM segments 
+                INNER JOIN recording ON segments.filename=recording.filename
+                WHERE start = (:start) AND 
+                end = (:end) AND 
+                low = (:low) AND 
+                high = (:high) AND
+                recording.filename = (:filename) AND 
+                recording.directory = (:directory)
+                )""",
+            seg,
+        )
 
     def get_segment_id(self, segment):
         self.cursor.execute(
-            """SELECT rowid FROM segments 
+            """SELECT segments.rowid FROM segments 
+                INNER JOIN recording ON segments.filename=recording.filename
                 WHERE start = (:start) AND 
                 end = (:end) AND 
                 filename = (:filename) AND 
                 low = (:low) AND 
                 high = (:high) AND
-                operator_id = (:operator_id)""",
+                operator_id = (:operator_id) AND
+                recording.directory = (:directory)""",
             segment,
         )
         return self.cursor.fetchone()[0]
@@ -184,7 +212,7 @@ class DatabaseHandler:
             "confidence": species_list["certainty"],
             "segment_id": seg_id,
             "filter_id": filter_id,
-            "calltype": species_list["calltype"],
+            "calltype": species_list["calltype"] if 'calltype' in species_list.keys() else 'non-specified',
         }
         self.cursor.execute(
             """INSERT INTO species
@@ -296,7 +324,7 @@ class DatabaseHandler:
         )
         return self.cursor.fetchall()
 
-    def get_file_segments(self, filename):
+    def get_file_segments(self, filename, dirname):
         self.cursor.execute(
             """SELECT segments.start, segments.end, segments.low, segments.high,
             segment_species.species_scientific_name, segment_species.confidence,
@@ -305,8 +333,8 @@ class DatabaseHandler:
             INNER JOIN segment_species ON segments.rowid = segment_species.segment_id
             INNER JOIN filters ON segment_species.filter_id = filters.rowid
             INNER JOIN calltypes ON segment_species.calltype_id = calltypes.rowid   
-            WHERE recording.filename = ? """,
-            (filename,),
+            WHERE recording.filename = ? AND recording.directory = ?""",
+            (filename, dirname),
         )
         return self.cursor.fetchall()
 
@@ -331,4 +359,3 @@ class DatabaseHandler:
             start = (:start) AND end = (:end) AND low = (:low) AND high = (:high)""",
             seg_dict,
         )
-        self.con.commit()
