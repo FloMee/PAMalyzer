@@ -474,6 +474,20 @@ class SegmentList(list):
         annots = [self.metadata]
         for seg in self:
             annots.append(seg)
+
+        file = open(file, "w")
+        json.dump(annots, file)
+        file.write("\n")
+        file.close()
+        return 1
+
+    def save_to_database(self, file, reviewer=""):
+        """Returns 1 on succesful save."""
+        if reviewer != "":
+            self.metadata["Reviewer"] = reviewer
+        annots = [self.metadata]
+        for seg in self:
+            annots.append(seg)
         self.parent.database.insert_segments(self, self.metadata["Operator"], file)
         return 1
 

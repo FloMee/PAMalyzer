@@ -399,6 +399,9 @@ class AviaNZ(QMainWindow):
         actionMenu.addAction(
             "Update database for current directory", self.updateDatabase
         )
+        actionMenu.addAction(
+            "Export segments as .data files", self.export_json_files
+        )
         actionMenu.addAction("Export files", self.exportFiles)
         actionMenu.addAction("Export segments", self.export_segments)
 
@@ -5380,6 +5383,29 @@ class AviaNZ(QMainWindow):
         self.exportDialog.activateWindow()
         self.exportDialog.btnCopyFiles.clicked.connect(self.copyFiles)
 
+    def export_json_files(self):
+        print(self.SoundFileDir)
+        segments = self.database.get_dir_segments(self.SoundFileDir)
+        to_export = {}
+        for seg in segments:
+            file = os.path.join(seg[0], seg[1])
+            seg = [seg[2], seg[3], seg[4], seg[5], [{"species": seg[6], "certainty": seg[7], "calltype": seg[8], "filter": seg[9]}]]
+
+            if file in to_export.keys():
+                to_export[file].append(seg)
+            else:
+                to_export[file] = [seg]
+        for seg in to_export:
+            print("{}: {}".format(seg, to_export[seg]))
+            seglist = Segment.SegmentList()
+            seglist.metadata["Duration"] = 0
+            seglist.metadata["Operator"] = self.operator
+            seglist.metadata["Reviewer"] = self.reviewer
+
+            for s in to_export[seg]:
+                seglist.addSegment(s)
+            seglist.saveJSON(seg + ".data")
+
     def export_segments(self):
         """Listener for "Export segments" from actions menu;
         exports segments for selected species to specified folder"""
@@ -6209,7 +6235,7 @@ class AviaNZ(QMainWindow):
             self.segments.metadata["Operator"] = self.operator
             self.segments.metadata["Reviewer"] = self.reviewer
 
-            self.segments.saveJSON(str(self.filename))
+            self.segments.save_to_database(str(self.filename))
 
             # refresh this file's icon in file list dock
             self.refreshFileColor()
