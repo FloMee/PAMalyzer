@@ -205,14 +205,19 @@ class DatabaseHandler:
         return self.cursor.fetchone()[0]
 
     def add_species(self, species_list, seg_id):
+        if "filter" not in species_list.keys():
+            species_list["filter"] = "M"
         filter_id = self.add_filter(species_list["filter"])
+
         sp_dict = {
             "scientific_name": species_list["species"],
             "common_name": species_list["species"],
             "confidence": species_list["certainty"],
             "segment_id": seg_id,
             "filter_id": filter_id,
-            "calltype": species_list["calltype"] if 'calltype' in species_list.keys() else 'non-specified',
+            "calltype": species_list["calltype"]
+            if "calltype" in species_list.keys()
+            else "non-specified",
         }
         self.cursor.execute(
             """INSERT INTO species
