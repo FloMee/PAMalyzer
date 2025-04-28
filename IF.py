@@ -27,11 +27,12 @@
 #  {preprint - arXiv:1310.7276}
 
 
-import numpy as np
 import math
 import types
-from scipy import optimize
+
+import numpy as np
 import scipy.special as spec
+from scipy import optimize
 
 
 class ec_class:

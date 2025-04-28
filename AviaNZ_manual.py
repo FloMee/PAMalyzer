@@ -21,75 +21,72 @@
 
 # ? click, shutil
 
-import os
+import copy
+import fnmatch
 import json
+import math
+import os
+import pathlib
 import platform
 import re
 import shutil
-import fnmatch
-import pathlib
-
-from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem, QKeySequence, QPixmap
-from PyQt5.QtWidgets import (
-    QApplication,
-    QInputDialog,
-    QFileDialog,
-    QMainWindow,
-    QActionGroup,
-    QToolButton,
-    QLabel,
-    QSlider,
-    QScrollBar,
-    QDoubleSpinBox,
-    QPushButton,
-    QMenu,
-    QFrame,
-    QMessageBox,
-    QWidgetAction,
-    QComboBox,
-    QTreeView,
-    QShortcut,
-    QGraphicsProxyWidget,
-    QWidget,
-    QVBoxLayout,
-    QGroupBox,
-    QSizePolicy,
-    QHBoxLayout,
-    QSpinBox,
-    QAbstractSpinBox,
-    QLineEdit,
-    QCheckBox,
-)
-from PyQt5.QtCore import Qt, QDir, QTimer, QPoint, QPointF, QLocale, QModelIndex, QRectF
-from PyQt5.QtMultimedia import QAudio
-
-import wavio
-import numpy as np
-from scipy.ndimage.filters import median_filter
-
-import pyqtgraph as pg
-from pyqtgraph.dockarea import DockArea, Dock
-import pyqtgraph.functions as fn
-import pyqtgraph.exporters as pge
-from pyqtgraph.parametertree import Parameter, ParameterTree
-
-import webbrowser
-import copy
-import math
 import time
-import openpyxl
+import webbrowser
 import xml.etree.ElementTree as ET
 
+import numpy as np
+import openpyxl
+import pyqtgraph as pg
+import pyqtgraph.exporters as pge
+import pyqtgraph.functions as fn
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import QDir, QLocale, QModelIndex, QPoint, QPointF, QRectF, Qt, QTimer
+from PyQt5.QtGui import QIcon, QKeySequence, QPixmap, QStandardItem, QStandardItemModel
+from PyQt5.QtMultimedia import QAudio
+from PyQt5.QtWidgets import (
+    QAbstractSpinBox,
+    QActionGroup,
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QDoubleSpinBox,
+    QFileDialog,
+    QFrame,
+    QGraphicsProxyWidget,
+    QGroupBox,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QMenu,
+    QMessageBox,
+    QPushButton,
+    QScrollBar,
+    QShortcut,
+    QSizePolicy,
+    QSlider,
+    QSpinBox,
+    QToolButton,
+    QTreeView,
+    QVBoxLayout,
+    QWidget,
+    QWidgetAction,
+)
+from pyqtgraph.dockarea import Dock, DockArea
+from pyqtgraph.parametertree import Parameter, ParameterTree
+from scipy.ndimage.filters import median_filter
+
+import BirdNET
+import colourMaps
+import Database
+import Dialogs
+import Segment
+import SignalProc
 import SupportClasses
 import SupportClasses_GUI
-import Dialogs
-import SignalProc
-import Segment
 import WaveletFunctions
-import colourMaps
-import BirdNET
-import Database
+import wavio
 
 pg.setConfigOption("background", "w")
 pg.setConfigOption("foreground", "k")
@@ -399,9 +396,7 @@ class AviaNZ(QMainWindow):
         actionMenu.addAction(
             "Update database for current directory", self.updateDatabase
         )
-        actionMenu.addAction(
-            "Export segments as .data files", self.export_json_files
-        )
+        actionMenu.addAction("Export segments as .data files", self.export_json_files)
         actionMenu.addAction("Export files", self.exportFiles)
         actionMenu.addAction("Export segments", self.export_segments)
 
@@ -800,7 +795,9 @@ class AviaNZ(QMainWindow):
 
         # The buttons inside the controls dock
         self.playButton = QtWidgets.QToolButton()
-        self.playButton.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay))
+        self.playButton.setIcon(
+            self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay)
+        )
         self.playButton.setIconSize(QtCore.QSize(20, 20))
         self.playButton.setToolTip("Play visible [Space]")
         self.playButton.clicked.connect(self.playVisible)
@@ -808,7 +805,9 @@ class AviaNZ(QMainWindow):
         self.playKey.activated.connect(self.playVisible)
 
         self.stopButton = QtWidgets.QToolButton()
-        self.stopButton.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop))
+        self.stopButton.setIcon(
+            self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop)
+        )
         self.stopButton.setIconSize(QtCore.QSize(20, 20))
         self.stopButton.setToolTip("Stop playback")
         self.stopButton.clicked.connect(self.stopPlayback)
@@ -835,7 +834,7 @@ class AviaNZ(QMainWindow):
         # self.speedButton.clicked.connect(self.playSlowSegment)
         speedMenu = QMenu()
         extraGroup = QActionGroup(self)
-        for ename in ["2", "\u00BD", "\u00BC"]:
+        for ename in ["2", "\u00bd", "\u00bc"]:
             em = speedMenu.addAction(ename)
             em.setCheckable(True)
             if ename == "0.5":
@@ -1377,8 +1376,9 @@ class AviaNZ(QMainWindow):
             1,
             sorted(
                 [
-                    "{} {:.0f}".format(key, value) 
-                    for key, value in self.listFiles.spListCert.items() if value > self.certSlider.value()
+                    "{} {:.0f}".format(key, value)
+                    for key, value in self.listFiles.spListCert.items()
+                    if value > self.certSlider.value()
                 ]
             ),
         )
@@ -1919,7 +1919,10 @@ class AviaNZ(QMainWindow):
             # Set the length of the scrollbar.
             self.scrollSlider.setRange(
                 0,
-                int(np.shape(self.sg)[0] - self.convertAmpltoSpec(self.widthWindow.value())),
+                int(
+                    np.shape(self.sg)[0]
+                    - self.convertAmpltoSpec(self.widthWindow.value())
+                ),
             )
             self.scrollSlider.setValue(0)
 
@@ -3171,7 +3174,9 @@ class AviaNZ(QMainWindow):
                             else:
                                 self.fillBirdList()
                             self.menuBirdList.popup(
-                                QPoint(int(evt.screenPos().x()), int(evt.screenPos().y()))
+                                QPoint(
+                                    int(evt.screenPos().x()), int(evt.screenPos().y())
+                                )
                             )
 
     def mouseClicked_spec(self, evt):
@@ -3381,7 +3386,9 @@ class AviaNZ(QMainWindow):
                             else:
                                 self.fillBirdList()
                             self.menuBirdList.popup(
-                                QPoint(int(evt.screenPos().x()), int(evt.screenPos().y()))
+                                QPoint(
+                                    int(evt.screenPos().x()), int(evt.screenPos().y())
+                                )
                             )
 
     def GrowBox_ampl(self, pos):
@@ -4854,10 +4861,14 @@ class AviaNZ(QMainWindow):
         # spList = set([self.currentSpecies])
 
         if self.currentSpecies == "Species":
-            segment_data = self.database.get_dir_segments(self.SoundFileDir, self.certSlider.value())
+            segment_data = self.database.get_dir_segments(
+                self.SoundFileDir, self.certSlider.value()
+            )
         else:
-            segment_data = self.database.get_dir_species_segments(self.SoundFileDir, self.currentSpecies, self.certSlider.value())
-        
+            segment_data = self.database.get_dir_species_segments(
+                self.SoundFileDir, self.currentSpecies, self.certSlider.value()
+            )
+
         all_files = []
         for segment in segment_data:
             filepath = os.path.join(segment[0], segment[1])
@@ -4870,11 +4881,25 @@ class AviaNZ(QMainWindow):
                 # print("Reading segments from", filename)
                 segments = Segment.SegmentList()
                 # segments.parseJSON(filename, silent=True)
-                
+
                 for segment in segment_data:
                     if filename == os.path.join(segment[0], segment[1]):
-                        segments.addSegment([segment[2], segment[3], segment[4], segment[5],
-                        [{"filter": segment[9], "certainty": segment[7], "species": segment[6], "calltype": segment[8]}]])
+                        segments.addSegment(
+                            [
+                                segment[2],
+                                segment[3],
+                                segment[4],
+                                segment[5],
+                                [
+                                    {
+                                        "filter": segment[9],
+                                        "certainty": segment[7],
+                                        "species": segment[6],
+                                        "calltype": segment[8],
+                                    }
+                                ],
+                            ]
+                        )
 
                 # sort by time and save
                 segments.orderTime()
@@ -5205,7 +5230,9 @@ class AviaNZ(QMainWindow):
         self.bar.setMovable(True)
 
         # Reset all button icons:
-        self.playButton.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay))
+        self.playButton.setIcon(
+            self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay)
+        )
         self.playSegButton.setIcon(QIcon("img/playsegment.png"))
         self.playSlowButton.setIcon(QIcon("img/playSlow-w.png"))
         self.playBandLimitedSegButton.setIcon(QIcon("img/playBandLimited.png"))
@@ -5227,7 +5254,9 @@ class AviaNZ(QMainWindow):
         self.bar.setValue(-1000)
 
         # Reset all button icons:
-        self.playButton.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay))
+        self.playButton.setIcon(
+            self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay)
+        )
         self.playSegButton.setIcon(QIcon("img/playsegment.png"))
         self.playSlowButton.setIcon(QIcon("img/playSlow-w.png"))
         self.playBandLimitedSegButton.setIcon(QIcon("img/playBandLimited.png"))
@@ -5344,7 +5373,6 @@ class AviaNZ(QMainWindow):
         self.segmentsToSave = True
 
     def saveImage(self, imageFile=""):
-
         exporter = pge.ImageExporter(self.w_spec.scene())
 
         if imageFile == "":
@@ -5389,7 +5417,20 @@ class AviaNZ(QMainWindow):
         to_export = {}
         for seg in segments:
             file = os.path.join(seg[0], seg[1])
-            seg = [seg[2], seg[3], seg[4], seg[5], [{"species": seg[6], "certainty": seg[7], "calltype": seg[8], "filter": seg[9]}]]
+            seg = [
+                seg[2],
+                seg[3],
+                seg[4],
+                seg[5],
+                [
+                    {
+                        "species": seg[6],
+                        "certainty": seg[7],
+                        "calltype": seg[8],
+                        "filter": seg[9],
+                    }
+                ],
+            ]
 
             if file in to_export.keys():
                 to_export[file].append(seg)
@@ -5468,18 +5509,17 @@ class AviaNZ(QMainWindow):
         self.exportDialog.close()
 
     def updateDatabase(self):
-
         self.tempsl = Segment.SegmentList()
         for root, dirs, files in os.walk(self.SoundFileDir):
             for filename in files:
                 filenamef = os.path.abspath(os.path.join(root, filename))
-                if filename.lower().endswith(
-                    ".wav"
-                ) or filename.lower().endswith(".bmp"):
+                if filename.lower().endswith(".wav") or filename.lower().endswith(
+                    ".bmp"
+                ):
                     dataf = filenamef + ".data"
                     if os.path.isfile(dataf):
                         print("Update entries for {}".format(filename), end="")
-                        print("\r", end = "")
+                        print("\r", end="")
                         self.tempsl.parseJSON(dataf, silent=True)
                         if len(self.tempsl) > 0:
                             self.database.insert_segments(
@@ -6121,7 +6161,9 @@ class AviaNZ(QMainWindow):
             del self.listLabels[id]
             del self.listRectanglesa1[id]
             del self.listRectanglesa2[id]
-            self.database.delete_segment(self.filename, self.SoundFileDir, self.segments[id])
+            self.database.delete_segment(
+                self.filename, self.SoundFileDir, self.segments[id]
+            )
             del self.segments[id]
 
             self.segmentsToSave = True

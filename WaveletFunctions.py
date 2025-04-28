@@ -19,16 +19,18 @@
 
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-import numpy as np
 import math
+import time
+
+import numpy as np
+import pyfftw
 
 # import scipy.fftpack as fft
 from scipy import signal
-import pyfftw
-from ext import ce_denoise as ce
-import time
-import Wavelet
+
 import SignalProc
+import Wavelet
+from ext import ce_denoise as ce
 
 
 # A pair of helper functions that are often useful:
@@ -146,7 +148,7 @@ class WaveletFunctions:
 
     def ShannonEntropy(self, s):
         """Compute the Shannon entropy of data"""
-        e = -s[np.nonzero(s)] ** 2 * np.log(s[np.nonzero(s)] ** 2)
+        e = -(s[np.nonzero(s)] ** 2) * np.log(s[np.nonzero(s)] ** 2)
         return np.sum(e)
 
     def BestLevel(self, maxLevel=None):

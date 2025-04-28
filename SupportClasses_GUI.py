@@ -23,50 +23,46 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import (
-    QMessageBox,
-    QAbstractButton,
-    QListWidget,
-    QListWidgetItem,
-    QPushButton,
-    QSlider,
-    QLabel,
-    QHBoxLayout,
-    QGridLayout,
-    QWidget,
-)
-from PyQt5.QtCore import (
-    Qt,
-    QTime,
-    QIODevice,
-    QBuffer,
-    QByteArray,
-    QMimeData,
-    QLineF,
-    QLine,
-    QPoint,
-    QSize,
-    QDir,
-    pyqtSignal,
-)
-from PyQt5.QtMultimedia import QAudio, QAudioOutput
-from PyQt5.QtGui import QIcon, QPixmap, QPainter, QPen, QColor, QFont, QDrag
+import io
+import math
+import os
+from time import sleep
 
+import numpy as np
 import pyqtgraph as pg
 import pyqtgraph.functions as fn
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import (
+    QBuffer,
+    QByteArray,
+    QDir,
+    QIODevice,
+    QLine,
+    QLineF,
+    QMimeData,
+    QPoint,
+    QSize,
+    Qt,
+    QTime,
+    pyqtSignal,
+)
+from PyQt5.QtGui import QColor, QDrag, QFont, QIcon, QPainter, QPen, QPixmap
+from PyQt5.QtMultimedia import QAudio, QAudioOutput
+from PyQt5.QtWidgets import (
+    QAbstractButton,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPushButton,
+    QSlider,
+    QWidget,
+)
 
 import Segment
-
 import wavio
-from time import sleep
-import time
-import math
-import numpy as np
-import os
-import io
-import itertools
-import operator
 
 
 class TimeAxisHour(pg.AxisItem):
@@ -86,15 +82,15 @@ class TimeAxisHour(pg.AxisItem):
         if self.showMS:
             self.setLabel("Time", units="hh:mm:ss.ms")
             return [
-                QTime(0, 0, 0)
-                .addMSecs(int((value + self.offset) * 1000))
-                .toString("hh:mm:ss.z")
+                QTime(0, 0, 0).addMSecs(int(
+                    (value + self.offset) * 1000)).toString("hh:mm:ss.z")
                 for value in values
             ]
         else:
             self.setLabel("Time", units="hh:mm:ss")
             return [
-                QTime(0, 0, 0).addSecs(int(value + self.offset)).toString("hh:mm:ss")
+                QTime(0, 0,
+                      0).addSecs(int(value + self.offset)).toString("hh:mm:ss")
                 for value in values
             ]
 
@@ -132,19 +128,22 @@ class TimeAxisMin(pg.AxisItem):
                 self.setLabel("Time", units="h:mm:ss.ms")
                 for i in range(len(vs)):
                     if vs[i] >= 3600:
-                        vstr1[i] = (
-                            QTime(0, 0, 0).addMSecs(int(vs[i] * 1000)).toString("h:mm:ss.z")
-                        )
+                        vstr1[i] = (QTime(0, 0, 0).addMSecs(int(
+                            vs[i] * 1000)).toString("h:mm:ss.z"))
             return vstr1
         else:
             self.setLabel("Time", units="mm:ss")
-            vstr1 = [QTime(0, 0, 0).addSecs(int(value)).toString("mm:ss") for value in vs]
+            vstr1 = [
+                QTime(0, 0, 0).addSecs(int(value)).toString("mm:ss")
+                for value in vs
+            ]
             # check if we need to add hours:
             if vs[-1] >= 3600:
                 self.setLabel("Time", units="h:mm:ss")
                 for i in range(len(vs)):
                     if vs[i] >= 3600:
-                        vstr1[i] = QTime(0, 0, 0).addSecs(int(vs[i])).toString("h:mm:ss")
+                        vstr1[i] = (QTime(0, 0, 0).addSecs(int(
+                            vs[i])).toString("h:mm:ss"))
             return vstr1
 
     def setOffset(self, offset):
@@ -183,9 +182,8 @@ class AxisWidget(QAbstractButton):
             fontOffset = 5 + 2.6 * self.fontsize
             tickmark = QLine(bottomR, QPoint(bottomR.x() + 6, bottomR.y()))
             painter.drawLine(tickmark)
-            painter.drawText(
-                tickmark.x2() - fontOffset, tickmark.y2() + 1, "%.1f" % currFrq
-            )
+            painter.drawText(tickmark.x2() - fontOffset,
+                             tickmark.y2() + 1, "%.1f" % currFrq)
             for ticknum in range(3):
                 currFrq += (self.maxFreq - self.minFreq) / 4
                 tickmark.translate(0, -event.rect().height() // 4)
@@ -253,9 +251,8 @@ class TimeAxisWidget(QAbstractButton):
 
             tickmark = QLine(bottomL.x(), top + 6, bottomL.x(), top)
             painter.drawLine(tickmark)
-            painter.drawText(
-                tickmark.x1(), tickmark.y1() + fontOffset, timeFormat % currTime
-            )
+            painter.drawText(tickmark.x1(),
+                             tickmark.y1() + fontOffset, timeFormat % currTime)
             for ticknum in range(4):
                 currTime += self.maxTime / 5
                 tickmark.translate(event.rect().width() // 5, 0)
@@ -274,7 +271,8 @@ class TimeAxisWidget(QAbstractButton):
             )
 
             painter.save()
-            painter.drawText((bottomR.x() - bottomL.x()) // 2, bottomL.y(), "s")
+            painter.drawText((bottomR.x() - bottomL.x()) // 2, bottomL.y(),
+                             "s")
             painter.restore()
 
     def sizeHint(self):
@@ -364,9 +362,8 @@ def mouseDragEventFlexible(self, ev):
         self.startPos = self.scenePos()
         self.cursorOffset = self.scenePos() - ev.buttonDownScenePos()
 
-    if (
-        self.isMoving
-    ):  ## note: isMoving may become False in mid-drag due to right-click.
+    if (self.isMoving
+        ):  ## note: isMoving may become False in mid-drag due to right-click.
         pos = ev.scenePos() + self.cursorOffset
         self.movePoint(pos, ev.modifiers(), finish=False)
 
@@ -375,7 +372,8 @@ def mouseDragEventFlexibleLine(self, ev):
     if self.movable and ev.button() != self.btn:
         if ev.isStart():
             self.moving = True
-            self.cursorOffset = self.pos() - self.mapToParent(ev.buttonDownPos())
+            self.cursorOffset = self.pos() - self.mapToParent(
+                ev.buttonDownPos())
             self.startPosition = self.pos()
         ev.accept()
 
@@ -399,7 +397,7 @@ class ShadedRectROI(ShadedROI):
         movable=True,
         sideScalers=True,
         parent=None,
-        **args
+        **args,
     ):
         # QtWidgets.QGraphicsRectItem.__init__(self, 0, 0, size[0], size[1])
         pg.ROI.__init__(self, pos, size, movable=movable, **args)
@@ -428,8 +426,7 @@ class ShadedRectROI(ShadedROI):
                     self.isMoving = True
                     self.preMoveState = self.getState()
                     self.cursorOffset = self.pos() - self.mapToParent(
-                        ev.buttonDownPos()
-                    )
+                        ev.buttonDownPos())
                     self.sigRegionChangeStarted.emit(self)
                     ev.accept()
                 else:
@@ -441,12 +438,10 @@ class ShadedRectROI(ShadedROI):
                 self.isMoving = False
             return
 
-        if (
-            self.translatable
-            and self.isMoving
-            and ev.buttons() != self.parent.MouseDrawingButton
-        ):
-            snap = True if (ev.modifiers() & QtCore.Qt.ControlModifier) else None
+        if (self.translatable and self.isMoving
+                and ev.buttons() != self.parent.MouseDrawingButton):
+            snap = True if (ev.modifiers()
+                            & QtCore.Qt.ControlModifier) else None
             newPos = self.mapToParent(ev.pos()) + self.cursorOffset
             self.translate(newPos - self.pos(), snap=snap, finish=False)
 
@@ -474,6 +469,7 @@ class DemousedViewBox(pg.ViewBox):
 # Two subclasses of LinearRegionItem, that account for spectrogram bounds when resizing
 # and use boundary caching to reduce CPU load e.g. when detecting mouse hover
 class LinearRegionItem2(pg.LinearRegionItem):
+
     def __init__(self, parent, bounds=None, *args, **kwds):
         pg.LinearRegionItem.__init__(self, bounds, *args, **kwds)
         self.parent = parent
@@ -548,9 +544,8 @@ class LinearRegionItem2(pg.LinearRegionItem):
     #     return br
 
     def mouseDragEvent(self, ev):
-        if not self.movable or (
-            self.parent is not None and ev.button() == self.parent.MouseDrawingButton
-        ):
+        if not self.movable or (self.parent is not None and ev.button()
+                                == self.parent.MouseDrawingButton):
             return
         ev.accept()
 
@@ -594,8 +589,13 @@ class LinearRegionItem2(pg.LinearRegionItem):
 
 # Just another slight optimization - immediately dropping unneeded mouse events
 class LinearRegionItemO(LinearRegionItem2):
+
     def __init__(self, *args, **kwds):
-        LinearRegionItem2.__init__(self, parent=None, bounds=[0, 100], *args, **kwds)
+        LinearRegionItem2.__init__(self,
+                                   parent=None,
+                                   bounds=[0, 100],
+                                   *args,
+                                   **kwds)
 
     def setRegion(self, rgn):
         """Set the values for the edges of the region.
@@ -793,13 +793,8 @@ class ControllableAudio(QAudioOutput):
         # self.format = format
         # set small buffer (10 ms) and use processed time
         self.setBufferSize(
-            int(
-                self.format().sampleSize()
-                * self.format().sampleRate()
-                / 100
-                * self.format().channelCount()
-            )
-        )
+            int(self.format().sampleSize() * self.format().sampleRate() / 100 *
+                self.format().channelCount()))
 
     def isPlaying(self):
         return self.state() == QAudio.ActiveState
@@ -856,8 +851,11 @@ class ControllableAudio(QAudioOutput):
         self.timeoffset = max(0, start)
         start = max(0, start * self.format().sampleRate() // 1000)
         stop = min(stop * self.format().sampleRate() // 1000, len(audiodata))
-        segment = audiodata[int(start) : int(stop)]
-        segment = sp.bandpassFilter(segment, sampleRate=None, start=low, end=high)
+        segment = audiodata[int(start):int(stop)]
+        segment = sp.bandpassFilter(segment,
+                                    sampleRate=None,
+                                    start=low,
+                                    end=high)
         self.loadArray(segment)
 
     def filterSeg(self, start, stop, audiodata):
@@ -865,7 +863,8 @@ class ControllableAudio(QAudioOutput):
         # and plays it.
         self.timeoffset = max(0, start)
         start = max(0, int(start * self.format().sampleRate() // 1000))
-        stop = min(int(stop * self.format().sampleRate() // 1000), len(audiodata))
+        stop = min(int(stop * self.format().sampleRate() // 1000),
+                   len(audiodata))
         segment = audiodata[start:stop]
         self.loadArray(segment)
 
@@ -873,7 +872,8 @@ class ControllableAudio(QAudioOutput):
         # Plays the entire audiodata: puts it onto a buffer
         # and then starts the QAudioOutput from that buffer
         if self.format().sampleSize() == 16:
-            audiodata = audiodata.astype("int16")  # 16 corresponds to sampwidth=2
+            audiodata = audiodata.astype(
+                "int16")  # 16 corresponds to sampwidth=2
         elif self.format().sampleSize() == 32:
             audiodata = audiodata.astype("int32")
         elif self.format().sampleSize() == 24:
@@ -882,7 +882,8 @@ class ControllableAudio(QAudioOutput):
         elif self.format().sampleSize() == 8:
             audiodata = audiodata.astype("uint8")
         else:
-            print("ERROR: sampleSize %d not supported" % self.format().sampleSize())
+            print("ERROR: sampleSize %d not supported" %
+                  self.format().sampleSize())
             return
         # double mono sound to get two channels - simplifies reading
         if self.format().channelCount() == 2:
@@ -1019,7 +1020,8 @@ class FlowLayout(QtWidgets.QLayout):
                 lineHeight = 0
 
             if not testOnly:
-                item.setGeometry(QtCore.QRect(QtCore.QPoint(x, y), item.sizeHint()))
+                item.setGeometry(
+                    QtCore.QRect(QtCore.QPoint(x, y), item.sizeHint()))
 
             x = nextX
             lineHeight = max(lineHeight, item.sizeHint().height())
@@ -1096,7 +1098,8 @@ class PicButton(QAbstractButton):
         self.setMouseTracking(True)
 
         self.playButton = QtWidgets.QToolButton(self)
-        self.playButton.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay))
+        self.playButton.setIcon(self.style().standardIcon(
+            QtWidgets.QStyle.SP_MediaPlay))
         self.playButton.hide()
 
         # batmode frequency guides (in Y positions 0-1)
@@ -1142,7 +1145,8 @@ class PicButton(QAbstractButton):
         im, alpha = fn.makeARGB(self.spec, lut=self.lut, levels=colRange)
         im1 = fn.makeQImage(im, alpha)
         if im1.size().width() == 0:
-            print("ERROR: button not shown, likely bad spectrogram coordinates")
+            print(
+                "ERROR: button not shown, likely bad spectrogram coordinates")
             return
 
         # Output image width - larger for batmode:
@@ -1165,10 +1169,10 @@ class PicButton(QAbstractButton):
             # draw lines marking true segment position
             unbufStartAdj = self.unbufStart / self.specReductionFact
             unbufStopAdj = self.unbufStop / self.specReductionFact
-            self.line1 = QLineF(
-                unbufStartAdj, 0, unbufStartAdj, self.im1.size().height()
-            )
-            self.line2 = QLineF(unbufStopAdj, 0, unbufStopAdj, self.im1.size().height())
+            self.line1 = QLineF(unbufStartAdj, 0, unbufStartAdj,
+                                self.im1.size().height())
+            self.line2 = QLineF(unbufStopAdj, 0, unbufStopAdj,
+                                self.im1.size().height())
 
             # create guides for batmode
             if self.guides is not None:
@@ -1234,9 +1238,8 @@ class PicButton(QAbstractButton):
         if self.noaudio:
             return
         if not self.media_obj.isPlaying():
-            self.playButton.setIcon(
-                self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay)
-            )
+            self.playButton.setIcon(self.style().standardIcon(
+                QtWidgets.QStyle.SP_MediaPlay))
         self.playButton.show()
 
     def leaveEvent(self, QEvent):
@@ -1260,9 +1263,8 @@ class PicButton(QAbstractButton):
         if self.media_obj.isPlaying():
             self.stopPlayback()
         else:
-            self.playButton.setIcon(
-                self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop)
-            )
+            self.playButton.setIcon(self.style().standardIcon(
+                QtWidgets.QStyle.SP_MediaStop))
             self.media_obj.loadArray(self.audiodata)
 
     def endListener(self):
@@ -1276,7 +1278,8 @@ class PicButton(QAbstractButton):
     def stopPlayback(self):
         self.media_obj.pressedStop()
         self.playButton.hide()
-        self.playButton.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay))
+        self.playButton.setIcon(self.style().standardIcon(
+            QtWidgets.QStyle.SP_MediaPlay))
 
     def sizeHint(self):
         return self.im1.size()
@@ -1424,8 +1427,7 @@ class LightedFileList(QListWidget):
             )
             self.soundDir = os.path.abspath(soundDir)
             file_sp_conf = self.parent.database.get_file_species_max_confidence(
-                self.soundDir
-            )
+                self.soundDir)
             file_sp_conf_dict = {}
             for d, f, s, c in file_sp_conf:
                 if f in file_sp_conf_dict.keys():
@@ -1448,22 +1450,20 @@ class LightedFileList(QListWidget):
                         numbmps = 0
                         numwavs = 0
                         for root, dirs, files in os.walk(file.filePath()):
-                            numwavs += sum(f.lower().endswith(".wav") for f in files)
-                            numbmps += sum(f.lower().endswith(".bmp") for f in files)
+                            numwavs += sum(f.lower().endswith(".wav")
+                                           for f in files)
+                            numbmps += sum(f.lower().endswith(".bmp")
+                                           for f in files)
                         # keep these strings as short as possible
                         if numbmps == 0:
-                            item.setText(
-                                "%s/\t\t(%d wav files)" % (file.fileName(), numwavs)
-                            )
+                            item.setText("%s/\t\t(%d wav files)" %
+                                         (file.fileName(), numwavs))
                         elif numwavs == 0:
-                            item.setText(
-                                "%s/\t\t(%d bmp files)" % (file.fileName(), numbmps)
-                            )
+                            item.setText("%s/\t\t(%d bmp files)" %
+                                         (file.fileName(), numbmps))
                         else:
-                            item.setText(
-                                "%s/\t\t(%d wav, %d bmp files)"
-                                % (file.fileName(), numwavs, numbmps)
-                            )
+                            item.setText("%s/\t\t(%d wav, %d bmp files)" %
+                                         (file.fileName(), numwavs, numbmps))
                     else:
                         item.setText(file.fileName() + "/")
 
@@ -1471,10 +1471,10 @@ class LightedFileList(QListWidget):
                     if not recursive:
                         continue
                     dirspcert = self.parent.database.get_dir_species_max_confidence(
-                        os.path.abspath(file)
-                    )
+                        os.path.abspath(file))
                     for sp, cert in dirspcert:
-                        if sp in self.spListCert.keys() and self.spListCert[sp] > cert:
+                        if sp in self.spListCert.keys(
+                        ) and self.spListCert[sp] > cert:
                             continue
                         else:
                             self.spListCert[sp] = cert
@@ -1486,14 +1486,10 @@ class LightedFileList(QListWidget):
                     # check for a data file here and color this entry based on that
                     fullname = os.path.join(soundDir, file.fileName())
                     # (also updates the directory info sets, and minCertainty)
-                    fspc = (
-                        file_sp_conf_dict[file.fileName()]
-                        if file.fileName() in file_sp_conf_dict.keys()
-                        else []
-                    )
-                    self.set_item_data(
-                        item, filespconf=fspc
-                    )
+                    fspc = (file_sp_conf_dict[file.fileName()]
+                            if file.fileName() in file_sp_conf_dict.keys() else
+                            [])
+                    self.set_item_data(item, filespconf=fspc)
                     # format collection only implemented for WAVs currently
                     if readFmt:
                         if file.fileName().lower().endswith(".wav"):
@@ -1522,7 +1518,7 @@ class LightedFileList(QListWidget):
                 self.setCurrentItem(items[0])
                 index = self.indexFromItem(items[0]).row()
 
-                if not index in self.currentIndices:
+                if index not in self.currentIndices:
                     self.currentIndices.append(index)
                     self.currentIndices.sort()
             else:
@@ -1651,7 +1647,8 @@ class LightedFileList(QListWidget):
                     fileSpMinCert = {}
                     for sp, cert in data:
                         if sp in fileSpMaxCert.keys():
-                            if fileSpMaxCert[sp] > cert and fileSpMinCert[sp] < cert:
+                            if fileSpMaxCert[sp] > cert and fileSpMinCert[
+                                    sp] < cert:
                                 continue
                             if fileSpMaxCert[sp] < cert:
                                 fileSpMaxCert[sp] = cert
@@ -1685,11 +1682,9 @@ class MainPushButton(QPushButton):
 
     def __init__(self, *args, **kwargs):
         super(MainPushButton, self).__init__(*args, **kwargs)
-        self.setStyleSheet(
-            """
+        self.setStyleSheet("""
           MainPushButton { font-weight: bold; font-size: 14px; padding: 3px 3px 3px 7px; }
-        """
-        )
+        """)
         # would like to add more stuff such as:
         #    border: 2px solid #8f8f91; background-color: #dddddd}
         #  MainPushButton:disabled { border: 2 px solid #cccccc }
@@ -1713,9 +1708,13 @@ class BrightContrVol(QWidget):
     colChanged = pyqtSignal(int, int)
     volChanged = pyqtSignal(int)
 
-    def __init__(
-        self, brightness, contrast, inverted, horizontal=True, parent=None, **kwargs
-    ):
+    def __init__(self,
+                 brightness,
+                 contrast,
+                 inverted,
+                 horizontal=True,
+                 parent=None,
+                 **kwargs):
         super(BrightContrVol, self).__init__(parent, **kwargs)
 
         # Sliders and signals
@@ -1745,16 +1744,15 @@ class BrightContrVol(QWidget):
         # static labels
         labelBr = QLabel()
         labelBr.setPixmap(
-            QPixmap("img/brightstr24.png").scaled(18, 18, transformMode=1)
-        )
+            QPixmap("img/brightstr24.png").scaled(18, 18, transformMode=1))
 
         labelCo = QLabel()
-        labelCo.setPixmap(QPixmap("img/contrstr24.png").scaled(18, 18, transformMode=1))
+        labelCo.setPixmap(
+            QPixmap("img/contrstr24.png").scaled(18, 18, transformMode=1))
 
         self.volIcon = QLabel()
         self.volIcon.setPixmap(
-            QPixmap("img/volume.png").scaled(18, 18, transformMode=1)
-        )
+            QPixmap("img/volume.png").scaled(18, 18, transformMode=1))
         # Layout
         if horizontal:
             labelCo.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -1805,7 +1803,8 @@ class BrightContrVol(QWidget):
         """Emit the colour signal (to be triggered by valueChanged or
         programmatically, when a colour refresh is needed)
         """
-        self.colChanged.emit(self.brightSlider.value(), self.contrSlider.value())
+        self.colChanged.emit(self.brightSlider.value(),
+                             self.contrSlider.value())
 
     def emitAll(self):
         """Emit both colour and volume signals (useful for initialization)"""

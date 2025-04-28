@@ -20,9 +20,11 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+
 def mainlauncher():
     # adapt path to allow this to be launched from wherever
-    import sys, os
+    import os
+    import sys
 
     if getattr(sys, "frozen", False):
         appdir = sys._MEIPASS
@@ -31,11 +33,15 @@ def mainlauncher():
     os.chdir(appdir)
 
     try:
-        import platform, json, shutil
+        import json
+        import platform
+        import shutil
+
         from jsonschema import validate
-        import SupportClasses
         from PyQt5.QtWidgets import QApplication
-    except Exception as e:
+
+        import SupportClasses
+    except Exception:
         print("ERROR: could not import packages")
         raise
 
@@ -117,6 +123,7 @@ def mainlauncher():
 
         if out == 0:
             break
+
 
 try:
     mainlauncher()

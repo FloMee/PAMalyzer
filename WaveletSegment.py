@@ -19,16 +19,22 @@
 
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-import WaveletFunctions
-import librosa
 import copy
+import csv
+import gc
+import math
+import os
+import time
+from itertools import combinations
+
+import librosa
 import numpy as np
-import time, os, math, csv, gc
-import SignalProc
+
 import Segment
+import SignalProc
+import WaveletFunctions
 from ext import ce_denoise as ce
 from ext import ce_detect
-from itertools import combinations
 
 
 class WaveletSegment:
@@ -40,7 +46,8 @@ class WaveletSegment:
         self.currentSR = 0
         if not spInfo == {}:
             # for now, we default to the first subfilter:
-            print("Detected %d subfilters in this filter" % len(spInfo["Filters"]))
+            print("Detected %d subfilters in this filter" %
+                  len(spInfo["Filters"]))
 
         self.sp = SignalProc.SignalProc(256, 128)
 
@@ -80,9 +87,9 @@ class WaveletSegment:
             print("Adjusting nodes for upsampling to", fsOut)
             for filter in self.spInfo:
                 for subfilter in filter["Filters"]:
-                    subfilter["WaveletParams"]["nodes"] = WaveletFunctions.adjustNodes(
-                        subfilter["WaveletParams"]["nodes"], "down2"
-                    )
+                    subfilter["WaveletParams"][
+                        "nodes"] = WaveletFunctions.adjustNodes(
+                            subfilter["WaveletParams"]["nodes"], "down2")
             # Don't want to resample again, so fsTarget = fsIn
             fsOut = sampleRate
         elif fsOut == 4 * sampleRate:
@@ -91,11 +98,10 @@ class WaveletSegment:
             for filter in self.spInfo:
                 for subfilter in filter["Filters"]:
                     downsampled2x = WaveletFunctions.adjustNodes(
-                        subfilter["WaveletParams"]["nodes"], "down2"
-                    )
-                    subfilter["WaveletParams"]["nodes"] = WaveletFunctions.adjustNodes(
-                        downsampled2x, "down2"
-                    )
+                        subfilter["WaveletParams"]["nodes"], "down2")
+                    subfilter["WaveletParams"][
+                        "nodes"] = WaveletFunctions.adjustNodes(
+                            downsampled2x, "down2")
             # Don't want to resample again, so fsTarget = fsIn
             fsOut = sampleRate
         # Could also similarly "downsample" by adding an extra convolution, but it's way slower
@@ -117,7 +123,11 @@ class WaveletSegment:
             )
             return
 
-        denoisedData = self.preprocess(data, sampleRate, fsOut, d=d, fastRes=True)
+        denoisedData = self.preprocess(data,
+                                       sampleRate,
+                                       fsOut,
+                                       d=d,
+                                       fastRes=True)
 
         # Find out which nodes will be needed:
         allnodes = []
@@ -129,18 +139,20 @@ class WaveletSegment:
         allnodes = list(set(allnodes))
 
         # Generate a full 5 level wavelet packet decomposition (stored in WF.tree)
-        self.WF = WaveletFunctions.WaveletFunctions(
-            data=denoisedData, wavelet=self.wavelet, maxLevel=20, samplerate=fsOut
-        )
+        self.WF = WaveletFunctions.WaveletFunctions(data=denoisedData,
+                                                    wavelet=self.wavelet,
+                                                    maxLevel=20,
+                                                    samplerate=fsOut)
         if wpmode == "pywt":
             print("ERROR: pywt wpmode is deprecated, use new or aa")
             return
         if wpmode == "new" or wpmode == "old":
             self.WF.WaveletPacket(allnodes, mode="symmetric", antialias=False)
         if wpmode == "aa":
-            self.WF.WaveletPacket(
-                allnodes, mode="symmetric", antialias=True, antialiasFilter=True
-            )
+            self.WF.WaveletPacket(allnodes,
+                                  mode="symmetric",
+                                  antialias=True,
+                                  antialiasFilter=True)
         print("File loaded in", time.time() - opst)
 
         # no return, just preloaded self.WF
@@ -161,7 +173,8 @@ class WaveletSegment:
         ### find segments with each subfilter separately
         detected_allsubf = []
         for subfilter in self.spInfo[filtnum]["Filters"]:
-            print("-- Identifying calls using subfilter %s --" % subfilter["calltype"])
+            print("-- Identifying calls using subfilter %s --" %
+                  subfilter["calltype"])
             goodnodes = subfilter["WaveletParams"]["nodes"]
 
             detected = self.detectCalls(
@@ -178,12 +191,18 @@ class WaveletSegment:
             detected = segmenter.convert01(detected)
             detected = segmenter.joinGaps(detected, maxgap=0)
             detected_allsubf.append(detected)
-        print("--- Wavelet segmenting completed in %.3f s ---" % (time.time() - opst))
+        print("--- Wavelet segmenting completed in %.3f s ---" %
+              (time.time() - opst))
         return detected_allsubf
 
-    def waveletSegmentChp(
-        self, filtnum, alg, alpha=None, window=None, maxlen=None, silent=True, wind=0
-    ):
+    def waveletSegmentChp(self,
+                          filtnum,
+                          alg,
+                          alpha=None,
+                          window=None,
+                          maxlen=None,
+                          silent=True,
+                          wind=0):
         """Main analysis wrapper, similar to waveletSegment,
         but uses changepoint detection for postprocessing.
         Args:
@@ -209,7 +228,8 @@ class WaveletSegment:
         ### find segments with each subfilter separately
         detected_allsubf = []
         for subfilter in self.spInfo[filtnum]["Filters"]:
-            print("-- Identifying calls using subfilter %s --" % subfilter["calltype"])
+            print("-- Identifying calls using subfilter %s --" %
+                  subfilter["calltype"])
             goodnodes = subfilter["WaveletParams"]["nodes"]
             if alpha is None:
                 alpha = subfilter["WaveletParams"]["thr"]
@@ -230,15 +250,18 @@ class WaveletSegment:
             )
 
             detected_allsubf.append(detected)
-        print(
-            "--- WV changepoint segmenting completed in %.3f s ---"
-            % (time.time() - opst)
-        )
+        print("--- WV changepoint segmenting completed in %.3f s ---" %
+              (time.time() - opst))
         return detected_allsubf
 
-    def waveletSegment_train(
-        self, dirName, thrList, MList, d=False, learnMode="recaa", window=1, inc=None
-    ):
+    def waveletSegment_train(self,
+                             dirName,
+                             thrList,
+                             MList,
+                             d=False,
+                             learnMode="recaa",
+                             window=1,
+                             inc=None):
         """Entry point to use during training, called from DialogsTraining.py.
         Switches between various training methods, orders data loading etc.,
         then just passes the arguments to the right training method and returns the results.
@@ -328,9 +351,9 @@ class WaveletSegment:
 
             # Generate a full 5 level wavelet packet decomposition
             if learnMode == "recaa" or learnMode == "recold":
-                self.WF.WaveletPacket(
-                    self.bestNodes[filenum], mode="symmetric", antialias=False
-                )
+                self.WF.WaveletPacket(self.bestNodes[filenum],
+                                      mode="symmetric",
+                                      antialias=False)
             elif learnMode == "recaafull":
                 self.WF.WaveletPacket(
                     self.bestNodes[filenum],
@@ -356,7 +379,8 @@ class WaveletSegment:
         # self.maxEs now is a list of [files][M][TxN] ndarrays
 
         # 4. mark calls and learn threshold
-        res = self.gridSearch(self.maxEs, thrList, MList, learnMode, window, inc)
+        res = self.gridSearch(self.maxEs, thrList, MList, learnMode, window,
+                              inc)
 
         return res
 
@@ -384,8 +408,7 @@ class WaveletSegment:
         if estrealwindow != window:
             print(
                 "ERROR: provided window (%f s) will not produce an integer number of WCs. This is currently disabled for safety."
-                % window
-            )
+                % window)
             return
 
         # 1. read wavs and annotations into self.annotation, self.audioList
@@ -408,8 +431,7 @@ class WaveletSegment:
             # corresponding node in a rooted tree (as used by WF)
             node = node_un + 1
             nodefrl, nodefru = WaveletFunctions.getWCFreq(
-                node, self.spInfo["SampleRate"]
-            )
+                node, self.spInfo["SampleRate"])
             if nodefrl < freqrange[1] and nodefru > freqrange[0]:
                 # node has some overlap with the target range, so can be tested
                 nodeList.append(node)
@@ -425,10 +447,8 @@ class WaveletSegment:
         allwindows = np.zeros((62, len(self.audioList)))
         nodeCorrs = np.zeros((62, len(self.audioList)))
         for indexF in range(len(self.audioList)):
-            print(
-                "-- Computing wavelet correlations in file %d / %d --"
-                % (indexF + 1, len(self.audioList))
-            )
+            print("-- Computing wavelet correlations in file %d / %d --" %
+                  (indexF + 1, len(self.audioList)))
             filenwins = nwins[indexF]
             # foffs = sum(nwins[:indexF])  # start of this file's pieces in allEs
 
@@ -444,14 +464,17 @@ class WaveletSegment:
             )
             self.WF.WaveletPacket(nodeList, mode="symmetric", antialias=False)
             for node in nodeList:
-                nodeE, noderealwindow = self.WF.extractE(node, window, wpantialias=True)
+                nodeE, noderealwindow = self.WF.extractE(node,
+                                                         window,
+                                                         wpantialias=True)
                 allwindows[node - 1, indexF] = noderealwindow
                 # the wavelet energies may in theory have one more or less windows than annots
                 # b/c they adjust the window size to use integer number of WCs.
                 # If they differ by <=1, we allow that and just equalize them:
                 if filenwins == len(nodeE) + 1:
                     currWCs[node - 1, :-1] = nodeE
-                    currWCs[node - 1, -1] = currWCs[node - 1, -2]  # repeat last element
+                    currWCs[node - 1, -1] = currWCs[node - 1,
+                                                    -2]  # repeat last element
                 elif filenwins == len(nodeE) - 1:
                     # drop last WC
                     currWCs[node - 1, :] = nodeE[:-1]
@@ -469,9 +492,9 @@ class WaveletSegment:
             # note that currWCs and nodeCorrs are UNROOTED
 
             # Compute all WC-annot correlations for this file
-            nodeCorrs[:, indexF] = self.compute_r(
-                self.annotation[indexF], currWCs
-            ) * len(self.annotation[indexF])
+            nodeCorrs[:, indexF] = self.compute_r(self.annotation[indexF],
+                                                  currWCs) * len(
+                                                      self.annotation[indexF])
 
         # get a single "correlation" value for each node:
         # Note: averaged correlation is not the same as calculating correlation over
@@ -493,16 +516,15 @@ class WaveletSegment:
         print("--- Starting detection stage ---")
         alldetections = np.zeros((len(nodeList), len(thrList), sum(nwins)))
         for indexF in range(len(self.audioList)):
-            print(
-                "-- Extracting energies from file %d / %d --"
-                % (indexF + 1, len(self.audioList))
-            )
+            print("-- Extracting energies from file %d / %d --" %
+                  (indexF + 1, len(self.audioList)))
             # Could bandpass, but I wasn't doing it in the paper
             # audio = self.sp.ButterworthBandpass(self.audioList[filenum],
             #                                     self.spInfo['SampleRate'],
             #                                     low=freqrange[0], high=freqrange[1])
             filenwins = nwins[indexF]
-            foffs = sum(nwins[:indexF])  # start of this file's pieces in alldetections
+            foffs = sum(
+                nwins[:indexF])  # start of this file's pieces in alldetections
 
             for indexn in range(len(nodeList)):
                 node = nodeList[indexn]
@@ -525,15 +547,17 @@ class WaveletSegment:
                     print("Detecting with alpha=", thrList[indext])
                     # run detector with thr on nodeE
                     thrdet = ce_detect.launchDetector2(
-                        nodeE, nodesigma2, realmaxlen, alpha=thrList[indext], printing=0
-                    ).astype("float")
+                        nodeE,
+                        nodesigma2,
+                        realmaxlen,
+                        alpha=thrList[indext],
+                        printing=0).astype("float")
 
                     # keep only S and their positions:
                     if np.shape(thrdet)[0] > 0:
                         thrdet = thrdet[
-                            np.logical_or(
-                                thrdet[:, 2] == ord("s"), thrdet[:, 2] == ord("o")
-                            ),
+                            np.logical_or(thrdet[:, 2] ==
+                                          ord("s"), thrdet[:, 2] == ord("o")),
                             0:2,
                         ]
 
@@ -548,9 +572,8 @@ class WaveletSegment:
                         thrdetbin[start:end] = 1
 
                     # store the detections
-                    alldetections[indexn, indext, foffs : (foffs + filenwins)] = (
-                        thrdetbin
-                    )
+                    alldetections[indexn, indext,
+                                  foffs:(foffs + filenwins)] = (thrdetbin)
         # alldetections is now a 3d np.array of 0/1 over nodes x thr x windows over all files
         print("Detections completed in", time.time() - opstartingtime)
 
@@ -570,7 +593,8 @@ class WaveletSegment:
         subsetfbs = np.zeros((len(ksubsets), len(thrList)))
 
         NODEPEN = 0.01
-        total_positives = np.count_nonzero(allannots)  # precalculated for speed
+        total_positives = np.count_nonzero(
+            allannots)  # precalculated for speed
         for indext in range(len(thrList)):
             # Best-subset part
             # find the best set of k nodes to start with:
@@ -581,9 +605,9 @@ class WaveletSegment:
                 nodeset = list(ksubsets[nodeset_ix])
                 # print("evaluating subset", [nodeList[nn] for nn in nodeset])
                 detect_allnodes = np.logical_or.reduce(
-                    alldetections[nodeset, indext, :]
-                )
-                fB = self.fBetaScore_fast(allannots, detect_allnodes, total_positives)
+                    alldetections[nodeset, indext, :])
+                fB = self.fBetaScore_fast(allannots, detect_allnodes,
+                                          total_positives)
                 # Add a penalty for the number of nodes
                 subsetfbs[nodeset_ix, indext] = fB - len(nodeset) * NODEPEN
         print("Best-subset search completed in", time.time() - opstartingtime)
@@ -603,10 +627,8 @@ class WaveletSegment:
         print("--- Starting stepwise search ---")
         NTOPSETS = 1  # how many different initialisations to use
         for indext in range(len(thrList)):
-            print(
-                "-- Optimising with t %d/%d (thr=%f)"
-                % (indext + 1, len(thrList), thrList[indext])
-            )
+            print("-- Optimising with t %d/%d (thr=%f)" %
+                  (indext + 1, len(thrList), thrList[indext]))
             # best nodesets for this t
             bestix = np.argsort(subsetfbs[:, indext])[-NTOPSETS:]
 
@@ -627,13 +649,11 @@ class WaveletSegment:
                 # (note that alldetections is indexed by node position in nodeList,
                 #  not by actual node number!)
                 detect_best = np.maximum.reduce(
-                    alldetections[list(ksubsets[b]), indext, :]
-                )
+                    alldetections[list(ksubsets[b]), indext, :])
 
                 # recalculate statistics for these nodes (should be same as subsetfbs)
                 bestfB, bestRecall, tp, fp, tn, fn = self.fBetaScore(
-                    allannots, detect_best
-                )
+                    allannots, detect_best)
                 # Add a penalty for the number of nodes
                 if bestfB is not None:
                     bestfB = bestfB - NODEPEN * len(top_subset_nodes)
@@ -653,11 +673,9 @@ class WaveletSegment:
 
                     # try adding the new node
                     detect_withnew = np.maximum.reduce(
-                        [detect_best, alldetections[new_node_ix, indext, :]]
-                    )
+                        [detect_best, alldetections[new_node_ix, indext, :]])
                     fB, recall, tp, fp, tn, fn = self.fBetaScore(
-                        allannots, detect_withnew
-                    )
+                        allannots, detect_withnew)
 
                     if fB is None:
                         continue
@@ -694,10 +712,8 @@ class WaveletSegment:
             tna[0, indext] = tn_out
             fna[0, indext] = fn_out
             finalnodes.append(nodes_out)
-            print(
-                "-- Run t %d/%d complete\n---------------- "
-                % (indext + 1, len(thrList))
-            )
+            print("-- Run t %d/%d complete\n---------------- " %
+                  (indext + 1, len(thrList)))
         print("Stepwise search completed in", time.time() - opstartingtime)
 
         return [finalnodes], tpa, fpa, tna, fna
@@ -728,11 +744,9 @@ class WaveletSegment:
         # find audio files with 0/1 annotations:
         for root, dirs, files in os.walk(dirName):
             for file in files:
-                if (
-                    file.lower().endswith(".wav")
-                    and os.stat(os.path.join(root, file)).st_size != 0
-                    and file[:-4] + "-GT.txt" in files
-                ):
+                if (file.lower().endswith(".wav")
+                        and os.stat(os.path.join(root, file)).st_size != 0
+                        and file[:-4] + "-GT.txt" in files):
                     filenames.append(os.path.join(root, file))
         if len(filenames) < 1:
             print("ERROR: no suitable files")
@@ -755,7 +769,8 @@ class WaveletSegment:
                 end = min(start + samplesInPage, len(self.sp.data))
                 filelen = math.ceil((end - start) / self.sp.sampleRate)
                 if filelen < 2:
-                    print("Warning: can't process short file ends (%.2f s)" % filelen)
+                    print("Warning: can't process short file ends (%.2f s)" %
+                          filelen)
                     continue
 
                 # read in page and resample as needed
@@ -775,7 +790,9 @@ class WaveletSegment:
                 if "method" not in filt or filt["method"] == "wv":
                     detected_segs = self.waveletSegment(0, wpmode="new")
                 elif filt["method"] == "chp":
-                    detected_segs = self.waveletSegmentChp(0, alg=2, wind=False)
+                    detected_segs = self.waveletSegmentChp(0,
+                                                           alg=2,
+                                                           wind=False)
 
                 # flatten over the call types and store
                 out = []
@@ -785,9 +802,13 @@ class WaveletSegment:
 
         return detected_out
 
-    def computeWaveletEnergy(
-        self, data, sampleRate, nlevels=5, wpmode="new", window=1, inc=1
-    ):
+    def computeWaveletEnergy(self,
+                             data,
+                             sampleRate,
+                             nlevels=5,
+                             wpmode="new",
+                             window=1,
+                             inc=1):
         """Computes the energy of the nodes in the wavelet packet decomposition
         Args:
         1. data (waveform)
@@ -811,23 +832,25 @@ class WaveletSegment:
 
         # output columns dimension equal to number of sliding window
         N = int(math.ceil(len(data) / inc_sr))
-        coefs = np.zeros((2 ** (nlevels + 1) - 2, N))
+        coefs = np.zeros((2**(nlevels + 1) - 2, N))
 
         # generate a WP on all of the data
-        WF = WaveletFunctions.WaveletFunctions(
-            data, wavelet=self.wavelet, maxLevel=20, samplerate=sampleRate
-        )
+        WF = WaveletFunctions.WaveletFunctions(data,
+                                               wavelet=self.wavelet,
+                                               maxLevel=20,
+                                               samplerate=sampleRate)
         if wpmode == "pywt":
             print("ERROR: pywt mode deprecated, use new or aa")
             return
         elif wpmode == "new":
-            allnodes = range(2 ** (nlevels + 1) - 1)
+            allnodes = range(2**(nlevels + 1) - 1)
             WF.WaveletPacket(allnodes, mode="symmetric", antialias=False)
         elif wpmode == "aa":
-            allnodes = range(2 ** (nlevels + 1) - 1)
-            WF.WaveletPacket(
-                allnodes, mode="symmetric", antialias=True, antialiasFilter=True
-            )
+            allnodes = range(2**(nlevels + 1) - 1)
+            WF.WaveletPacket(allnodes,
+                             mode="symmetric",
+                             antialias=True,
+                             antialiasFilter=True)
 
         # TODO this nonsense could be replaced w/ WF.extractE for consistency
 
@@ -843,9 +866,8 @@ class WaveletSegment:
                 # Calculate the window position in WC coordinates
                 dsratio = 2**level
                 WCperWindow = math.ceil(win_sr / dsratio)
-                if (
-                    wpmode == "aa" or wpmode == "new"
-                ):  # account for non-downsampled tree
+                if (wpmode == "aa" or wpmode
+                        == "new"):  # account for non-downsampled tree
                     WCperWindow = 2 * WCperWindow
                 # (root would not require this, but is skipped here anyway)
 
@@ -853,8 +875,8 @@ class WaveletSegment:
                 endwc = startwc + WCperWindow
 
                 # Extract the energy
-                lvlnodes = WF.tree[2**level - 1 : 2 ** (level + 1) - 1]
-                e = np.array([np.sum(n[startwc:endwc] ** 2) for n in lvlnodes])
+                lvlnodes = WF.tree[2**level - 1:2**(level + 1) - 1]
+                e = np.array([np.sum(n[startwc:endwc]**2) for n in lvlnodes])
                 if np.sum(e) > 0:
                     e = 100.0 * e / np.sum(e)  # normalize per-level
                 E = np.concatenate((E, e), axis=0)
@@ -876,14 +898,16 @@ class WaveletSegment:
             return 0
         recall = float(TP) / T  # TruePositive/#True
         precision = float(TP) / P  # TruePositive/#Positive
-        fB = ((1.0 + beta**2) * recall * precision) / (recall + beta**2 * precision)
+        fB = ((1.0 + beta**2) * recall * precision) / (recall +
+                                                       beta**2 * precision)
         return fB
 
     def fBetaScore(self, annotation, predicted, beta=2):
         """Computes the beta scores given two sets of predictions"""
         annotation = np.array(annotation)
         predicted = np.array(predicted)
-        TP = float(np.sum(np.where((annotation == 1) & (predicted == 1), 1, 0)))
+        TP = float(np.sum(np.where((annotation == 1) & (predicted == 1), 1,
+                                   0)))
         T = float(np.sum(annotation))  # to force all divisions to float
         P = float(np.sum(predicted))
         if T != 0:
@@ -894,12 +918,10 @@ class WaveletSegment:
             precision = TP / P  # TruePositive/#Positive
         else:
             precision = None
-        if (
-            recall is not None
-            and precision is not None
-            and not (recall == 0 and precision == 0)
-        ):
-            fB = ((1.0 + beta**2) * recall * precision) / (recall + beta**2 * precision)
+        if (recall is not None and precision is not None
+                and not (recall == 0 and precision == 0)):
+            fB = ((1.0 + beta**2) * recall * precision) / (recall +
+                                                           beta**2 * precision)
         else:
             fB = None
         if recall is None and precision is None:
@@ -913,8 +935,7 @@ class WaveletSegment:
                     recall,
                     precision,
                     fB,
-                )
-            )
+                ))
         elif recall is None:
             print(
                 "TP=%d \tFP=%d \tTN=%d \tFN=%d \tRecall=%s \tPrecision=%0.2f \tfB=%s"
@@ -926,8 +947,7 @@ class WaveletSegment:
                     recall,
                     precision,
                     fB,
-                )
-            )
+                ))
         elif precision is None:
             print(
                 "TP=%d \tFP=%d \tTN=%d \tFN=%d \tRecall=%0.2f \tPrecision=%s \tfB=%s"
@@ -939,8 +959,7 @@ class WaveletSegment:
                     recall,
                     precision,
                     fB,
-                )
-            )
+                ))
         elif fB is None:
             print(
                 "TP=%d \tFP=%d \tTN=%d \tFN=%d \tRecall=%0.2f \tPrecision=%0.2f \tfB=%s"
@@ -952,8 +971,7 @@ class WaveletSegment:
                     recall,
                     precision,
                     fB,
-                )
-            )
+                ))
         else:
             print(
                 "TP=%d \tFP=%d \tTN=%d \tFN=%d \tRecall=%0.2f \tPrecision=%0.2f \tfB=%0.2f"
@@ -965,8 +983,7 @@ class WaveletSegment:
                     recall,
                     precision,
                     fB,
-                )
-            )
+                ))
         # print TP, int(T), int(P), recall, precision, ((1.+beta**2)*recall*precision)/(recall + beta**2*precision)
         return (
             fB,
@@ -998,12 +1015,10 @@ class WaveletSegment:
                 r[node] = 0
                 continue
 
-            r[node] = (
-                (np.mean(waveletCoefs[(node, w1)]) - np.mean(waveletCoefs[(node, w0)]))
-                / np.std(waveletCoefs[node, :])
-                * np.sqrt(len(w0) * len(w1))
-                / len(annotation)
-            )
+            r[node] = ((np.mean(waveletCoefs[(node, w1)]) -
+                        np.mean(waveletCoefs[(node, w0)])) /
+                       np.std(waveletCoefs[node, :]) *
+                       np.sqrt(len(w0) * len(w1)) / len(annotation))
 
         return r
 
@@ -1031,7 +1046,8 @@ class WaveletSegment:
                     children = []
                     current = currentIndex
                     for i in range(nc):
-                        children.append(starts[l] + 2 * (first - starts[l - 1]) + i)
+                        children.append(starts[l] + 2 *
+                                        (first - starts[l - 1]) + i)
                     nc *= 2
                     first = starts[l] + 2 * (first - starts[l - 1])
                     # Have to do it this annoying way since Python seems to ignore the next element if you delete one while iterating over the list
@@ -1046,10 +1062,8 @@ class WaveletSegment:
 
                     # Sort into order
                     children = [
-                        x
-                        for (y, x) in sorted(
-                            zip(order_sub, children), key=lambda pair: pair[0]
-                        )
+                        x for (y, x) in sorted(zip(order_sub, children),
+                                               key=lambda pair: pair[0])
                     ]
 
                     for a in children:
@@ -1065,9 +1079,14 @@ class WaveletSegment:
 
         return newlist
 
-    def extractE(
-        self, wf, nodelist, MList, annotation=None, window=1, inc=None, aa=True
-    ):
+    def extractE(self,
+                 wf,
+                 nodelist,
+                 MList,
+                 annotation=None,
+                 window=1,
+                 inc=None,
+                 aa=True):
         """
         Regenerates the signal from each of nodes and finds max standardized E.
         Args:
@@ -1106,7 +1125,7 @@ class WaveletSegment:
             # Option 1: use wavelet coef energies directly
             if useWCenergies:
                 # how many samples went into one WC?
-                samples_wc = 2 ** math.floor(math.log2(node + 1))
+                samples_wc = 2**math.floor(math.log2(node + 1))
                 duration = int(duration / samples_wc)
                 # put WC from test node(s) on the new tree
                 C = wf.tree[node][0::2]
@@ -1127,8 +1146,9 @@ class WaveletSegment:
 
             # Compute threshold using mean & sd from non-call sections
             if annotation is not None:
-                noiseSamples = np.repeat(annotation == 0, resol_sr / samples_wc)
-                noiseSamples = noiseSamples[: len(C)]
+                noiseSamples = np.repeat(annotation == 0,
+                                         resol_sr / samples_wc)
+                noiseSamples = noiseSamples[:len(C)]
             else:
                 print("Warning: no annotations detected in file")
                 noiseSamples = np.full(len(C), True)
@@ -1147,9 +1167,8 @@ class WaveletSegment:
                 for j in range(nw):
                     end = min(N, int(start + win_sr / samples_wc))
                     # NOTE: here we determine the statistic (mean/max...) for detecting calls
-                    maxE[indexM, j, nodenum] = (
-                        np.log(np.mean(E[start:end])) - meanC
-                    ) / stdC
+                    maxE[indexM, j, nodenum] = (np.log(np.mean(E[start:end])) -
+                                                meanC) / stdC
                     start += int(inc_sr / samples_wc)
             nodenum += 1
 
@@ -1228,9 +1247,9 @@ class WaveletSegment:
 
             # Filter
             if rf:
-                C = self.sp.bandpassFilter(
-                    C, win_sr, subfilter["FreqRange"][0], subfilter["FreqRange"][1]
-                )
+                C = self.sp.bandpassFilter(C, win_sr,
+                                           subfilter["FreqRange"][0],
+                                           subfilter["FreqRange"][1])
 
             C = np.abs(C)
             N = len(C)
@@ -1248,7 +1267,7 @@ class WaveletSegment:
             # This step is not so clear for me
             if annotation is not None:
                 noiseSamples = np.repeat(annotation == 0, resol_sr)
-                noiseSamples = noiseSamples[: len(C)]
+                noiseSamples = noiseSamples[:len(C)]
                 C = C[noiseSamples]
             C = np.log(C)
             threshold = np.exp(np.mean(C) + np.std(C) * thr)
@@ -1298,7 +1317,7 @@ class WaveletSegment:
             for i in range(nw):
                 if detected[i] == 1:
                     end = min(math.ceil(start + 1), N)
-                    detect_ann[int(math.floor(start)) : end] = 1
+                    detect_ann[int(math.floor(start)):end] = 1
                 start += inc
             detected = detect_ann
 
@@ -1309,9 +1328,15 @@ class WaveletSegment:
         gc.collect()
         return detected
 
-    def detectCallsChp(
-        self, wf, nodelist, alpha, maxlen, window=1, alg=1, printing=1, wind=0
-    ):
+    def detectCallsChp(self,
+                       wf,
+                       nodelist,
+                       alpha,
+                       maxlen,
+                       window=1,
+                       alg=1,
+                       printing=1,
+                       wind=0):
         """
         For wavelet TESTING and general SEGMENTATION using changepoint detection
         (non-reconstructing)
@@ -1345,8 +1370,7 @@ class WaveletSegment:
             if estrealwindow != window:
                 print(
                     "ERROR: provided window (%f s) will not produce an integer number of WCs. This is currently disabled for safety."
-                    % window
-                )
+                    % window)
                 raise
 
         # Estimate wind noise levels for each window x target node.
@@ -1356,17 +1380,18 @@ class WaveletSegment:
             print("identifying wind nodes...")
             wind_nodes = []
             windnodecenters = []
-            for node in range(31, 63):  # only use leaf nodes when estimating wind
+            for node in range(31,
+                              63):  # only use leaf nodes when estimating wind
                 if node in nodelist:  # skip target nodes, obviously
                     continue
                 # target node can be 1 level higher than this node, so check for that too
                 if (node - 1) // 2 in nodelist:
                     continue
-                if (
-                    node == 31 or node == 47
-                ):  # skip extreme nodes with filtering artifacts
+                if (node == 31 or node
+                        == 47):  # skip extreme nodes with filtering artifacts
                     continue
-                nodecenter = sum(WaveletFunctions.getWCFreq(node, wf.treefs)) / 2
+                nodecenter = sum(WaveletFunctions.getWCFreq(node,
+                                                            wf.treefs)) / 2
                 if nodecenter >= 6000:  # skip high freqs when estimating wind
                     continue
                 wind_nodes.append(node)
@@ -1403,30 +1428,32 @@ class WaveletSegment:
             # and also add an adjustment factor to QR, calculated assuming
             # quantile 0.2 and roughly 0.1-0.2 s windows
             if wind == 2:
-                regx = np.column_stack((np.ones(len(regx)), regx, regx**2, regx**3))
+                regx = np.column_stack(
+                    (np.ones(len(regx)), regx, regx**2, regx**3))
                 # ideally this should be based on the actual number of WCs
                 # in the window and the gamma function (see paper),
                 # but generally is negligible except for v small windows and low SRs
                 if window <= 0.1 and wf.treefs < 16000:
                     qrbiasadjust = 0.4
 
-            tgtnodecenters = np.log(
-                [
-                    sum(WaveletFunctions.getWCFreq(node, wf.treefs)) / 2
-                    for node in nodelist
-                ]
-            )
+            tgtnodecenters = np.log([
+                sum(WaveletFunctions.getWCFreq(node, wf.treefs)) / 2
+                for node in nodelist
+            ])
             windE = np.log(windE)
             for w in range(datalen):
                 regy = windE[w, :]
                 # ---- REGRESSION IS DONE HERE ----
                 if wind == 1:
-                    pol = np.polynomial.polynomial.Polynomial.fit(regx, regy, 3)
+                    pol = np.polynomial.polynomial.Polynomial.fit(
+                        regx, regy, 3)
                 elif wind == 2:
                     # TODO sklearn will add quantreg in v1.0, see if it is any better
-                    pol = WaveletFunctions.QuantReg(
-                        regy, regx, q=0.2, max_iter=250, p_tol=1e-3
-                    )
+                    pol = WaveletFunctions.QuantReg(regy,
+                                                    regx,
+                                                    q=0.2,
+                                                    max_iter=250,
+                                                    p_tol=1e-3)
                 else:
                     print("ERROR: unrecognized wind adjustment %s" % wind)
                     raise
@@ -1443,16 +1470,18 @@ class WaveletSegment:
                         pred1 = pol(np.log(f1))
                         pred2 = pol(np.log(f2))
                         # oversubtraction:
-                        pred1 = (pred1 - bgpow[node_ix]) * OVERSUBALPHA + bgpow[node_ix]
-                        pred2 = (pred2 - bgpow[node_ix]) * OVERSUBALPHA + bgpow[node_ix]
-                        pred[w, node_ix] = np.log((np.exp(pred1) + np.exp(pred2)) / 2)
+                        pred1 = (pred1 - bgpow[node_ix]
+                                 ) * OVERSUBALPHA + bgpow[node_ix]
+                        pred2 = (pred2 - bgpow[node_ix]
+                                 ) * OVERSUBALPHA + bgpow[node_ix]
+                        pred[w, node_ix] = np.log(
+                            (np.exp(pred1) + np.exp(pred2)) / 2)
                     else:
                         # Straightforward for 5th lvl nodes
                         pred[w, node_ix] = pol(tgtnodecenters[node_ix])
                         # Oversubtraction:
-                        pred[w, node_ix] = (
-                            pred[w, node_ix] - bgpow[node_ix]
-                        ) * OVERSUBALPHA + bgpow[node_ix]
+                        pred[w, node_ix] = (pred[w, node_ix] - bgpow[node_ix]
+                                            ) * OVERSUBALPHA + bgpow[node_ix]
                 # print("Predictions (log): ", pred[w,:])
             # TODO would probably be faster to predict all nodes and then average
             # to obtain upper level nodes, but difficult to keep track of nodes then.
@@ -1475,25 +1504,21 @@ class WaveletSegment:
             realmaxlen = math.ceil(maxlen / realwindow)
 
             if (
-                np.max(E) > 1e-2
+                    np.max(E) > 1e-2
             ):  # (checking so that the hardcoded epsilon would be relatively small)
                 E = E + 1e-5  # add epsilon in case there is a short quiet period
                 # NOTE: any non-negligible adjustments need to be applied to pred too
 
             # Estimate of the global background for this file/page
             sigma2 = np.percentile(E, 10)
-            print(
-                "Global var: %.1f, range of E: %.1f-%.1f, Q10: %.1f"
-                % (np.mean(E), np.min(E), np.max(E), sigma2)
-            )
+            print("Global var: %.1f, range of E: %.1f-%.1f, Q10: %.1f" %
+                  (np.mean(E), np.min(E), np.max(E), sigma2))
 
             if wind:
                 # ---- LOG SP SUB ----
                 # retrieve and adjust for the predicted wind strength
-                print(
-                    "Wind strength summary: mean %.2f, median %.2f"
-                    % (np.mean(pred[:, node_ix]), np.median(pred[:, node_ix]))
-                )
+                print("Wind strength summary: mean %.2f, median %.2f" %
+                      (np.mean(pred[:, node_ix]), np.median(pred[:, node_ix])))
                 E = np.maximum(1, E / pred[:, node_ix])
                 # This implicitly normalizes to sigma2=1
             else:
@@ -1508,13 +1533,12 @@ class WaveletSegment:
             # returns a matrix of n x [s, e, type]
             # type is an int corresponding to 'n'=NUIS, 's'=SEG, 'o'=SEGonNUIS
             if alg == 1:
-                segm1 = ce_detect.launchDetector1(E, realmaxlen, alpha=alpha).astype(
-                    "float"
-                )
+                segm1 = ce_detect.launchDetector1(E, realmaxlen,
+                                                  alpha=alpha).astype("float")
             else:
                 segm1 = ce_detect.launchDetector2(
-                    E, 1, realmaxlen, alpha=alpha, printing=printing
-                ).astype("float")
+                    E, 1, realmaxlen, alpha=alpha,
+                    printing=printing).astype("float")
 
             # here's how you would extract segment means:
             # for seg in segm1:
@@ -1528,7 +1552,8 @@ class WaveletSegment:
         # keep only S and their positions:
         if np.shape(detected)[0] > 0:
             detected = detected[
-                np.logical_or(detected[:, 2] == ord("s"), detected[:, 2] == ord("o")),
+                np.logical_or(detected[:, 2] == ord("s"), detected[:, 2] ==
+                              ord("o")),
                 0:2,
             ]
 
@@ -1543,7 +1568,13 @@ class WaveletSegment:
         gc.collect()
         return outsegs
 
-    def gridSearch(self, E, thrList, MList, learnMode=None, window=1, inc=None):
+    def gridSearch(self,
+                   E,
+                   thrList,
+                   MList,
+                   learnMode=None,
+                   window=1,
+                   inc=None):
         """Take list of energy peaks of dimensions:
         [files] [MListxTxN ndarrays],
         perform grid search over thr and M parameters,
@@ -1609,22 +1640,20 @@ class WaveletSegment:
                             for i in range(len(detect_onenode)):
                                 if detect_onenode[i] == 1:
                                     end = int(min(math.ceil(start + 1), N))
-                                    detect_ann[int(math.floor(start)) : end] = 1
+                                    detect_ann[int(math.floor(start)):end] = 1
                                 start += inc2
                             detect_onenode = detect_ann
 
                         thisnode_fB, _, _, _, _, _ = self.fBetaScore(
-                            annot, detect_onenode
-                        )
+                            annot, detect_onenode)
                         if thisnode_fB:
                             thisfile_fBs.append(thisnode_fB)
                         else:
                             thisfile_fBs.append(0.0)
-                    thisfile_node_ix = np.argsort(np.array(thisfile_fBs)).tolist()[::-1]
-                    print(
-                        "thisfile_fBs:%s, nodes:%s"
-                        % (str(thisfile_fBs), str(nodesToTest))
-                    )
+                    thisfile_node_ix = np.argsort(
+                        np.array(thisfile_fBs)).tolist()[::-1]
+                    print("thisfile_fBs:%s, nodes:%s" %
+                          (str(thisfile_fBs), str(nodesToTest)))
 
                     ### STEPWISE SEARCH for best node combination:
                     # (try to detect using thr, add node if it improves F2)
@@ -1650,17 +1679,15 @@ class WaveletSegment:
                             for i in range(len(detect_onenode)):
                                 if detect_onenode[i] == 1:
                                     end = int(min(math.ceil(start + 1), N))
-                                    detect_ann[int(math.floor(start)) : end] = 1
+                                    detect_ann[int(math.floor(start)):end] = 1
                                 start += inc2
                             detect_onenode = detect_ann
 
                         # What do we detect if we add this node to currently best detections?
                         detect_allnodes = np.maximum.reduce(
-                            [detect_best, detect_onenode]
-                        )
+                            [detect_best, detect_onenode])
                         fB, recall, tp, fp, tn, fn = self.fBetaScore(
-                            annot, detect_allnodes
-                        )
+                            annot, detect_allnodes)
 
                         # If this node improved fB,
                         # store it and update fB, recall, best detections, and optimum nodes
@@ -1676,9 +1703,8 @@ class WaveletSegment:
 
                     # Store the best nodes for this file
                     finalnodesMT.append(finalnodesF)
-                    print(
-                        "Iteration f %d/%d complete" % (indexF + 1, len(self.audioList))
-                    )
+                    print("Iteration f %d/%d complete" %
+                          (indexF + 1, len(self.audioList)))
 
                     # fill top node lists
                     if np.sum(annot) > 0:
@@ -1697,22 +1723,21 @@ class WaveletSegment:
                 finalnodesT.append(finalnodesMT)
                 # Get the measures with the selected node set for this threshold and M over the set of files
                 # TODO check if this needs fixing for non-standard window and inc (used to use self.annotation2?)
-                fB, recall, tp, fp, tn, fn = self.fBetaScore(annot_all, detected_all)
+                fB, recall, tp, fp, tn, fn = self.fBetaScore(
+                    annot_all, detected_all)
                 tpa[indexM, indext] = tp
                 fpa[indexM, indext] = fp
                 tna[indexM, indext] = tn
                 fna[indexM, indext] = fn
                 print(
-                    "Iteration t %d/%d complete\t thr=%f\n---------------- "
-                    % (indext + 1, len(thrList), thrList[indext])
-                )
+                    "Iteration t %d/%d complete\t thr=%f\n---------------- " %
+                    (indext + 1, len(thrList), thrList[indext]))
             # One row done, store nodes
             finalnodes.append(finalnodesT)
             print(
                 "Iteration M %d/%d complete\t M=%f\n-----------------------------------------------------------------"
                 "\n-----------------------------------------------------------------"
-                % (indexM + 1, len(MList), MList[indexM])
-            )
+                % (indexM + 1, len(MList), MList[indexM]))
         # remove duplicates
         negative_nodes = np.unique(self.worstNodes)
         # Remove any top nodes from negative list
@@ -1722,10 +1747,9 @@ class WaveletSegment:
         # Remove any negatively correlated nodes
         print("Final nodes before neg. node removal:", finalnodes)
         print("Negative nodes:", negative_nodes)
-        finalnodes2 = [
-            [[item for item in sublst if item not in negative_nodes] for sublst in lst]
-            for lst in finalnodes
-        ]
+        finalnodes2 = [[[
+            item for item in sublst if item not in negative_nodes
+        ] for sublst in lst] for lst in finalnodes]
         # Sanity check
         for i in range(len(finalnodes2)):
             for j in range(len(finalnodes2[i])):
@@ -1752,13 +1776,9 @@ class WaveletSegment:
         low_level_nodes = list(range(14))
         for item in nodes1:
             itemfrl, itemfru = WaveletFunctions.getWCFreq(
-                item, self.spInfo["SampleRate"]
-            )
-            if (
-                item not in low_level_nodes
-                and itemfrl < freqrange[1]
-                and itemfru > freqrange[0]
-            ):
+                item, self.spInfo["SampleRate"])
+            if (item not in low_level_nodes and itemfrl < freqrange[1]
+                    and itemfru > freqrange[0]):
                 bestnodes.append(item)
 
         # Find 10 most positively correlated nodes
@@ -1789,19 +1809,22 @@ class WaveletSegment:
         if sampleRate != fsOut:
             print("Resampling from", sampleRate, "to", fsOut)
             if not fastRes:
-                data = librosa.core.audio.resample(
-                    data, sampleRate, fsOut, res_type="kaiser_best"
-                )
+                data = librosa.core.audio.resample(data,
+                                                   sampleRate,
+                                                   fsOut,
+                                                   res_type="kaiser_best")
             else:
-                data = librosa.core.audio.resample(
-                    data, sampleRate, fsOut, res_type="kaiser_fast"
-                )
+                data = librosa.core.audio.resample(data,
+                                                   sampleRate,
+                                                   fsOut,
+                                                   res_type="kaiser_fast")
 
         # Get the five level wavelet decomposition
         if d:
-            WF = WaveletFunctions.WaveletFunctions(
-                data=data, wavelet=self.wavelet, maxLevel=20, samplerate=fsOut
-            )
+            WF = WaveletFunctions.WaveletFunctions(data=data,
+                                                   wavelet=self.wavelet,
+                                                   maxLevel=20,
+                                                   samplerate=fsOut)
             denoisedData = WF.waveletDenoise(thresholdType="soft", maxLevel=5)
             del WF
         else:
@@ -1832,11 +1855,9 @@ class WaveletSegment:
 
         for root, dirs, files in os.walk(str(dirName)):
             for file in files:
-                if (
-                    file.lower().endswith(".wav")
-                    and os.stat(os.path.join(root, file)).st_size != 0
-                    and file[:-4] + "-GT.txt" in files
-                ):
+                if (file.lower().endswith(".wav")
+                        and os.stat(os.path.join(root, file)).st_size != 0
+                        and file[:-4] + "-GT.txt" in files):
                     opstartingtime = time.time()
                     wavFile = os.path.join(root, file)
                     self.filenames.append(wavFile)
@@ -1874,10 +1895,8 @@ class WaveletSegment:
         gc.collect()
         totalcalls = sum([sum(a) for a in self.annotation])
         totalblocks = sum([len(a) for a in self.annotation])
-        print(
-            "Directory loaded. %d/%d presence blocks found.\n"
-            % (totalcalls, totalblocks)
-        )
+        print("Directory loaded. %d/%d presence blocks found.\n" %
+              (totalcalls, totalblocks))
 
     def loadDirectoryChp(self, dirName, window):
         """
@@ -1893,11 +1912,9 @@ class WaveletSegment:
 
         for root, dirs, files in os.walk(str(dirName)):
             for file in files:
-                if (
-                    file.lower().endswith(".wav")
-                    and os.stat(os.path.join(root, file)).st_size != 0
-                    and file[:-4] + "-GT.txt" in files
-                ):
+                if (file.lower().endswith(".wav")
+                        and os.stat(os.path.join(root, file)).st_size != 0
+                        and file[:-4] + "-GT.txt" in files):
                     opstartingtime = time.time()
                     wavFile = os.path.join(root, file)
                     self.filenames.append(wavFile)
@@ -1916,7 +1933,8 @@ class WaveletSegment:
                     )
                     self.audioList.append(denoisedData)
 
-                    print("file loaded in %.3f s" % (time.time() - opstartingtime))
+                    print("file loaded in %.3f s" %
+                          (time.time() - opstartingtime))
 
         if len(self.annotation) == 0 or len(self.audioList) == 0:
             print("ERROR: no files loaded!")
@@ -1932,10 +1950,8 @@ class WaveletSegment:
         gc.collect()
         totalcalls = sum([sum(a) for a in self.annotation])
         totalblocks = sum([len(a) for a in self.annotation])
-        print(
-            "Directory loaded. %d/%d presence blocks found.\n"
-            % (totalcalls, totalblocks)
-        )
+        print("Directory loaded. %d/%d presence blocks found.\n" %
+              (totalcalls, totalblocks))
 
     def loadData(self, filename, impMask=True):
         """Loads a single WAV file and corresponding 0/1 annotations.
@@ -1968,8 +1984,7 @@ class WaveletSegment:
         if len(d) != n:
             print(
                 "ERROR: annotation length %d does not match file duration %d!"
-                % (len(d), n)
-            )
+                % (len(d), n))
             self.annotation = []
             return False
 
@@ -1984,8 +1999,7 @@ class WaveletSegment:
         totalblocks = sum([len(a) for a in self.annotation])
         print(
             "%d blocks read, %d presence blocks found. %d blocks stored so far.\n"
-            % (n, presblocks, totalblocks)
-        )
+            % (n, presblocks, totalblocks))
         return True
 
     def loadDataChp(self, filename, window):
@@ -2013,8 +2027,7 @@ class WaveletSegment:
         if len(d) != nwins:
             print(
                 "ERROR: annotation length %d does not match file duration %d!"
-                % (len(d), nwins)
-            )
+                % (len(d), nwins))
             self.annotation = []
             return
 
@@ -2026,5 +2039,5 @@ class WaveletSegment:
         totalblocks = sum([len(a) for a in self.annotation])
         print(
             "%d blocks read, %d presence blocks found. %d blocks stored so far.\n"
-            % (nwins, presblocks, totalblocks)
-        )
+            % (nwins, presblocks, totalblocks))
+

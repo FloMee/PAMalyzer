@@ -1,8 +1,9 @@
-import sqlite3
 import os
+import sqlite3
 
 
 class DatabaseHandler:
+
     def __init__(self, db_path):
         self.db_path = db_path
         self.connect()
@@ -21,20 +22,20 @@ class DatabaseHandler:
         # table recording: filename, directory
         self.cursor.execute(
             """CREATE TABLE IF NOT EXISTS recording(filename CHAR PRIMARY KEY,
-            directory CHAR)"""
-        )
+            directory CHAR)""")
 
         # table operator: name
-        self.cursor.execute("""CREATE TABLE IF NOT EXISTS operator(name CHAR)""")
+        self.cursor.execute(
+            """CREATE TABLE IF NOT EXISTS operator(name CHAR)""")
 
         # table operator: name
-        self.cursor.execute("""CREATE TABLE IF NOT EXISTS filters(name CHAR)""")
+        self.cursor.execute(
+            """CREATE TABLE IF NOT EXISTS filters(name CHAR)""")
 
         # table species: scientific_name, common_name
         self.cursor.execute(
             """CREATE TABLE IF NOT EXISTS species(scientific_name CHAR,
-            common_name CHAR)"""
-        )
+            common_name CHAR)""")
 
         # table calltypes: scientific_name, calltype
         self.cursor.execute(
@@ -53,9 +54,8 @@ class DatabaseHandler:
             operator_id,
             FOREIGN KEY(filename) REFERENCES recording(filename),
             FOREIGN KEY(operator_id) REFERENCES operator(rowid))
-            """
-        )
-        
+            """)
+
         # table segment_species: connects segments and species
         self.cursor.execute(
             """CREATE TABLE IF NOT EXISTS segment_species(species_scientific_name,
@@ -67,9 +67,8 @@ class DatabaseHandler:
             FOREIGN KEY(segment_id) REFERENCES segments(rowid),
             FOREIGN KEY(filter_id) REFERENCES filters(rowid),
             FOREIGN KEY(calltype_id) REFERENCES calltypes(rowid))
-            """
-        )
-        
+            """)
+
         self.cursor.execute(
             """CREATE UNIQUE INDEX IF NOT EXISTS idx_segments_unique ON segments (filename, start, end, low, high)"""
         )
@@ -97,41 +96,45 @@ class DatabaseHandler:
         self.commit()
 
     def add_operator(self, operator):
-        self.cursor.execute(
-            """SELECT rowid FROM operator WHERE name = (?)""", (operator,)
-        )
+        self.cursor.execute("""SELECT rowid FROM operator WHERE name = (?)""",
+                            (operator, ))
         existing_row_id = self.cursor.fetchone()
         if existing_row_id:
             op_id = existing_row_id[0]
         else:
-            self.cursor.execute("""INSERT INTO operator VALUES (?)""", (operator,))
+            self.cursor.execute("""INSERT INTO operator VALUES (?)""",
+                                (operator, ))
             self.commit()
             op_id = self.cursor.lastrowid
         return op_id
-    
+
     def add_filter(self, filter):
-        self.cursor.execute(
-            """SELECT rowid FROM filters WHERE name = (?)""", (filter,)
-        )
+        self.cursor.execute("""SELECT rowid FROM filters WHERE name = (?)""",
+                            (filter, ))
         existing_row_id = self.cursor.fetchone()
         if existing_row_id:
             filter_id = existing_row_id[0]
         else:
-            self.cursor.execute("""INSERT INTO filters VALUES (?) RETURNING rowid""", (filter,))
+            self.cursor.execute(
+                """INSERT INTO filters VALUES (?) RETURNING rowid""",
+                (filter, ))
             filter_id = self.cursor.fetchone()[0]
         return filter_id
 
     def add_calltype(self, data):
-        
         self.cursor.execute(
-            """SELECT rowid FROM calltypes WHERE calltype = (:calltype) AND scientific_name = (:scientific_name)""", data,
+            """SELECT rowid FROM calltypes WHERE calltype = (:calltype) AND scientific_name = (:scientific_name)""",
+            data,
         )
 
         existing_row_id = self.cursor.fetchone()
         if existing_row_id:
             calltype_id = existing_row_id[0]
         else:
-            self.cursor.execute("""INSERT INTO calltypes VALUES (:scientific_name, :calltype) RETURNING rowid""", data,)
+            self.cursor.execute(
+                """INSERT INTO calltypes VALUES (:scientific_name, :calltype) RETURNING rowid""",
+                data,
+            )
             calltype_id = self.cursor.fetchone()[0]
         return calltype_id
 
@@ -145,7 +148,6 @@ class DatabaseHandler:
         self.commit()
 
     def insert_segment(self, segment):
-
         self.cursor.execute(
             """INSERT INTO segments
                 VALUES (:filename, :start, :end, :low, :high, :operator_id)
@@ -167,14 +169,14 @@ class DatabaseHandler:
 
     def delete_segment(self, filename, dirname, segment):
         seg = {
-            "start": segment[0], 
+            "start": segment[0],
             "end": segment[1],
             "low": segment[2],
             "high": segment[3],
             "filename": os.path.basename(filename),
-            "directory": dirname
+            "directory": dirname,
         }
-        
+
         self.cursor.execute(
             """DELETE FROM segments
                 WHERE rowid IN (SELECT segments.rowid FROM segments 
@@ -210,14 +212,19 @@ class DatabaseHandler:
         filter_id = self.add_filter(species_list["filter"])
 
         sp_dict = {
-            "scientific_name": species_list["species"],
-            "common_name": species_list["species"],
-            "confidence": species_list["certainty"],
-            "segment_id": seg_id,
-            "filter_id": filter_id,
-            "calltype": species_list["calltype"]
-            if "calltype" in species_list.keys()
-            else "non-specified",
+            "scientific_name":
+            species_list["species"],
+            "common_name":
+            species_list["species"],
+            "confidence":
+            species_list["certainty"],
+            "segment_id":
+            seg_id,
+            "filter_id":
+            filter_id,
+            "calltype":
+            species_list["calltype"]
+            if "calltype" in species_list.keys() else "non-specified",
         }
         self.cursor.execute(
             """INSERT INTO species
@@ -259,7 +266,7 @@ class DatabaseHandler:
             INNER JOIN segments ON recording.filename=segments.filename 
             INNER JOIN segment_species ON segments.rowid = segment_species.segment_id 
             WHERE recording.directory LIKE ? GROUP BY segment_species.species_scientific_name""",
-            (dirname + "%",),
+            (dirname + "%", ),
         )
         return self.cursor.fetchall()
 
@@ -302,7 +309,7 @@ class DatabaseHandler:
             (dirname + "%", minconf),
         )
         return self.cursor.fetchall()
-    
+
     def get_dir_segments(self, dirname, minconf):
         self.cursor.execute(
             """SELECT recording.directory, recording.filename, segments.start, segments.end, 
@@ -325,7 +332,7 @@ class DatabaseHandler:
             INNER JOIN segments ON recording.filename=segments.filename 
             INNER JOIN segment_species ON segments.rowid = segment_species.segment_id 
             WHERE recording.directory LIKE ? GROUP BY recording.filename, segment_species.species_scientific_name""",
-            (dirname + "%",),
+            (dirname + "%", ),
         )
         return self.cursor.fetchall()
 
@@ -344,12 +351,14 @@ class DatabaseHandler:
         return self.cursor.fetchall()
 
     def delete_segment_species(self, seg_species):
-        seg_dict = {"start": seg_species[0],
-                "end": seg_species[1],
-                "low": seg_species[2],
-                "high": seg_species[3],
-                "species": seg_species[4],
-                "certainty": seg_species[5]}
+        seg_dict = {
+            "start": seg_species[0],
+            "end": seg_species[1],
+            "low": seg_species[2],
+            "high": seg_species[3],
+            "species": seg_species[4],
+            "certainty": seg_species[5],
+        }
 
         self.cursor.execute(
             """DELETE FROM segment_species WHERE

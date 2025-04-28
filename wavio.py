@@ -33,8 +33,8 @@ POSSIBILITY OF SUCH DAMAGE.
 from __future__ import division as _division
 
 import wave as _wave
-import numpy as _np
 
+import numpy as _np
 
 __version__ = "0.0.4.dev1"
 
@@ -44,7 +44,7 @@ def _wav2array(nchannels, sampwidth, data):
     num_samples, remainder = divmod(len(data), sampwidth * nchannels)
     if remainder > 0:
         raise ValueError(
-            "The length of data is not a multiple of " "sampwidth * num_channels."
+            "The length of data is not a multiple of sampwidth * num_channels."
         )
     if sampwidth > 4:
         raise ValueError("sampwidth must not be greater than 4.")
@@ -53,7 +53,7 @@ def _wav2array(nchannels, sampwidth, data):
         a = _np.empty((num_samples, nchannels, 4), dtype=_np.uint8)
         raw_bytes = _np.fromstring(data, dtype=_np.uint8)
         a[:, :, :sampwidth] = raw_bytes.reshape(-1, nchannels, sampwidth)
-        a[:, :, sampwidth:] = (a[:, :, sampwidth - 1 : sampwidth] >> 7) * 255
+        a[:, :, sampwidth:] = (a[:, :, sampwidth - 1:sampwidth] >> 7) * 255
         result = a.view("<i4").reshape(a.shape[:-1])
     else:
         # 8 bit samples are stored as unsigned ints; others as signed ints.
@@ -82,7 +82,7 @@ def _array2wav(a, sampwidth):
             a = a.reshape(-1, 1)
         # By shifting first 0 bits, then 8, then 16, the resulting output
         # is 24 bit little-endian.
-        a8 = (a.reshape(a.shape + (1,)) >> _np.array([0, 8, 16])) & 255
+        a8 = (a.reshape(a.shape + (1, )) >> _np.array([0, 8, 16])) & 255
         wavdata = a8.astype(_np.uint8).tostring()
     else:
         # Make sure the array is little-endian, and then convert using
@@ -235,9 +235,8 @@ def _scale_to_sampwidth(data, sampwidth, vmin, vmax):
         if outmin != vmin or outmax != vmax:
             vmin = float(vmin)
             vmax = float(vmax)
-            data = (float(outmax - outmin) * (data - vmin) / (vmax - vmin)).astype(
-                _np.int64
-            ) + outmin
+            data = (float(outmax - outmin) * (data - vmin) /
+                    (vmax - vmin)).astype(_np.int64) + outmin
             data[data == outmax] = outmax - 1
         data = data.astype(dt)
 
@@ -339,10 +338,8 @@ def write(file, data, rate, scale=None, sampwidth=None):
 
     if sampwidth is None:
         if not _np.issubdtype(data.dtype, _np.integer) or data.itemsize > 4:
-            raise ValueError(
-                "when data.dtype is not an 8-, 16-, or 32-bit "
-                "integer type, sampwidth must be specified."
-            )
+            raise ValueError("when data.dtype is not an 8-, 16-, or 32-bit "
+                             "integer type, sampwidth must be specified.")
         sampwidth = data.itemsize
     else:
         if sampwidth not in [1, 2, 3, 4]:
@@ -355,7 +352,8 @@ def write(file, data, rate, scale=None, sampwidth=None):
         data = data.clip(outmin, outmax - 1).astype(outdtype)
     elif scale == "dtype-limits":
         if not _np.issubdtype(data.dtype, _np.integer):
-            raise ValueError("scale cannot be 'dtype-limits' with " "non-integer data.")
+            raise ValueError(
+                "scale cannot be 'dtype-limits' with non-integer data.")
         # Easy transforms that just changed the signedness of the data.
         if sampwidth == 1 and data.dtype == _np.int8:
             data = (data.astype(_np.int16) + 128).astype(_np.uint8)

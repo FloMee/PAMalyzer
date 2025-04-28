@@ -29,40 +29,39 @@
 
 # import statements for BirdNET-Lite
 
+import copy
+import math
+import operator
 import os
 import pathlib
-from tensorflow import lite as tflite
-import operator
+import time
+import traceback
+
 import librosa
 import numpy as np
-import math
-import time
-import copy
-import traceback
+from PyQt5.QtCore import QDir, QObject, QRunnable, Qt, QThreadPool, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import Qt, QThreadPool, QRunnable, pyqtSignal, pyqtSlot, QObject, QDir
 from PyQt5.QtWidgets import (
-    QDialog,
-    QSlider,
-    QGridLayout,
-    QGridLayout,
-    QLabel,
+    QCheckBox,
     QComboBox,
+    QDialog,
+    QDoubleSpinBox,
+    QFileDialog,
+    QGridLayout,
+    QGroupBox,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
+    QMessageBox,
+    QProgressDialog,
     QPushButton,
     QRadioButton,
-    QVBoxLayout,
-    QCheckBox,
-    QFileDialog,
-    QMessageBox,
-    QDoubleSpinBox,
     QSpinBox,
-    QGroupBox,
-    QWidget,
-    QProgressDialog,
     QToolButton,
+    QVBoxLayout,
+    QWidget,
 )
+from tensorflow import lite as tflite
 
 import Segment
 
@@ -101,7 +100,7 @@ class BirdNETDialog(QDialog):
 
         self.lat_label = QLabel("Latitude")
         self.lat_label.setToolTip(
-            "Recording location latitude; Values in " "[-90; 90]; Defaults to -1.00."
+            "Recording location latitude; Values in [-90; 90]; Defaults to -1.00."
         )
         self.lat = QDoubleSpinBox()
         self.lat.setRange(-90, 90)
@@ -110,7 +109,7 @@ class BirdNETDialog(QDialog):
 
         self.lon_label = QLabel("Longitude")
         self.lon_label.setToolTip(
-            "Recording location longitude; Values in " "[-180; 180]; Defaults to -1.00."
+            "Recording location longitude; Values in [-180; 180]; Defaults to -1.00."
         )
         self.lon = QDoubleSpinBox()
         self.lon.setRange(-180, 180)
@@ -699,7 +698,7 @@ class BirdNET_Worker(QRunnable):
             ]
 
             print("DONE!")
-        except Exception() as e:
+        except Exception():
             print(traceback.format_exc())
 
         return model

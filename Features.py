@@ -20,16 +20,18 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import numpy as np
-import librosa
-import SignalProc
-import SupportClasses
-import WaveletSegment
-import wavio
-from scipy import signal
+import json
 import math
 import os
-import re
+import time
+
+import librosa
+import numpy as np
+from scipy import signal
+
+import SignalProc
+import WaveletSegment
+import wavio
 
 # TODO:
 # First thing is to get my head around everything that is going on, which is:
@@ -118,7 +120,8 @@ class Features:
         self.sampleRate = sampleRate
         self.window_width = window_width
         self.incr = incr
-        sp = SignalProc.SignalProc(window_width=self.window_width, incr=self.incr)
+        sp = SignalProc.SignalProc(window_width=self.window_width,
+                                   incr=self.incr)
         sp.data = self.data
         sp.sampleRate = self.sampleRate
         # The next lines are to get a spectrogram that *should* precisely match the Raven one
@@ -146,8 +149,11 @@ class Features:
         # Use librosa to get the MFCC coefficients.
         # n_bins = 8  # kakapo boom
         mfcc = librosa.feature.mfcc(
-            y=self.data, sr=self.sampleRate, n_mfcc=n_mfcc, n_fft=2048, hop_length=512
-        )  # n_fft=10240, hop_length=2560
+            y=self.data,
+            sr=self.sampleRate,
+            n_mfcc=n_mfcc,
+            n_fft=2048,
+            hop_length=512)  # n_fft=10240, hop_length=2560
         if delta:
             if n_bins == 8:
                 mfcc_delta = librosa.feature.delta(mfcc, width=5)
@@ -168,9 +174,10 @@ class Features:
     def get_WE(self, nlevels=5):
         """Wavelet energies"""
         ws = WaveletSegment.WaveletSegment(spInfo=[])
-        WE = ws.computeWaveletEnergy(
-            data=self.data, sampleRate=self.sampleRate, nlevels=nlevels, wpmode="new"
-        )
+        WE = ws.computeWaveletEnergy(data=self.data,
+                                     sampleRate=self.sampleRate,
+                                     nlevels=nlevels,
+                                     wpmode="new")
 
         return WE
 
@@ -228,7 +235,8 @@ class Features:
 
         # Compute the energy
         # This is a little bit unclear. Eq (6.1) of Raven is the calculation below, but then it says it is in decibels, which this is not!
-        energy = np.sum(self.sg[:, f1:f2]) * self.sampleRate / self.window_width
+        energy = np.sum(self.sg[:,
+                                f1:f2]) * self.sampleRate / self.window_width
 
         # Entropy of energy in each frequency bin over whole time
         Ebin = np.sum(self.sg[:, f1:f2], axis=0)
@@ -248,18 +256,16 @@ class Features:
         avgPower = np.sum(sg[:, f1:f2]) / ((f2 - f1) * (np.shape(sg)[0]))
 
         # Power at the max frequency minus power at min freq. Unclear how it deals with the fact that there isn't one time in there!
-        deltaPower = (np.sum(sg[:, f2 - 1]) - np.sum(sg[:, f1])) / np.shape(sg)[1]
+        deltaPower = (np.sum(sg[:, f2 - 1]) -
+                      np.sum(sg[:, f1])) / np.shape(sg)[1]
 
         # Max power is the darkest pixel in the spectrogram
         maxPower = np.max(sg[:, f1:f2])
 
         # Max frequency is the frequency at which max power occurs
-        maxFreq = (
-            (np.unravel_index(np.argmax(sg[:, f1:f2]), np.shape(sg[:, f1:f2]))[1] + f1)
-            * self.sampleRate
-            / 2
-            / np.shape(sg)[1]
-        )
+        maxFreq = ((np.unravel_index(np.argmax(sg[:, f1:f2]),
+                                     np.shape(sg[:, f1:f2]))[1] + f1) *
+                   self.sampleRate / 2 / np.shape(sg)[1])
         return avgPower, deltaPower, energy, aggEntropy, avgEntropy, maxPower, maxFreq
 
     def get_Raven_robust_measurements(self, f1, f2):
@@ -303,7 +309,8 @@ class Features:
 
         # Turn into frequencies and times
         # Maxfreq in sg is fs/2, so fs/2 /np.shape(sg)[1] is the value of 1 bin
-        freqindices = (freqindices + f1) * self.sampleRate / 2 / np.shape(sg)[1]
+        freqindices = (freqindices +
+                       f1) * self.sampleRate / 2 / np.shape(sg)[1]
         # The time between two columns of the spectrogram is the increment divided by the sample rate
         timeindices = (timeindices + 0) * self.incr / self.sampleRate
         return (
@@ -333,7 +340,7 @@ class Features:
         maxt = np.argmax(data[t1:t2]) + t1 / fs
         peaka = np.max(np.abs(data[t1:t2]))
         peakt = np.argmax(np.abs(data[t1:t2])) + t1 / fs
-        rmsa = np.sqrt(np.sum(data[t1:t2] ** 2) / len(data[t1:t2]))
+        rmsa = np.sqrt(np.sum(data[t1:t2]**2) / len(data[t1:t2]))
         # Filtered rmsa (bandpass filtered first)
         # TODO
         # Also? max bearing, peak correlation, peak lag
@@ -389,7 +396,7 @@ def loadFile(filename):
     audiodata = wavobj.data
 
     # None of the following should be necessary for librosa
-    if audiodata.dtype is not "float":
+    if audiodata.dtype != "float":
         audiodata = audiodata.astype("float")  # / 32768.0
     if np.shape(np.shape(audiodata))[0] > 1:
         audiodata = audiodata[:, 0]
@@ -429,11 +436,8 @@ def genCluterData(dir, duration=1, sampRate=16000):
                 middle_duration = int(duration * fs)
                 middleIndex = int((len(data) - 1) / 2)
                 if middle_duration < len(data):
-                    data = data[
-                        int(middleIndex - middle_duration / 2) : int(
-                            middleIndex + middle_duration / 2
-                        )
-                    ]
+                    data = data[int(middleIndex - middle_duration /
+                                    2):int(middleIndex + middle_duration / 2)]
 
                 # # Wavelet energy
                 # ws = WaveletSegment.WaveletSegment(spInfo=[])
@@ -492,16 +496,19 @@ def mfcc(y1, y2, y3, sr1, sr2, sr3, yTest, srTest):
     dists = np.zeros(mfccTest.shape[1] - window_size)
 
     for i in range(len(dists)):
-        mfcci = mfccTest[:, i : i + window_size]
+        mfcci = mfccTest[:, i:i + window_size]
         dist1i = librosa.dtw(
-            mfcc1.T, mfcci.T, dist=lambda x, y: np.exp(np.linalg.norm(x - y, ord=1))
-        )[0]
+            mfcc1.T,
+            mfcci.T,
+            dist=lambda x, y: np.exp(np.linalg.norm(x - y, ord=1)))[0]
         dist2i = librosa.dtw(
-            mfcc2.T, mfcci.T, dist=lambda x, y: np.exp(np.linalg.norm(x - y, ord=1))
-        )[0]
+            mfcc2.T,
+            mfcci.T,
+            dist=lambda x, y: np.exp(np.linalg.norm(x - y, ord=1)))[0]
         dist3i = librosa.dtw(
-            mfcc3.T, mfcci.T, dist=lambda x, y: np.exp(np.linalg.norm(x - y, ord=1))
-        )[0]
+            mfcc3.T,
+            mfcci.T,
+            dist=lambda x, y: np.exp(np.linalg.norm(x - y, ord=1)))[0]
         dists[i] = (dist1i + dist2i + dist3i) / 3
     import matplotlib.pyplot as plt
 
@@ -511,22 +518,22 @@ def mfcc(y1, y2, y3, sr1, sr2, sr3, yTest, srTest):
     word_match_idx = dists.argmin()
     # convert MFCC to time domain
     word_match_idx_bnds = np.array(
-        [word_match_idx, np.ceil(word_match_idx + window_size)]
-    )
+        [word_match_idx, np.ceil(word_match_idx + window_size)])
     samples_per_mfcc = 512
     word_samp_bounds = (2 / 2) + (word_match_idx_bnds * samples_per_mfcc)
 
-    word = yTest[word_samp_bounds[0] : word_samp_bounds[1]]
+    word = yTest[word_samp_bounds[0]:word_samp_bounds[1]]
 
 
 def mfcc_dtw(y, sr, yTest, srTest):
     # Convert the data to mfcc:
-    mfcc = librosa.feature.mfcc(
-        y, sr, n_mfcc=24, n_fft=2048, hop_length=512
-    )  # n_fft=10240, hop_length=2560
-    mfccTest = librosa.feature.mfcc(
-        yTest, srTest, n_mfcc=24, n_fft=2048, hop_length=512
-    )
+    mfcc = librosa.feature.mfcc(y, sr, n_mfcc=24, n_fft=2048,
+                                hop_length=512)  # n_fft=10240, hop_length=2560
+    mfccTest = librosa.feature.mfcc(yTest,
+                                    srTest,
+                                    n_mfcc=24,
+                                    n_fft=2048,
+                                    hop_length=512)
     # get delta mfccs
     mfcc_delta = librosa.feature.delta(mfcc)
     mfccTest_delta = librosa.feature.delta(mfccTest)
@@ -592,9 +599,8 @@ def lcsDistanceMatrix(s0, s1):
             if s0[i] == s1[j]:
                 distMatrix[i + 1][j + 1] = 1 + distMatrix[i][j]
             else:
-                distMatrix[i + 1][j + 1] = max(
-                    distMatrix[i][j + 1], distMatrix[i + 1][j]
-                )
+                distMatrix[i + 1][j + 1] = max(distMatrix[i][j + 1],
+                                               distMatrix[i + 1][j])
     return distMatrix
 
 
@@ -636,7 +642,7 @@ def testFeatures():
     fs = wavobj.rate
     data = wavobj.data
 
-    if data.dtype is not "float":
+    if data.dtype != "float":
         data = data.astype("float")  # / 32768.0
 
     if np.shape(np.shape(data))[0] > 1:
@@ -646,9 +652,11 @@ def testFeatures():
     # The next lines are to get a spectrogram that *should* precisely match the Raven one
     # sg = sp.spectrogram(data, multitaper=False, window_width=256, incr=128, window='Ones')
     # sg = sg ** 2
-    sg = sp.spectrogram(
-        data, sgType="Standard", window_width=256, incr=128, window="Hann"
-    )
+    sg = sp.spectrogram(data,
+                        sgType="Standard",
+                        window_width=256,
+                        incr=128,
+                        window="Hann")
 
     f = Features(data, fs, 256, 128)
 
@@ -660,24 +668,22 @@ def testFeatures():
     we = we.transpose().tolist()
     # how to combine features with different resolution?
 
-    features.append(
-        [
-            f.get_Raven_spectrogram_measurements(
-                sg=sg,
-                fs=fs,
-                window_width=256,
-                f1=0,
-                f2=np.shape(sg)[1],
-                t1=0,
-                t2=np.shape(sg)[0],
-            ),
-            f.get_Raven_robust_measurements(
-                sg, fs, 0, np.shape(sg)[1], 0, np.shape(sg)[0]
-            ),
-            f.get_Raven_waveform_measurements(data, fs, 0, len(data)),
-            f.wiener_entropy(sg),
-        ]
-    )
+    features.append([
+        f.get_Raven_spectrogram_measurements(
+            sg=sg,
+            fs=fs,
+            window_width=256,
+            f1=0,
+            f2=np.shape(sg)[1],
+            t1=0,
+            t2=np.shape(sg)[0],
+        ),
+        f.get_Raven_robust_measurements(sg, fs, 0,
+                                        np.shape(sg)[1], 0,
+                                        np.shape(sg)[0]),
+        f.get_Raven_waveform_measurements(data, fs, 0, len(data)),
+        f.wiener_entropy(sg),
+    ])
 
     # Will need to think about feature vector length for the librosa features, since they are on fixed windows
     f.get_chroma()
@@ -713,7 +719,7 @@ def generateDataset(dir_src, feature, species, filemode, wpmode, dir_out):
     annotation = []
     if "WE" in feature:
         nlevels = 5
-        waveletCoefs = np.array([]).reshape(2 ** (nlevels + 1) - 2, 0)
+        waveletCoefs = np.array([]).reshape(2**(nlevels + 1) - 2, 0)
     if "MFCC" in feature:
         n_mfcc = 48
         n_bins = 8  # kakapo boom
@@ -728,43 +734,29 @@ def generateDataset(dir_src, feature, species, filemode, wpmode, dir_out):
 
     for root, dirs, files in os.walk(str(dir_src)):
         for file in files:
-            if (
-                file.endswith(".wav")
-                and os.stat(root + "/" + file).st_size != 0
-                and file[:-4] + "-GT.txt" in files
-                or file.endswith(".wav")
-                and filemode != "long"
-                and os.stat(root + "/" + file).st_size > 150
-            ):
+            if (file.endswith(".wav") and os.stat(root + "/" + file).st_size
+                    != 0 and file[:-4] + "-GT.txt" in files
+                    or file.endswith(".wav") and filemode != "long"
+                    and os.stat(root + "/" + file).st_size > 150):
                 opstartingtime = time.time()
                 wavFile = root + "/" + file[:-4]
                 print(wavFile)
-                data, currentannotation, sampleRate = loadData(wavFile, filemode)
+                data, currentannotation, sampleRate = loadData(
+                    wavFile, filemode)
 
-                ws = WaveletSegment.WaveletSegment(data=data, sampleRate=sampleRate)
-                if (
-                    feature == "WEraw_all"
-                    or feature == "MFCCraw_all"
-                    or feature == "WE+MFCCraw_all"
-                ):
+                ws = WaveletSegment.WaveletSegment(data=data,
+                                                   sampleRate=sampleRate)
+                if (feature == "WEraw_all" or feature == "MFCCraw_all"
+                        or feature == "WE+MFCCraw_all"):
                     data = ws.preprocess(speciesData, d=False, f=False)
-                elif (
-                    feature == "WEbp_all"
-                    or feature == "MFCCbp_all"
-                    or feature == "WE+MFCCbp_all"
-                ):
+                elif (feature == "WEbp_all" or feature == "MFCCbp_all"
+                      or feature == "WE+MFCCbp_all"):
                     data = ws.preprocess(speciesData, d=False, f=True)
-                elif (
-                    feature == "WEd_all"
-                    or feature == "MFCCd_all"
-                    or feature == "WE+MFCCd_all"
-                ):
+                elif (feature == "WEd_all" or feature == "MFCCd_all"
+                      or feature == "WE+MFCCd_all"):
                     data = ws.preprocess(speciesData, d=True, f=False)
-                elif (
-                    feature == "WEbpd_all"
-                    or feature == "MFCCbpd_all"
-                    or feature == "WE+MFCCbpd_all"
-                ):
+                elif (feature == "WEbpd_all" or feature == "MFCCbpd_all"
+                      or feature == "WE+MFCCbpd_all"):
                     data = ws.preprocess(speciesData, d=True, f=True)
 
                 # Compute energy in each WP node and store
@@ -802,13 +794,11 @@ def generateDataset(dir_src, feature, species, filemode, wpmode, dir_out):
         WC = np.transpose(waveletCoefs)
         WE_MFCC = np.append(WC, MFCC, axis=1)
         MLdata = np.append(WE_MFCC, ann, axis=1)
-    np.savetxt(
-        os.path.join(dir_out, species + "_" + feature + ".tsv"), MLdata, delimiter="\t"
-    )
-    print(
-        "Directory loaded. %d/%d presence blocks found.\n"
-        % (np.sum(annotation), len(annotation))
-    )
+    np.savetxt(os.path.join(dir_out, species + "_" + feature + ".tsv"),
+               MLdata,
+               delimiter="\t")
+    print("Directory loaded. %d/%d presence blocks found.\n" %
+          (np.sum(annotation), len(annotation)))
 
 
 # def loadData(fName, filemode):
@@ -875,7 +865,7 @@ def computeMFCC(data, sampleRate, n_mfcc, n_bins, delta):
         if end == len(data) and len(data) % sampleRate != 0:
             continue
         mfcc1 = librosa.feature.mfcc(
-            y=data[t * sampleRate : end],
+            y=data[t * sampleRate:end],
             sr=sampleRate,
             n_mfcc=n_mfcc,
             n_fft=2048,

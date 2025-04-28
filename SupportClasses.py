@@ -20,7 +20,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from openpyxl import load_workbook, Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font
 
 QtMM = True
@@ -30,13 +30,13 @@ except ImportError:
     print("No GUI")
     QtMM = False
 
-import time
+import json
 import math
-import numpy as np
-import os, json
+import os
 import re
-from tensorflow.keras.models import model_from_json
-from tensorflow.keras.models import load_model
+import time
+
+import numpy as np
 from PyQt5.QtCore import QLocale
 
 
@@ -89,24 +89,20 @@ class Log(object):
                     # print(lines[lend])
                     if len(lines[lend]) > 0:  # there are empty lines too
                         if lines[lend][0] == "#":
-                            allans.append(
-                                [
-                                    lines[lstart],
-                                    lines[lstart + 1],
-                                    lines[lstart + 2],
-                                    lines[lstart + 3 : lend],
-                                ]
-                            )
+                            allans.append([
+                                lines[lstart],
+                                lines[lstart + 1],
+                                lines[lstart + 2],
+                                lines[lstart + 3:lend],
+                            ])
                             lstart = lend
                     lend += 1
-                allans.append(
-                    [
-                        lines[lstart],
-                        lines[lstart + 1],
-                        lines[lstart + 2],
-                        lines[lstart + 3 : lend],
-                    ]
-                )
+                allans.append([
+                    lines[lstart],
+                    lines[lstart + 1],
+                    lines[lstart + 2],
+                    lines[lstart + 3:lend],
+                ])
 
                 # parse the log thusly:
                 # if current species analysis found, store parameters
@@ -134,7 +130,8 @@ class Log(object):
         print("Appending %s to log" % filename)
         # convert to path relative to the log file directory
         if os.path.isabs(filename):
-            filename = os.path.relpath(filename, os.path.dirname(self.filepath))
+            filename = os.path.relpath(filename,
+                                       os.path.dirname(self.filepath))
 
         # attach file path to end of log
         self.file.write(filename)
@@ -146,8 +143,7 @@ class Log(object):
         Assumes possiblefiles stores absolute paths."""
         currdir = os.path.dirname(self.filepath)
         done_abs = [
-            os.path.normpath(os.path.join(currdir, f))
-            for f in self.filesDone
+            os.path.normpath(os.path.join(currdir, f)) for f in self.filesDone
             if not os.path.isabs(f)
         ]
         # assuming relative paths on both lists:
@@ -156,7 +152,8 @@ class Log(object):
 
     def appendHeader(self, header, species, settings):
         if header is None:
-            header = "#Analysis started on " + time.strftime("%Y %m %d, %H:%M:%S") + ":"
+            header = "#Analysis started on " + time.strftime(
+                "%Y %m %d, %H:%M:%S") + ":"
         self.file.write(header)
         self.file.write("\n")
         self.file.write(species)
@@ -198,7 +195,8 @@ class ConfigLoader(object):
             msg = SupportClasses_GUI.MessagePopup(
                 "w",
                 "Bad config file",
-                "ERROR: file " + file + " corrupt, delete it to restore default",
+                "ERROR: file " + file +
+                " corrupt, delete it to restore default",
             )
             msg.exec_()
             raise
@@ -207,7 +205,8 @@ class ConfigLoader(object):
         print("Loading calltype files from folder %s" % dir)
         try:
             callfiles = [
-                f for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))
+                f for f in os.listdir(dir)
+                if os.path.isfile(os.path.join(dir, f))
             ]
         except Exception:
             print("Folder %s not found, no calltypes loaded" % dir)
@@ -224,11 +223,9 @@ class ConfigLoader(object):
                 ct.close()
 
                 # skip this filter if it looks fishy:
-                if (
-                    not isinstance(calltypes, dict)
-                    or "species" not in calltypes
-                    or "calltypes" not in calltypes
-                ):
+                if (not isinstance(calltypes, dict)
+                        or "species" not in calltypes
+                        or "calltypes" not in calltypes):
                     raise ValueError("Calltype JSON format wrong, skipping")
 
                 # if filter passed checks, store it,
@@ -252,9 +249,8 @@ class ConfigLoader(object):
                 # to allow looking it up in various OSes.
                 shortblfile = os.path.join(configdir, file)
             if not os.path.isfile(shortblfile):
-                print(
-                    "Warning: file %s not found, falling back to default" % shortblfile
-                )
+                print("Warning: file %s not found, falling back to default" %
+                      shortblfile)
                 shortblfile = os.path.join(configdir, "ListCommonBirds.txt")
 
             try:
@@ -264,8 +260,7 @@ class ConfigLoader(object):
                 if len(readlist) > 29:
                     print(
                         "Warning: short species list has %s entries, truncating to 30"
-                        % len(readlist)
-                    )
+                        % len(readlist))
                     readlist = readlist[:29]
                 return readlist
             except ValueError as e:
@@ -274,9 +269,8 @@ class ConfigLoader(object):
                 msg = SupportClasses_GUI.MessagePopup(
                     "w",
                     "Bad species list",
-                    "ERROR: file "
-                    + shortblfile
-                    + " corrupt, delete it to restore default. Reverting to default.",
+                    "ERROR: file " + shortblfile +
+                    " corrupt, delete it to restore default. Reverting to default.",
                 )
                 msg.exec_()
                 return None
@@ -287,9 +281,8 @@ class ConfigLoader(object):
             msg = SupportClasses_GUI.MessagePopup(
                 "w",
                 "Bad species list",
-                "ERROR: Failed to load short species list from "
-                + file
-                + ". Reverting to default.",
+                "ERROR: Failed to load short species list from " + file +
+                ". Reverting to default.",
             )
             msg.exec_()
             return None
@@ -305,9 +298,8 @@ class ConfigLoader(object):
                 # to allow looking it up in various OSes.
                 longblfile = os.path.join(configdir, file)
             if not os.path.isfile(longblfile):
-                print(
-                    "Warning: file %s not found, falling back to default" % longblfile
-                )
+                print("Warning: file %s not found, falling back to default" %
+                      longblfile)
                 longblfile = os.path.join(configdir, "ListDOCBirds.txt")
 
             try:
@@ -320,9 +312,8 @@ class ConfigLoader(object):
                 msg = SupportClasses_GUI.MessagePopup(
                     "w",
                     "Bad species list",
-                    "Warning: file "
-                    + longblfile
-                    + " corrupt, delete it to restore default. Reverting to default.",
+                    "Warning: file " + longblfile +
+                    " corrupt, delete it to restore default. Reverting to default.",
                 )
                 msg.exec_()
                 return None
@@ -332,9 +323,8 @@ class ConfigLoader(object):
             msg = SupportClasses_GUI.MessagePopup(
                 "w",
                 "Bad species list",
-                "Warning: Failed to load long species list from "
-                + file
-                + ". Reverting to default.",
+                "Warning: Failed to load long species list from " + file +
+                ". Reverting to default.",
             )
             msg.exec_()
             return None
@@ -350,7 +340,8 @@ class ConfigLoader(object):
                 # to allow looking it up in various OSes.
                 blfile = os.path.join(configdir, file)
             if not os.path.isfile(blfile):
-                print("Warning: file %s not found, falling back to default" % blfile)
+                print("Warning: file %s not found, falling back to default" %
+                      blfile)
                 blfile = os.path.join(configdir, "ListBats.txt")
 
             try:
@@ -363,9 +354,8 @@ class ConfigLoader(object):
                 msg = SupportClasses_GUI.MessagePopup(
                     "w",
                     "Bad species list",
-                    "Warning: file "
-                    + blfile
-                    + " corrupt, delete it to restore default. Reverting to default.",
+                    "Warning: file " + blfile +
+                    " corrupt, delete it to restore default. Reverting to default.",
                 )
                 msg.exec_()
                 return None
@@ -375,9 +365,8 @@ class ConfigLoader(object):
             msg = SupportClasses_GUI.MessagePopup(
                 "w",
                 "Bad species list",
-                "Warning: Failed to load bat list from "
-                + file
-                + ". Reverting to default.",
+                "Warning: Failed to load bat list from " + file +
+                ". Reverting to default.",
             )
             msg.exec_()
             return None
@@ -466,9 +455,8 @@ class ExcelIO:
 
             if startTime is None:
                 # if no startTime was provided, try to figure it out based on the filename
-                DOCRecording = re.search(
-                    "(\d{6})_(\d{6})", os.path.basename(segsl.filename)[:-8]
-                )
+                DOCRecording = re.search("(\d{6})_(\d{6})",
+                                         os.path.basename(segsl.filename)[:-8])
 
                 if DOCRecording:
                     print("time stamp found", DOCRecording)
@@ -494,19 +482,15 @@ class ExcelIO:
                         row=r,
                         column=2,
                         value=str(
-                            startTimeFile.addMSecs(int(seg[0] * 1000)).toString(
-                                timeStrFormat
-                            )
-                        ),
+                            startTimeFile.addMSecs(int(
+                                seg[0] * 1000)).toString(timeStrFormat)),
                     )
                     ws.cell(
                         row=r,
                         column=3,
                         value=str(
-                            startTimeFile.addMSecs(int(seg[1] * 1000)).toString(
-                                timeStrFormat
-                            )
-                        ),
+                            startTimeFile.addMSecs(int(
+                                seg[1] * 1000)).toString(timeStrFormat)),
                     )
                     # Freq limits
                     if seg[3] != 0:
@@ -532,7 +516,8 @@ class ExcelIO:
                     else:
                         # only print certainty and call type
                         if lab["species"] == currsp:
-                            strcert = QLocale.toString(QLocale(), lab["certainty"])
+                            strcert = QLocale.toString(QLocale(),
+                                                       lab["certainty"])
                             if "calltype" in lab:
                                 strct = str(lab["calltype"])
                             else:
@@ -571,9 +556,8 @@ class ExcelIO:
     # pagenum: index of the current page, 0-base
     # totpages: total number of pages
     # pagelen: page length in s
-    def writeToExcelp3(
-        self, wb, segscert, filename, pagenum, pagelen, totpages, resolution
-    ):
+    def writeToExcelp3(self, wb, segscert, filename, pagenum, pagelen,
+                       totpages, resolution):
         # writes binary output DETECTED (per s) from page PAGENUM of length PAGELEN
         starttime = pagenum * pagelen
         ws = wb["Per Time Period"]
@@ -620,7 +604,9 @@ class ExcelIO:
             win_end = min(win_start + resolution, int(pagelen * totpages))
             ws.cell(row=r, column=c, value="%d-%d" % (win_start, win_end))
             ws.cell(row=r, column=c).font = ft
-            ws.cell(row=r + 1, column=c, value=QLocale.toString(QLocale(), detected[t]))
+            ws.cell(row=r + 1,
+                    column=c,
+                    value=QLocale.toString(QLocale(), detected[t]))
             c += 1
 
     def export(
@@ -671,7 +657,8 @@ class ExcelIO:
             # setup output files:
             # if an Excel exists, append (so multiple files go into one worksheet)
             # if not, create new
-            eFile = os.path.join(dirName, "DetectionSummary_" + speciesClean + ".xlsx")
+            eFile = os.path.join(dirName,
+                                 "DetectionSummary_" + speciesClean + ".xlsx")
 
             if action == "overwrite" or not os.path.isfile(eFile):
                 # make a new workbook:
@@ -714,7 +701,8 @@ class ExcelIO:
                     ws.cell(
                         row=1,
                         column=3,
-                        value="Maximum confidence of species presence (0 = absent)",
+                        value=
+                        "Maximum confidence of species presence (0 = absent)",
                     )
 
                 # Hack to delete original sheet
@@ -723,9 +711,8 @@ class ExcelIO:
                 try:
                     wb = load_workbook(eFile)
                 except Exception as e:
-                    print(
-                        "ERROR: cannot open file %s to append" % eFile
-                    )  # no read permissions or smth
+                    print("ERROR: cannot open file %s to append" %
+                          eFile)  # no read permissions or smth
                     print(e)
                     return 0
             else:
@@ -745,7 +732,8 @@ class ExcelIO:
                     for seg in segsl:
                         for lab in seg[4]:
                             if lab["species"] == species:
-                                speciesCerts.append([seg[0], seg[1], lab["certainty"]])
+                                speciesCerts.append(
+                                    [seg[0], seg[1], lab["certainty"]])
 
                     # export presence/absence and max certainty
                     self.writeToExcelp2(wb, speciesCerts, segsl.filename)
@@ -774,9 +762,8 @@ class ExcelIO:
             try:
                 wb.save(eFile)
             except Exception as e:
-                print(
-                    "ERROR: could not create new file %s" % eFile
-                )  # no read permissions or smth
+                print("ERROR: could not create new file %s" %
+                      eFile)  # no read permissions or smth
                 print(e)
                 return 0
         return 1
