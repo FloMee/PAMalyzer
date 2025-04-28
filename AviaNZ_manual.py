@@ -1506,7 +1506,7 @@ class AviaNZ(QMainWindow):
             success = self.listLoadFile(os.path.basename(fileName))
         if success == 1:
             print("Warning: could not load file, reloading current file")
-            self.SoundFileDir = SoundFileDirOld
+            self.SoundFileDir = self.SoundFileDirOld
             self.filename = os.path.join(self.SoundFileDir, fileNameOld)
             self.listLoadFile(fileNameOld)
 
