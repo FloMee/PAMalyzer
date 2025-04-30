@@ -26,6 +26,8 @@ def mainlauncher():
     import os
     import sys
 
+    from PyQt5 import QtCore, QtWidgets
+
     if getattr(sys, "frozen", False):
         appdir = sys._MEIPASS
     else:
@@ -100,7 +102,8 @@ def mainlauncher():
                 print("ERROR: failed to copy essential config files")
                 print(e)
                 raise
-
+    QtWidgets.QApplication.setAttribute(
+        QtCore.Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     print("Starting PAMalyzer..")
 
     app = QApplication(sys.argv)
