@@ -163,9 +163,10 @@ class DatabaseHandler:
                 SELECT segments.filename FROM segments
                 INNER JOIN recording ON segments.filename=recording.filename
                 WHERE segments.filename = ? AND recording.directory = ?
-            )""",
+            ) RETURNING rowid""",
             (os.path.basename(file), os.path.dirname(file)),
         )
+        self.delete_orphan_segment_species()
 
     def delete_segment(self, filename, dirname, segment):
         seg = {
@@ -190,6 +191,7 @@ class DatabaseHandler:
                 )""",
             seg,
         )
+        self.delete_orphan_segment_species()
 
     def get_segment_id(self, segment):
         self.cursor.execute(
@@ -197,10 +199,9 @@ class DatabaseHandler:
                 INNER JOIN recording ON segments.filename=recording.filename
                 WHERE start = (:start) AND 
                 end = (:end) AND 
-                filename = (:filename) AND 
+                segments.filename = (:filename) AND 
                 low = (:low) AND 
                 high = (:high) AND
-                operator_id = (:operator_id) AND
                 recording.directory = (:directory)""",
             segment,
         )
@@ -247,6 +248,59 @@ class DatabaseHandler:
                 AND filter_id = (:filter_id)
                 AND calltype_id = (:calltype_id))""",
             sp_dict,
+        )
+
+    def update_segment(self, old, new, directory, filename):
+        segment = {
+            "start": old[0],
+            "end": old[1],
+            "low": old[2],
+            "high": old[3],
+            "start_new": new[0],
+            "end_new": new[1],
+            "low_new": new[2],
+            "high_new": new[3],
+            "filename": filename,
+            "directory": directory,
+        }
+        self.cursor.execute(
+            """UPDATE segments
+               SET start = (:start_new), end = (:end_new), low = (:low_new), high = (:high_new)
+               WHERE (start, end, filename, CAST(low as INTEGER), CAST(high as INTEGER)) IN (
+               SELECT start, end, segments.filename, CAST(low as INTEGER), CAST(high as INTEGER)
+               FROM segments 
+               INNER JOIN recording ON segments.filename=recording.filename
+               WHERE segments.start = (:start) AND
+               segments.end = (:end) AND
+               segments.filename = (:filename) AND
+               recording.directory = (:directory))
+               """,
+            segment,
+        )
+
+    def update_segment_species(self, new, directory, filename, operator):
+        op_id = self.add_operator(operator)
+        segment = {
+            "start": new[0],
+            "end": new[1],
+            "low": new[2],
+            "high": new[3],
+            "filename": filename,
+            "directory": directory,
+            "operator_id": op_id,
+        }
+        self.insert_segment(segment)
+        seg_id = self.cursor.fetchone()[0]
+        self.delete_segment_species(seg_id)
+        for sp in new[4]:
+            self.add_species(sp, seg_id)
+
+    def delete_segment_species(self, segment_id):
+        self.cursor.execute(
+            """
+            DELETE FROM segment_species WHERE segment_id = (?)
+        """,
+            (segment_id, ),
         )
 
     def get_files_with_species(self, species, dirname, minconf):
@@ -350,26 +404,7 @@ class DatabaseHandler:
         )
         return self.cursor.fetchall()
 
-    def delete_segment_species(self, seg_species):
-        seg_dict = {
-            "start": seg_species[0],
-            "end": seg_species[1],
-            "low": seg_species[2],
-            "high": seg_species[3],
-            "species": seg_species[4],
-            "certainty": seg_species[5],
-        }
-
-        self.cursor.execute(
-            """DELETE FROM segment_species WHERE
-            species_scientific_name = :species AND confidence = :certainty""",
-            seg_dict,
-        )
-
-        self.cursor.execute(
-            """DELETE FROM segments WHERE NOT EXISTS (
-            SELECT 1 FROM segment_species WHERE segment_species.segment_id = segments.rowid)
-            AND
-            start = (:start) AND end = (:end) AND low = (:low) AND high = (:high)""",
-            seg_dict,
-        )
+    def delete_orphan_segment_species(self):
+        self.cursor.execute("""DELETE FROM segment_species 
+            WHERE segment_id NOT IN 
+            (SELECT rowid FROM segments)""")

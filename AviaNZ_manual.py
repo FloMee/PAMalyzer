@@ -2514,8 +2514,10 @@ class AviaNZ(QMainWindow):
         # update the overview boxes, step 1
         self.refreshOverviewWith(self.segments[i], delete=True)
 
+        # save affected segment for future reference in update
+        old_segment = copy.copy(self.segments[i])
         # fix the position of the text label
-        if type(sender) == self.ROItype:
+        if type(sender) is self.ROItype:
             # using box coordinates
             x1 = self.convertSpectoAmpl(sender.pos()[0])
             x2 = self.convertSpectoAmpl(sender.pos()[0] + sender.size()[0])
@@ -2534,11 +2536,17 @@ class AviaNZ(QMainWindow):
         self.listRectanglesa1[i].blockSignals(True)
         self.listRectanglesa1[i].setRegion([x1, x2])
         self.listRectanglesa1[i].blockSignals(False)
-        self.segmentsToSave = True
 
         self.segments[i][0] = x1 + self.startRead
         self.segments[i][1] = x2 + self.startRead
 
+        # update segment in database
+        self.database.update_segment(
+            old_segment,
+            self.segments[i],
+            self.SoundFileDir,
+            self.listFiles.currentItem().text(),
+        )
         # update the overview boxes, step 2
         self.refreshOverviewWith(self.segments[i])
 
@@ -2552,7 +2560,9 @@ class AviaNZ(QMainWindow):
             i = i + 1
         if i == len(self.listRectanglesa1):
             print("Segment not found!")
+
         else:
+            old_segment = copy.copy(self.segments[i])
             # update the overview boxes, step 1
             self.refreshOverviewWith(self.segments[i], delete=True)
 
@@ -2572,12 +2582,17 @@ class AviaNZ(QMainWindow):
             else:
                 # update the segment
                 self.listRectanglesa2[i].setRegion([x1, x2])
-            self.segmentsToSave = True
             self.listRectanglesa2[i].blockSignals(False)
 
             self.segments[i][0] = sender.getRegion()[0] + self.startRead
             self.segments[i][1] = sender.getRegion()[1] + self.startRead
 
+            self.database.update_segment(
+                old_segment,
+                self.segments[i],
+                self.SoundFileDir,
+                self.listFiles.currentItem().text(),
+            )
             # update the overview boxes, step 2
             self.refreshOverviewWith(self.segments[i])
 
@@ -3611,13 +3626,17 @@ class AviaNZ(QMainWindow):
 
         # refresh overview boxes after all updates:
         self.refreshOverviewWith(workingSeg)
-
+        self.database.update_segment_species(
+            workingSeg,
+            self.SoundFileDir,
+            self.listFiles.currentItem().text(),
+            self.reviewer,
+        )
         # Store the species in case the user wants it for the next segment
         self.lastSpecies = [{"species": species, "certainty": 100, "filter": "M"}]
         self.updateText()
         self.updateColour()
         self.segInfo.setText(workingSeg.infoString())
-        self.segmentsToSave = True
 
         if not self.multipleBirds:
             # select the bird and close
@@ -3681,7 +3700,12 @@ class AviaNZ(QMainWindow):
         ]
         self.updateText()
         self.segInfo.setText(workingSeg.infoString())
-        self.segmentsToSave = True
+        self.database.update_segment_species(
+            workingSeg,
+            self.SoundFileDir,
+            self.listFiles.currentItem().text(),
+            self.reviewer,
+        )
         # self.menuBirdList.hide()
 
     def saveCalltypeDicts(self):
@@ -6129,7 +6153,12 @@ class AviaNZ(QMainWindow):
             self.updateText(id)
             self.updateColour(id)
             self.segInfo.setText(self.segments[id].infoString())
-            self.segmentsToSave = True
+            self.database.update_segment_species(
+                self.segments[id],
+                self.SoundFileDir,
+                self.listFiles.currentItem().text(),
+                self.reviewer,
+            )
 
     def deleteSegment(self, id=-1, hr=False):
         """Listener for delete segment button, or backspace key. Also called when segments are deleted by the
@@ -6166,7 +6195,6 @@ class AviaNZ(QMainWindow):
             )
             del self.segments[id]
 
-            self.segmentsToSave = True
             self.refreshFileColor()
 
             self.box1id = -1
