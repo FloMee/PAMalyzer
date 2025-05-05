@@ -583,7 +583,7 @@ class BirdNET(QWidget):
     @pyqtSlot(Segment.SegmentList, str)
     def updateDatabase(self, segList, filename):
         segList.getData(self.AviaNZ, filename)
-        segList.saveJSON(filename)
+        segList.save_to_database(filename)
 
     def main(self):
         try:
