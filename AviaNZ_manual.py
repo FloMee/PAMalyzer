@@ -2593,6 +2593,7 @@ class AviaNZ(QMainWindow):
                 self.SoundFileDir,
                 self.listFiles.currentItem().text(),
             )
+            self.database.commit()
             # update the overview boxes, step 2
             self.refreshOverviewWith(self.segments[i])
 
@@ -3632,6 +3633,7 @@ class AviaNZ(QMainWindow):
             self.listFiles.currentItem().text(),
             self.reviewer,
         )
+        self.database.commit()
         # Store the species in case the user wants it for the next segment
         self.lastSpecies = [{"species": species, "certainty": 100, "filter": "M"}]
         self.updateText()
@@ -3706,6 +3708,7 @@ class AviaNZ(QMainWindow):
             self.listFiles.currentItem().text(),
             self.reviewer,
         )
+        self.database.commit()
         # self.menuBirdList.hide()
 
     def saveCalltypeDicts(self):
@@ -5551,6 +5554,7 @@ class AviaNZ(QMainWindow):
                                 self.operator,
                                 filenamef,
                             )
+        self.database.commit()
         print("Database successfully updated.")
         self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
 
@@ -6159,6 +6163,7 @@ class AviaNZ(QMainWindow):
                 self.listFiles.currentItem().text(),
                 self.reviewer,
             )
+            self.database.commit()
 
     def deleteSegment(self, id=-1, hr=False):
         """Listener for delete segment button, or backspace key. Also called when segments are deleted by the
@@ -6193,6 +6198,7 @@ class AviaNZ(QMainWindow):
             self.database.delete_segment(
                 self.filename, self.SoundFileDir, self.segments[id]
             )
+            self.database.commit()
             del self.segments[id]
 
             self.refreshFileColor()

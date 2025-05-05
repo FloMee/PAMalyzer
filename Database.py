@@ -93,31 +93,28 @@ class DatabaseHandler:
             seg_id = self.cursor.fetchone()[0]
             for species in segment[4]:
                 self.add_species(species, seg_id)
-        self.commit()
 
     def add_operator(self, operator):
-        self.cursor.execute("""SELECT rowid FROM operator WHERE name = (?)""",
-                            (operator, ))
+        self.cursor.execute(
+            """SELECT rowid FROM operator WHERE name = (?)""", (operator,)
+        )
         existing_row_id = self.cursor.fetchone()
         if existing_row_id:
             op_id = existing_row_id[0]
         else:
-            self.cursor.execute("""INSERT INTO operator VALUES (?)""",
-                                (operator, ))
-            self.commit()
+            self.cursor.execute("""INSERT INTO operator VALUES (?)""", (operator,))
             op_id = self.cursor.lastrowid
         return op_id
 
     def add_filter(self, filter):
-        self.cursor.execute("""SELECT rowid FROM filters WHERE name = (?)""",
-                            (filter, ))
+        self.cursor.execute("""SELECT rowid FROM filters WHERE name = (?)""", (filter,))
         existing_row_id = self.cursor.fetchone()
         if existing_row_id:
             filter_id = existing_row_id[0]
         else:
             self.cursor.execute(
-                """INSERT INTO filters VALUES (?) RETURNING rowid""",
-                (filter, ))
+                """INSERT INTO filters VALUES (?) RETURNING rowid""", (filter,)
+            )
             filter_id = self.cursor.fetchone()[0]
         return filter_id
 
@@ -145,7 +142,6 @@ class DatabaseHandler:
                 VALUES (:filename, :directory)""",
             file_dict,
         )
-        self.commit()
 
     def insert_segment(self, segment):
         self.cursor.execute(

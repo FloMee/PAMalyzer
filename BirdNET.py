@@ -582,7 +582,7 @@ class BirdNET(QWidget):
 
     @pyqtSlot(Segment.SegmentList, str)
     def updateDatabase(self, segList, filename):
-        segList.getData(self.AviaNZ, filename)
+        segList.parent = self.AviaNZ
         segList.save_to_database(filename)
 
     def main(self):
@@ -607,6 +607,8 @@ class BirdNET(QWidget):
                 worker.filelistProcessed.done.connect(self.updateFilelist)
                 worker.sendSegList.send.connect(self.updateDatabase)
                 self.threadpool.start(worker)
+
+            self.AviaNZ.database.commit()
 
             # if self.threadpool.waitForDone():
             #     self.progress.autoReset()
