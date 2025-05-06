@@ -2521,9 +2521,9 @@ class AviaNZ(QMainWindow):
             # using box coordinates
             x1 = self.convertSpectoAmpl(sender.pos()[0])
             x2 = self.convertSpectoAmpl(sender.pos()[0] + sender.size()[0])
-            self.segments[i][2] = self.convertYtoFreq(sender.pos()[1])
-            self.segments[i][3] = self.convertYtoFreq(
-                sender.pos()[1] + sender.size()[1]
+            self.segments[i][2] = int(self.convertYtoFreq(sender.pos()[1]))
+            self.segments[i][3] = int(
+                self.convertYtoFreq(sender.pos()[1] + sender.size()[1])
             )
             self.listLabels[i].setPos(sender.pos()[0], self.textpos)
         else:
@@ -3268,8 +3268,8 @@ class AviaNZ(QMainWindow):
                         print("Small box detected, ignoring")
                         return
 
-                    y1 = self.convertYtoFreq(y1)
-                    y2 = self.convertYtoFreq(y2)
+                    y1 = int(self.convertYtoFreq(y1))
+                    y2 = int(self.convertYtoFreq(y2))
                 else:
                     y1 = 0
                     y2 = 0
