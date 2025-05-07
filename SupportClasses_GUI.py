@@ -26,6 +26,7 @@
 import io
 import math
 import os
+from collections.abc import Generator
 from time import sleep
 
 import numpy as np
@@ -82,15 +83,15 @@ class TimeAxisHour(pg.AxisItem):
         if self.showMS:
             self.setLabel("Time", units="hh:mm:ss.ms")
             return [
-                QTime(0, 0, 0).addMSecs(int(
-                    (value + self.offset) * 1000)).toString("hh:mm:ss.z")
+                QTime(0, 0, 0)
+                .addMSecs(int((value + self.offset) * 1000))
+                .toString("hh:mm:ss.z")
                 for value in values
             ]
         else:
             self.setLabel("Time", units="hh:mm:ss")
             return [
-                QTime(0, 0,
-                      0).addSecs(int(value + self.offset)).toString("hh:mm:ss")
+                QTime(0, 0, 0).addSecs(int(value + self.offset)).toString("hh:mm:ss")
                 for value in values
             ]
 
@@ -128,22 +129,25 @@ class TimeAxisMin(pg.AxisItem):
                 self.setLabel("Time", units="h:mm:ss.ms")
                 for i in range(len(vs)):
                     if vs[i] >= 3600:
-                        vstr1[i] = (QTime(0, 0, 0).addMSecs(int(
-                            vs[i] * 1000)).toString("h:mm:ss.z"))
+                        vstr1[i] = (
+                            QTime(0, 0, 0)
+                            .addMSecs(int(vs[i] * 1000))
+                            .toString("h:mm:ss.z")
+                        )
             return vstr1
         else:
             self.setLabel("Time", units="mm:ss")
             vstr1 = [
-                QTime(0, 0, 0).addSecs(int(value)).toString("mm:ss")
-                for value in vs
+                QTime(0, 0, 0).addSecs(int(value)).toString("mm:ss") for value in vs
             ]
             # check if we need to add hours:
             if vs[-1] >= 3600:
                 self.setLabel("Time", units="h:mm:ss")
                 for i in range(len(vs)):
                     if vs[i] >= 3600:
-                        vstr1[i] = (QTime(0, 0, 0).addSecs(int(
-                            vs[i])).toString("h:mm:ss"))
+                        vstr1[i] = (
+                            QTime(0, 0, 0).addSecs(int(vs[i])).toString("h:mm:ss")
+                        )
             return vstr1
 
     def setOffset(self, offset):
@@ -182,8 +186,9 @@ class AxisWidget(QAbstractButton):
             fontOffset = 5 + 2.6 * self.fontsize
             tickmark = QLine(bottomR, QPoint(bottomR.x() + 6, bottomR.y()))
             painter.drawLine(tickmark)
-            painter.drawText(tickmark.x2() - fontOffset,
-                             tickmark.y2() + 1, "%.1f" % currFrq)
+            painter.drawText(
+                tickmark.x2() - fontOffset, tickmark.y2() + 1, "%.1f" % currFrq
+            )
             for ticknum in range(3):
                 currFrq += (self.maxFreq - self.minFreq) / 4
                 tickmark.translate(0, -event.rect().height() // 4)
@@ -251,8 +256,9 @@ class TimeAxisWidget(QAbstractButton):
 
             tickmark = QLine(bottomL.x(), top + 6, bottomL.x(), top)
             painter.drawLine(tickmark)
-            painter.drawText(tickmark.x1(),
-                             tickmark.y1() + fontOffset, timeFormat % currTime)
+            painter.drawText(
+                tickmark.x1(), tickmark.y1() + fontOffset, timeFormat % currTime
+            )
             for ticknum in range(4):
                 currTime += self.maxTime / 5
                 tickmark.translate(event.rect().width() // 5, 0)
@@ -271,8 +277,7 @@ class TimeAxisWidget(QAbstractButton):
             )
 
             painter.save()
-            painter.drawText((bottomR.x() - bottomL.x()) // 2, bottomL.y(),
-                             "s")
+            painter.drawText((bottomR.x() - bottomL.x()) // 2, bottomL.y(), "s")
             painter.restore()
 
     def sizeHint(self):
@@ -362,8 +367,9 @@ def mouseDragEventFlexible(self, ev):
         self.startPos = self.scenePos()
         self.cursorOffset = self.scenePos() - ev.buttonDownScenePos()
 
-    if (self.isMoving
-        ):  ## note: isMoving may become False in mid-drag due to right-click.
+    if (
+        self.isMoving
+    ):  ## note: isMoving may become False in mid-drag due to right-click.
         pos = ev.scenePos() + self.cursorOffset
         self.movePoint(pos, ev.modifiers(), finish=False)
 
@@ -372,8 +378,7 @@ def mouseDragEventFlexibleLine(self, ev):
     if self.movable and ev.button() != self.btn:
         if ev.isStart():
             self.moving = True
-            self.cursorOffset = self.pos() - self.mapToParent(
-                ev.buttonDownPos())
+            self.cursorOffset = self.pos() - self.mapToParent(ev.buttonDownPos())
             self.startPosition = self.pos()
         ev.accept()
 
@@ -426,7 +431,8 @@ class ShadedRectROI(ShadedROI):
                     self.isMoving = True
                     self.preMoveState = self.getState()
                     self.cursorOffset = self.pos() - self.mapToParent(
-                        ev.buttonDownPos())
+                        ev.buttonDownPos()
+                    )
                     self.sigRegionChangeStarted.emit(self)
                     ev.accept()
                 else:
@@ -438,10 +444,12 @@ class ShadedRectROI(ShadedROI):
                 self.isMoving = False
             return
 
-        if (self.translatable and self.isMoving
-                and ev.buttons() != self.parent.MouseDrawingButton):
-            snap = True if (ev.modifiers()
-                            & QtCore.Qt.ControlModifier) else None
+        if (
+            self.translatable
+            and self.isMoving
+            and ev.buttons() != self.parent.MouseDrawingButton
+        ):
+            snap = True if (ev.modifiers() & QtCore.Qt.ControlModifier) else None
             newPos = self.mapToParent(ev.pos()) + self.cursorOffset
             self.translate(newPos - self.pos(), snap=snap, finish=False)
 
@@ -469,7 +477,6 @@ class DemousedViewBox(pg.ViewBox):
 # Two subclasses of LinearRegionItem, that account for spectrogram bounds when resizing
 # and use boundary caching to reduce CPU load e.g. when detecting mouse hover
 class LinearRegionItem2(pg.LinearRegionItem):
-
     def __init__(self, parent, bounds=None, *args, **kwds):
         pg.LinearRegionItem.__init__(self, bounds, *args, **kwds)
         self.parent = parent
@@ -544,8 +551,9 @@ class LinearRegionItem2(pg.LinearRegionItem):
     #     return br
 
     def mouseDragEvent(self, ev):
-        if not self.movable or (self.parent is not None and ev.button()
-                                == self.parent.MouseDrawingButton):
+        if not self.movable or (
+            self.parent is not None and ev.button() == self.parent.MouseDrawingButton
+        ):
             return
         ev.accept()
 
@@ -589,13 +597,8 @@ class LinearRegionItem2(pg.LinearRegionItem):
 
 # Just another slight optimization - immediately dropping unneeded mouse events
 class LinearRegionItemO(LinearRegionItem2):
-
     def __init__(self, *args, **kwds):
-        LinearRegionItem2.__init__(self,
-                                   parent=None,
-                                   bounds=[0, 100],
-                                   *args,
-                                   **kwds)
+        LinearRegionItem2.__init__(self, parent=None, bounds=[0, 100], *args, **kwds)
 
     def setRegion(self, rgn):
         """Set the values for the edges of the region.
@@ -793,8 +796,13 @@ class ControllableAudio(QAudioOutput):
         # self.format = format
         # set small buffer (10 ms) and use processed time
         self.setBufferSize(
-            int(self.format().sampleSize() * self.format().sampleRate() / 100 *
-                self.format().channelCount()))
+            int(
+                self.format().sampleSize()
+                * self.format().sampleRate()
+                / 100
+                * self.format().channelCount()
+            )
+        )
 
     def isPlaying(self):
         return self.state() == QAudio.ActiveState
@@ -851,11 +859,8 @@ class ControllableAudio(QAudioOutput):
         self.timeoffset = max(0, start)
         start = max(0, start * self.format().sampleRate() // 1000)
         stop = min(stop * self.format().sampleRate() // 1000, len(audiodata))
-        segment = audiodata[int(start):int(stop)]
-        segment = sp.bandpassFilter(segment,
-                                    sampleRate=None,
-                                    start=low,
-                                    end=high)
+        segment = audiodata[int(start) : int(stop)]
+        segment = sp.bandpassFilter(segment, sampleRate=None, start=low, end=high)
         self.loadArray(segment)
 
     def filterSeg(self, start, stop, audiodata):
@@ -863,8 +868,7 @@ class ControllableAudio(QAudioOutput):
         # and plays it.
         self.timeoffset = max(0, start)
         start = max(0, int(start * self.format().sampleRate() // 1000))
-        stop = min(int(stop * self.format().sampleRate() // 1000),
-                   len(audiodata))
+        stop = min(int(stop * self.format().sampleRate() // 1000), len(audiodata))
         segment = audiodata[start:stop]
         self.loadArray(segment)
 
@@ -872,8 +876,7 @@ class ControllableAudio(QAudioOutput):
         # Plays the entire audiodata: puts it onto a buffer
         # and then starts the QAudioOutput from that buffer
         if self.format().sampleSize() == 16:
-            audiodata = audiodata.astype(
-                "int16")  # 16 corresponds to sampwidth=2
+            audiodata = audiodata.astype("int16")  # 16 corresponds to sampwidth=2
         elif self.format().sampleSize() == 32:
             audiodata = audiodata.astype("int32")
         elif self.format().sampleSize() == 24:
@@ -882,8 +885,7 @@ class ControllableAudio(QAudioOutput):
         elif self.format().sampleSize() == 8:
             audiodata = audiodata.astype("uint8")
         else:
-            print("ERROR: sampleSize %d not supported" %
-                  self.format().sampleSize())
+            print("ERROR: sampleSize %d not supported" % self.format().sampleSize())
             return
         # double mono sound to get two channels - simplifies reading
         if self.format().channelCount() == 2:
@@ -1020,8 +1022,7 @@ class FlowLayout(QtWidgets.QLayout):
                 lineHeight = 0
 
             if not testOnly:
-                item.setGeometry(
-                    QtCore.QRect(QtCore.QPoint(x, y), item.sizeHint()))
+                item.setGeometry(QtCore.QRect(QtCore.QPoint(x, y), item.sizeHint()))
 
             x = nextX
             lineHeight = max(lineHeight, item.sizeHint().height())
@@ -1098,8 +1099,9 @@ class PicButton(QAbstractButton):
         self.setMouseTracking(True)
 
         self.playButton = QtWidgets.QToolButton(self)
-        self.playButton.setIcon(self.style().standardIcon(
-            QtWidgets.QStyle.SP_MediaPlay))
+        self.playButton.setIcon(
+            self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay)
+        )
         self.playButton.hide()
 
         # batmode frequency guides (in Y positions 0-1)
@@ -1145,8 +1147,7 @@ class PicButton(QAbstractButton):
         im, alpha = fn.makeARGB(self.spec, lut=self.lut, levels=colRange)
         im1 = fn.makeQImage(im, alpha)
         if im1.size().width() == 0:
-            print(
-                "ERROR: button not shown, likely bad spectrogram coordinates")
+            print("ERROR: button not shown, likely bad spectrogram coordinates")
             return
 
         # Output image width - larger for batmode:
@@ -1169,10 +1170,10 @@ class PicButton(QAbstractButton):
             # draw lines marking true segment position
             unbufStartAdj = self.unbufStart / self.specReductionFact
             unbufStopAdj = self.unbufStop / self.specReductionFact
-            self.line1 = QLineF(unbufStartAdj, 0, unbufStartAdj,
-                                self.im1.size().height())
-            self.line2 = QLineF(unbufStopAdj, 0, unbufStopAdj,
-                                self.im1.size().height())
+            self.line1 = QLineF(
+                unbufStartAdj, 0, unbufStartAdj, self.im1.size().height()
+            )
+            self.line2 = QLineF(unbufStopAdj, 0, unbufStopAdj, self.im1.size().height())
 
             # create guides for batmode
             if self.guides is not None:
@@ -1238,8 +1239,9 @@ class PicButton(QAbstractButton):
         if self.noaudio:
             return
         if not self.media_obj.isPlaying():
-            self.playButton.setIcon(self.style().standardIcon(
-                QtWidgets.QStyle.SP_MediaPlay))
+            self.playButton.setIcon(
+                self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay)
+            )
         self.playButton.show()
 
     def leaveEvent(self, QEvent):
@@ -1263,8 +1265,9 @@ class PicButton(QAbstractButton):
         if self.media_obj.isPlaying():
             self.stopPlayback()
         else:
-            self.playButton.setIcon(self.style().standardIcon(
-                QtWidgets.QStyle.SP_MediaStop))
+            self.playButton.setIcon(
+                self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop)
+            )
             self.media_obj.loadArray(self.audiodata)
 
     def endListener(self):
@@ -1278,8 +1281,9 @@ class PicButton(QAbstractButton):
     def stopPlayback(self):
         self.media_obj.pressedStop()
         self.playButton.hide()
-        self.playButton.setIcon(self.style().standardIcon(
-            QtWidgets.QStyle.SP_MediaPlay))
+        self.playButton.setIcon(
+            self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay)
+        )
 
     def sizeHint(self):
         return self.im1.size()
@@ -1342,8 +1346,8 @@ class SortableListWidgetItem(QListWidgetItem):
         elif self.parent.rank_sort:
             thisdata = self.data(QtCore.Qt.UserRole)
             otherdata = other.data(QtCore.Qt.UserRole)
-            maxthis = self.get_max_cert(thisdata)
-            maxother = self.get_max_cert(otherdata)
+            maxthis = self.get_max_conf(thisdata)
+            maxother = self.get_max_conf(otherdata)
             if maxthis == maxother:
                 return self.text() < other.text()
             else:
@@ -1351,14 +1355,15 @@ class SortableListWidgetItem(QListWidgetItem):
         else:
             return self.text() < other.text()
 
-    def get_max_cert(self, data):
-        species = self.parent.currentSpecies
-        max_cert = 0
+    def get_max_conf(self, data):
+        species = self.parent.current_species
+        max_conf = 0
         if data:
-            for sp, cert in data:
-                if (sp == species or species == "Species") and cert > max_cert:
-                    max_cert = cert
-        return max_cert
+            if species in data.keys():
+                max_conf = data[species]
+            elif species == "Species":
+                max_conf = max(data.values())
+        return max_conf
 
 
 class LightedFileList(QListWidget):
@@ -1366,7 +1371,7 @@ class LightedFileList(QListWidget):
     On init (or after any change), pass the red, darkyellow, and green colors.
     """
 
-    def __init__(self, ColourNone, ColourPossibleDark, ColourNamed, parent):
+    def __init__(self, ColourNone, ColourPossibleDark, ColourNamed, database):
         super().__init__()
         self.ColourNone = ColourNone
         self.ColourPossibleDark = ColourPossibleDark
@@ -1375,11 +1380,10 @@ class LightedFileList(QListWidget):
         self.spList = set()
         self.fsList = set()
         self.listOfFiles = []
-        self.minCertainty = 100
         self.setMinimumWidth(150)
         self.setIconSize(QSize(50, 10))
         self.showAll = True
-        self.parent = parent
+        self.database = database
 
         # for the traffic light icons
         self.pixmap = QPixmap(50, 10)
@@ -1393,7 +1397,7 @@ class LightedFileList(QListWidget):
         self,
         soundDir,
         fileName,
-        mincertS=0,
+        conf_slider_val,
         species="Species",
         recursive=True,
         readFmt=False,
@@ -1415,8 +1419,7 @@ class LightedFileList(QListWidget):
         self.spListCert = dict()
         self.fsList = set()
         self.listOfFiles = []
-        self.minCertainty = 100  # TODO: not used in training, can remove?
-        self.currentSpecies = species
+        self.current_species = species
 
         with pg.BusyCursor():
             # Read contents of current dir
@@ -1426,8 +1429,7 @@ class LightedFileList(QListWidget):
                 sort=QDir.DirsFirst,
             )
             self.soundDir = os.path.abspath(soundDir)
-            file_sp_conf = self.parent.database.get_file_species_max_confidence(
-                self.soundDir)
+            file_sp_conf = self.database.get_file_species_max_confidence(self.soundDir)
             file_sp_conf_dict = {}
             for d, f, s, c in file_sp_conf:
                 if f in file_sp_conf_dict.keys():
@@ -1450,45 +1452,44 @@ class LightedFileList(QListWidget):
                         numbmps = 0
                         numwavs = 0
                         for root, dirs, files in os.walk(file.filePath()):
-                            numwavs += sum(f.lower().endswith(".wav")
-                                           for f in files)
-                            numbmps += sum(f.lower().endswith(".bmp")
-                                           for f in files)
+                            numwavs += sum(f.lower().endswith(".wav") for f in files)
+                            numbmps += sum(f.lower().endswith(".bmp") for f in files)
                         # keep these strings as short as possible
                         if numbmps == 0:
-                            item.setText("%s/\t\t(%d wav files)" %
-                                         (file.fileName(), numwavs))
+                            item.setText(
+                                "%s/\t\t(%d wav files)" % (file.fileName(), numwavs)
+                            )
                         elif numwavs == 0:
-                            item.setText("%s/\t\t(%d bmp files)" %
-                                         (file.fileName(), numbmps))
+                            item.setText(
+                                "%s/\t\t(%d bmp files)" % (file.fileName(), numbmps)
+                            )
                         else:
-                            item.setText("%s/\t\t(%d wav, %d bmp files)" %
-                                         (file.fileName(), numwavs, numbmps))
+                            item.setText(
+                                "%s/\t\t(%d wav, %d bmp files)"
+                                % (file.fileName(), numwavs, numbmps)
+                            )
                     else:
                         item.setText(file.fileName() + "/")
 
                     # We still might need to walk the subfolders for sp lists and wav formats!
                     if not recursive:
                         continue
-                    dirspcert = self.parent.database.get_dir_species_max_confidence(
-                        os.path.abspath(file))
-                    for sp, cert in dirspcert:
-                        if sp in self.spListCert.keys(
-                        ) and self.spListCert[sp] > cert:
-                            continue
-                        else:
-                            self.spListCert[sp] = cert
+                    dirspcert = self.database.get_dir_species_max_confidence(
+                        os.path.abspath(file)
+                    )
+                    self.set_item_data(item, dirspcert)
 
-                    item.setData(QtCore.Qt.UserRole, dirspcert)
                 else:
                     item.setText(file.fileName())
 
                     # check for a data file here and color this entry based on that
                     fullname = os.path.join(soundDir, file.fileName())
-                    # (also updates the directory info sets, and minCertainty)
-                    fspc = (file_sp_conf_dict[file.fileName()]
-                            if file.fileName() in file_sp_conf_dict.keys() else
-                            [])
+                    # (also updates the directory info sets)
+                    fspc = (
+                        file_sp_conf_dict[file.fileName()]
+                        if file.fileName() in file_sp_conf_dict.keys()
+                        else []
+                    )
                     self.set_item_data(item, filespconf=fspc)
                     # format collection only implemented for WAVs currently
                     if readFmt:
@@ -1505,7 +1506,7 @@ class LightedFileList(QListWidget):
                         if file.fileName().lower().endswith(".bmp"):
                             # For bitmaps, using hardcoded samplerate as there's no readFmt
                             self.fsList.add(176000)
-            self.restrict(species, mincertS)
+            self.restrict(species, conf_slider_val)
         if readFmt:
             print("Found the following Fs:", self.fsList)
 
@@ -1524,10 +1525,10 @@ class LightedFileList(QListWidget):
             else:
                 self.setCurrentRow(0)
 
-    def refreshFile(self, fileName, mincert, maxcert):
-        """Repaint a single file icon with the provided certainty.
+    def refreshFile(self, fileName: str, min_conf: float, max_conf: float) -> None:
+        """Repaint a single file icon with the provided confidence.
         fileName: file stem (dir will be read from self)
-        cert:     0-100, or -1 if no annotations
+        conf:     0-100, or -1 if no annotations
         """
         # for matching dirs - not sure if needed:
         # index = self.findItems(fileName+"\/",Qt.MatchExactly)
@@ -1537,7 +1538,7 @@ class LightedFileList(QListWidget):
 
         curritem = index[0]
         # Repainting
-        if mincert == -1:
+        if min_conf == -1:
             # .data exists, but no annotations
             self.pixmap.fill(QColor(255, 255, 255, 0))
             painter = QPainter(self.pixmap)
@@ -1545,38 +1546,45 @@ class LightedFileList(QListWidget):
             painter.drawRect(self.pixmap.rect())
             painter.end()
             curritem.setIcon(QIcon(self.pixmap))
-            # no change to self.minCertainty
-        elif mincert == 0:
+        elif min_conf == 0:
             self.pixmap.fill(self.ColourNone)
             curritem.setIcon(QIcon(self.pixmap))
-            self.minCertainty = 0
-        elif mincert < 100:
+        elif min_conf < 100:
             self.pixmap.fill(self.ColourPossibleDark)
             painter = QPainter(self.pixmap)
             painter.setPen(self.blackpen)
-            painter.drawRect(QPixmap(int(maxcert // 2), 10).rect())
+            painter.drawRect(QPixmap(int(max_conf // 2), 10).rect())
             curritem.setIcon(QIcon(self.pixmap))
-            self.minCertainty = min(self.minCertainty, mincert)
         else:
             self.pixmap.fill(self.ColourNamed)
             curritem.setIcon(QIcon(self.pixmap))
-            # self.minCertainty cannot be changed by a cert=100 segment
 
-    def set_item_data(self, item, filespconf=[]):
-        """Sets the date as item data and draw the traffic light for a single item"""
-        item.setData(QtCore.Qt.UserRole, filespconf)
+    def set_item_data(
+        self, item: SortableListWidgetItem, filespconf: list = []
+    ) -> None:
+        """Sets a dict of maximum confidence value per species as item data
+        and updates the list of species and maximum confidence values"""
+
+        item_data = {species: max_conf for species, max_conf in filespconf}
+        item.setData(QtCore.Qt.UserRole, item_data)
 
         # collect some extra info about this file as we've read it anyway
-        for sp, cert in filespconf:
-            if sp in self.spListCert.keys() and self.spListCert[sp] > cert:
+        for sp, conf in filespconf:
+            if sp in self.spListCert.keys() and self.spListCert[sp] > conf:
                 continue
             else:
-                self.spListCert[sp] = cert
+                self.spListCert[sp] = conf
 
-    def paintIcon(self, item, isfile, mincert, maxcert):
+    def paintIcon(
+        self,
+        item: SortableListWidgetItem,
+        isfile: bool = False,
+        min_conf: float = -1,
+        max_conf: float = 0,
+    ) -> None:
         if isfile:
-            if mincert == -1:
-                # .data exists, but no annotations
+            if min_conf == -1:
+                # data exists, but no annotations with confidence > confidence slider value
                 self.pixmap.fill(QColor(255, 255, 255, 0))
                 painter = QPainter(self.pixmap)
                 painter.setPen(self.blackpen)
@@ -1588,20 +1596,17 @@ class LightedFileList(QListWidget):
                 else:
                     item.setHidden(False)
 
-                # no change to self.minCertainty
-            elif mincert == 0:
+            elif min_conf == 0:
                 self.pixmap.fill(self.ColourNone)
                 item.setIcon(QIcon(self.pixmap))
-                self.minCertainty = 0
                 if not self.showAll:
                     item.setHidden(False)
-            elif mincert < 100:
+            elif min_conf < 100:
                 self.pixmap.fill(self.ColourPossibleDark)
                 painter = QPainter(self.pixmap)
                 painter.setPen(self.blackpen)
-                painter.drawRect(QPixmap(int(maxcert // 2), 10).rect())
+                painter.drawRect(QPixmap(int(max_conf // 2), 10).rect())
                 item.setIcon(QIcon(self.pixmap))
-                self.minCertainty = min(self.minCertainty, mincert)
                 if not self.showAll:
                     item.setHidden(False)
             else:
@@ -1609,7 +1614,6 @@ class LightedFileList(QListWidget):
                 item.setIcon(QIcon(self.pixmap))
                 if not self.showAll:
                     item.setHidden(False)
-                # self.minCertainty cannot be changed by a cert=100 segment
         else:
             if not self.showAll and item != self.currentItem():
                 item.setHidden(True)
@@ -1622,59 +1626,46 @@ class LightedFileList(QListWidget):
         if not item.isHidden():
             self.currentIndices.append(self.indexFromItem(item).row())
 
-    def restrict(self, species, mincertS=0):
-        """restrict the filelist to files where species occures with maxcert > mincertS"""
-        # do not sort while restricting filelist
+    def restrict(self, species: str, conf_slider_val: float = 0) -> None:
+        """restrict the filelist to files where species occures with max_conf > conf_slider_val"""
+
         self.currentIndices = []
+        # do not sort while restricting filelist
         self.setSortingEnabled(False)
 
         # save current species for use in sorting later
-        self.currentSpecies = species
+        self.current_species = species
 
         for item in self.iterAllItems():
             # if not item.text().endswith("/"):
             if not item.text() == "../":
                 data = item.data(QtCore.Qt.UserRole)
-                datafile = True
-                maxcert = 0
-                mincert = -1
-                if not data:
-                    datafile = False
-                elif data == []:
-                    mincert = -1
+                if not data or data == []:
+                    self.paintIcon(item)
                 else:
-                    fileSpMaxCert = {}
-                    fileSpMinCert = {}
-                    for sp, cert in data:
-                        if sp in fileSpMaxCert.keys():
-                            if fileSpMaxCert[sp] > cert and fileSpMinCert[
-                                    sp] < cert:
-                                continue
-                            if fileSpMaxCert[sp] < cert:
-                                fileSpMaxCert[sp] = cert
-                            if fileSpMinCert[sp] > cert:
-                                fileSpMinCert[sp] = cert
-                        else:
-                            fileSpMaxCert[sp] = cert
-                            fileSpMinCert[sp] = cert
+                    min_conf, max_conf = self.get_min_max_confidence_from_data(data)
+                    if conf_slider_val > max_conf:
+                        min_conf = -1
 
-                    if species == "Species" and fileSpMinCert != {}:
-                        mincert = min(fileSpMinCert.values())
-                        maxcert = max(fileSpMaxCert.values())
-                    elif species in fileSpMaxCert.keys():
-                        maxcert = fileSpMaxCert[species]
-                        mincert = fileSpMinCert[species]
-                        # mincert = maxcert
-                    if mincertS > maxcert:
-                        mincert = -1
-                self.paintIcon(item, datafile, mincert, maxcert)
+                    self.paintIcon(item, True, min_conf, max_conf)
 
         # enable sorting again
         self.setSortingEnabled(True)
 
-    def iterAllItems(self):
+    def iterAllItems(self) -> Generator[SortableListWidgetItem]:
         for i in range(self.count()):
             yield self.item(i)
+
+    def get_min_max_confidence_from_data(self, data: dict) -> tuple:
+        max_conf = 0
+        min_conf = -1
+        if self.current_species == "Species" and data != {}:
+            min_conf = min(data.values())
+            max_conf = max(data.values())
+        elif self.current_species in data.keys():
+            max_conf = data[self.current_species]
+            min_conf = max_conf
+        return (min_conf, max_conf)
 
 
 class MainPushButton(QPushButton):
@@ -1708,13 +1699,9 @@ class BrightContrVol(QWidget):
     colChanged = pyqtSignal(int, int)
     volChanged = pyqtSignal(int)
 
-    def __init__(self,
-                 brightness,
-                 contrast,
-                 inverted,
-                 horizontal=True,
-                 parent=None,
-                 **kwargs):
+    def __init__(
+        self, brightness, contrast, inverted, horizontal=True, parent=None, **kwargs
+    ):
         super(BrightContrVol, self).__init__(parent, **kwargs)
 
         # Sliders and signals
@@ -1744,15 +1731,16 @@ class BrightContrVol(QWidget):
         # static labels
         labelBr = QLabel()
         labelBr.setPixmap(
-            QPixmap("img/brightstr24.png").scaled(18, 18, transformMode=1))
+            QPixmap("img/brightstr24.png").scaled(18, 18, transformMode=1)
+        )
 
         labelCo = QLabel()
-        labelCo.setPixmap(
-            QPixmap("img/contrstr24.png").scaled(18, 18, transformMode=1))
+        labelCo.setPixmap(QPixmap("img/contrstr24.png").scaled(18, 18, transformMode=1))
 
         self.volIcon = QLabel()
         self.volIcon.setPixmap(
-            QPixmap("img/volume.png").scaled(18, 18, transformMode=1))
+            QPixmap("img/volume.png").scaled(18, 18, transformMode=1)
+        )
         # Layout
         if horizontal:
             labelCo.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -1803,8 +1791,7 @@ class BrightContrVol(QWidget):
         """Emit the colour signal (to be triggered by valueChanged or
         programmatically, when a colour refresh is needed)
         """
-        self.colChanged.emit(self.brightSlider.value(),
-                             self.contrSlider.value())
+        self.colChanged.emit(self.brightSlider.value(), self.contrSlider.value())
 
     def emitAll(self):
         """Emit both colour and volume signals (useful for initialization)"""

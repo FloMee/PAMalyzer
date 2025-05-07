@@ -976,7 +976,7 @@ class AviaNZ(QMainWindow):
 
         # List to hold the list of files
         self.listFiles = SupportClasses_GUI.LightedFileList(
-            self.ColourNone, self.ColourPossibleDark, self.ColourNamed, self
+            self.ColourNone, self.ColourPossibleDark, self.ColourNamed, self.database
         )
         self.listFiles.itemDoubleClicked.connect(self.listLoadFile)
         self.listSpecies = QComboBox()
