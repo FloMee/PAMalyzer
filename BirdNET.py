@@ -26,7 +26,6 @@
 #    Note that the BirdNET models are licensed under: CC-BY-NC-SA 4.0
 #    see https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.en
 
-
 # import statements for BirdNET-Lite
 
 import copy
@@ -599,6 +598,7 @@ class BirdNET(QWidget):
                 "Analyzing {} files...".format(len(self.filelist))
             )
             self.progress.show()
+            a = time.time()
             for flist in file_threads:
                 worker = BirdNET_Worker(
                     self, param=self.param, filelist=flist, labels=self.labels
@@ -608,9 +608,14 @@ class BirdNET(QWidget):
                 worker.sendSegList.send.connect(self.updateDatabase)
                 self.threadpool.start(worker)
 
-            self.AviaNZ.database.commit()
-
-            # if self.threadpool.waitForDone():
+            if self.threadpool.waitForDone(-1):
+                self.AviaNZ.database.commit()
+                e = time.time()
+                print(
+                    "Analysis sucessfully completed in {:.0f}min {:.0f}s".format(
+                        (e - a) // 60, (e - a) % 60
+                    )
+                )
             #     self.progress.autoReset()
             #     self.progress.autoClose()
             #     self.AviaNZ.loadFile(name=self.AviaNZ.filename)
