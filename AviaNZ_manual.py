@@ -5560,7 +5560,6 @@ class AviaNZ(QMainWindow):
 
     def changeSettings(self):
         """Create the parameter tree when the Interface settings menu is pressed."""
-        self.saveSegments()
         fn1 = self.config["BirdListShort"]
         if "/" in fn1:
             fn1 = os.path.basename(fn1)
@@ -5589,7 +5588,7 @@ class AviaNZ(QMainWindow):
                     {
                         "name": "Spectrogram mouse action",
                         "type": "list",
-                        "values": {
+                        "limits": {
                             "Mark segments by clicking": 1,
                             "Mark boxes by clicking": 2,
                             "Mark boxes by dragging": 3,
@@ -5873,8 +5872,6 @@ class AviaNZ(QMainWindow):
 
     def changeParams(self, param, changes):
         """Update the config and the interface if anything changes in the tree"""
-        # first save the annotations
-        self.saveSegments()
 
         # some regexes to parse guideline settings
         rgx_guide_pos = re.compile(r"Annotation.Guidelines.Guideline ([0-9]) frequency")
