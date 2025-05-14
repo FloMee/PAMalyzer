@@ -1335,6 +1335,8 @@ class SortableListWidgetItem(QListWidgetItem):
     def __init__(self, parent=None):
         super(SortableListWidgetItem, self).__init__(parent)
         self.parent = parent
+        self.pixmap = QPixmap(50, 10)
+        self.blackpen = fn.mkPen(color=(160, 160, 160, 255), width=2)
 
     def __lt__(self, other):
         if self.text() == "../":
@@ -1344,10 +1346,8 @@ class SortableListWidgetItem(QListWidgetItem):
             return False
 
         elif self.parent.rank_sort:
-            thisdata = self.data(QtCore.Qt.UserRole)
-            otherdata = other.data(QtCore.Qt.UserRole)
-            maxthis = self.get_max_conf(thisdata)
-            maxother = self.get_max_conf(otherdata)
+            maxthis = self.get_max_conf()
+            maxother = other.get_max_conf()
             if maxthis == maxother:
                 return self.text() < other.text()
             else:
@@ -1355,7 +1355,8 @@ class SortableListWidgetItem(QListWidgetItem):
         else:
             return self.text() < other.text()
 
-    def get_max_conf(self, data):
+    def get_max_conf(self):
+        data = self.data(QtCore.Qt.UserRole)
         species = self.parent.current_species
         max_conf = 0
         if data:
@@ -1364,6 +1365,76 @@ class SortableListWidgetItem(QListWidgetItem):
             elif species == "Species":
                 max_conf = max(data.values())
         return max_conf
+
+    def paint(self, conf_slider_val: float, current_species: str):
+        data = self.data(QtCore.Qt.UserRole)
+        if not data or data == []:
+            self.paintIcon()
+        else:
+            min_conf, max_conf = self.get_min_max_confidence(current_species)
+            if conf_slider_val > max_conf:
+                min_conf = -1
+
+            self.paintIcon(True, min_conf, max_conf)
+
+    def get_min_max_confidence(self, current_species) -> tuple:
+        data = self.data(QtCore.Qt.UserRole)
+        max_conf = 0
+        min_conf = -1
+        if current_species == "Species" and data != {}:
+            min_conf = min(data.values())
+            max_conf = max(data.values())
+        elif current_species in data.keys():
+            max_conf = data[current_species]
+            min_conf = max_conf
+
+        return (min_conf, max_conf)
+
+    def paintIcon(
+        self,
+        isfile: bool = False,
+        min_conf: float = -1,
+        max_conf: float = 0,
+    ) -> None:
+        if isfile:
+            if min_conf == -1:
+                # data exists, but no annotations with confidence > confidence slider value
+                self.pixmap.fill(QColor(255, 255, 255, 0))
+                painter = QPainter(self.pixmap)
+                painter.setPen(self.blackpen)
+                painter.drawRect(self.pixmap.rect())
+                painter.end()
+                self.setIcon(QIcon(self.pixmap))
+                if not self.parent.showAll and self != self.parent.currentItem():
+                    self.setHidden(True)
+                else:
+                    self.setHidden(False)
+            elif min_conf == 0:
+                self.pixmap.fill(self.parent.ColourNone)
+                self.setIcon(QIcon(self.pixmap))
+                if not self.parent.showAll:
+                    self.setHidden(False)
+            elif min_conf < 100:
+                self.pixmap.fill(self.parent.ColourPossibleDark)
+                painter = QPainter(self.pixmap)
+                painter.setPen(self.blackpen)
+                painter.drawRect(QPixmap(int(max_conf // 2), 10).rect())
+                self.setIcon(QIcon(self.pixmap))
+                if not self.parent.showAll:
+                    self.setHidden(False)
+            else:
+                self.pixmap.fill(self.parent.ColourNamed)
+                self.setIcon(QIcon(self.pixmap))
+                if not self.parent.showAll:
+                    self.setHidden(False)
+        else:
+            if not self.parent.showAll and self != self.parent.currentItem():
+                self.setHidden(True)
+            else:
+                self.setHidden(False)
+            # no .data for this sound file
+            self.pixmap.fill(QColor(255, 255, 255, 0))
+            self.setIcon(QIcon(self.pixmap))
 
 
 class LightedFileList(QListWidget):
@@ -1420,6 +1491,7 @@ class LightedFileList(QListWidget):
         self.fsList = set()
         self.listOfFiles = []
         self.current_species = species
+        self.conf_slider_value = conf_slider_val
 
         with pg.BusyCursor():
             # Read contents of current dir
@@ -1506,7 +1578,7 @@ class LightedFileList(QListWidget):
                         if file.fileName().lower().endswith(".bmp"):
                             # For bitmaps, using hardcoded samplerate as there's no readFmt
                             self.fsList.add(176000)
-            self.restrict(species, conf_slider_val)
+            self.restrict(species, self.conf_slider_value)
         if readFmt:
             print("Found the following Fs:", self.fsList)
 
@@ -1537,27 +1609,28 @@ class LightedFileList(QListWidget):
             return
 
         curritem = index[0]
+        curritem.paint(self.conf_slider_value, self.current_species)
         # Repainting
-        if min_conf == -1:
-            # .data exists, but no annotations
-            self.pixmap.fill(QColor(255, 255, 255, 0))
-            painter = QPainter(self.pixmap)
-            painter.setPen(self.blackpen)
-            painter.drawRect(self.pixmap.rect())
-            painter.end()
-            curritem.setIcon(QIcon(self.pixmap))
-        elif min_conf == 0:
-            self.pixmap.fill(self.ColourNone)
-            curritem.setIcon(QIcon(self.pixmap))
-        elif min_conf < 100:
-            self.pixmap.fill(self.ColourPossibleDark)
-            painter = QPainter(self.pixmap)
-            painter.setPen(self.blackpen)
-            painter.drawRect(QPixmap(int(max_conf // 2), 10).rect())
-            curritem.setIcon(QIcon(self.pixmap))
-        else:
-            self.pixmap.fill(self.ColourNamed)
-            curritem.setIcon(QIcon(self.pixmap))
+        # if min_conf == -1:
+        #     # .data exists, but no annotations
+        #     self.pixmap.fill(QColor(255, 255, 255, 0))
+        #     painter = QPainter(self.pixmap)
+        #     painter.setPen(self.blackpen)
+        #     painter.drawRect(self.pixmap.rect())
+        #     painter.end()
+        #     curritem.setIcon(QIcon(self.pixmap))
+        # elif min_conf == 0:
+        #     self.pixmap.fill(self.ColourNone)
+        #     curritem.setIcon(QIcon(self.pixmap))
+        # elif min_conf < 100:
+        #     self.pixmap.fill(self.ColourPossibleDark)
+        #     painter = QPainter(self.pixmap)
+        #     painter.setPen(self.blackpen)
+        #     painter.drawRect(QPixmap(int(max_conf // 2), 10).rect())
+        #     curritem.setIcon(QIcon(self.pixmap))
+        # else:
+        #     self.pixmap.fill(self.ColourNamed)
+        #     curritem.setIcon(QIcon(self.pixmap))
 
     def set_item_data(
         self, item: SortableListWidgetItem, filespconf: list = []
@@ -1635,20 +1708,14 @@ class LightedFileList(QListWidget):
 
         # save current species for use in sorting later
         self.current_species = species
+        self.conf_slider_value = conf_slider_val
 
         for item in self.iterAllItems():
             # if not item.text().endswith("/"):
             if not item.text() == "../":
-                data = item.data(QtCore.Qt.UserRole)
-                if not data or data == []:
-                    self.paintIcon(item)
-                else:
-                    min_conf, max_conf = self.get_min_max_confidence_from_data(data)
-                    if conf_slider_val > max_conf:
-                        min_conf = -1
-
-                    self.paintIcon(item, True, min_conf, max_conf)
-
+                item.paint(self.conf_slider_value, self.current_species)
+                if not item.isHidden():
+                    self.currentIndices.append(self.indexFromItem(item).row())
         # enable sorting again
         self.setSortingEnabled(True)
 
