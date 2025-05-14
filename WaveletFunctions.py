@@ -93,7 +93,7 @@ def adjustNodes(nodes, change):
                 continue
 
             # else, renumber starting with a level lower
-            node = 2 ** (lvl - 1) - 1 + nodepos
+            node = 2**(lvl - 1) - 1 + nodepos
             if node < 0:
                 print("Warning: weird node produced, skipping:", node)
             else:
@@ -101,7 +101,7 @@ def adjustNodes(nodes, change):
         # if you want to change coords to one level higher ("upsampling")
         elif change == "up2":
             # renumber starting with a level higher
-            node = 2 ** (lvl + 1) - 1 + nodepos
+            node = 2**(lvl + 1) - 1 + nodepos
             adjnodes.append(node)
         else:
             print("ERROR: unrecognised change", change)
@@ -148,7 +148,7 @@ class WaveletFunctions:
 
     def ShannonEntropy(self, s):
         """Compute the Shannon entropy of data"""
-        e = -(s[np.nonzero(s)] ** 2) * np.log(s[np.nonzero(s)] ** 2)
+        e = -(s[np.nonzero(s)]**2) * np.log(s[np.nonzero(s)]**2)
         return np.sum(e)
 
     def BestLevel(self, maxLevel=None):
@@ -158,24 +158,24 @@ class WaveletFunctions:
 
         if maxLevel is None:
             maxLevel = self.maxLevel
-        allnodes = range(2 ** (maxLevel + 1) - 1)
+        allnodes = range(2**(maxLevel + 1) - 1)
 
         previouslevelmaxE = self.ShannonEntropy(self.data)
-        self.WaveletPacket(allnodes, "symmetric", antialias=False, antialiasFilter=True)
+        self.WaveletPacket(allnodes,
+                           "symmetric",
+                           antialias=False,
+                           antialiasFilter=True)
 
         level = 1
         currentlevelmaxE = np.min(
-            [self.ShannonEntropy(self.tree[n][::2]) for n in range(1, 3)]
-        )
+            [self.ShannonEntropy(self.tree[n][::2]) for n in range(1, 3)])
         while currentlevelmaxE < previouslevelmaxE and level < maxLevel:
             previouslevelmaxE = currentlevelmaxE
             level += 1
-            currentlevelmaxE = np.min(
-                [
-                    self.ShannonEntropy(self.tree[n][::2])
-                    for n in range(2**level - 1, 2 ** (level + 1) - 1)
-                ]
-            )
+            currentlevelmaxE = np.min([
+                self.ShannonEntropy(self.tree[n][::2])
+                for n in range(2**level - 1, 2**(level + 1) - 1)
+            ])
         return level
 
     def BestTree(self, wp, threshold, costfn="threshold"):
@@ -183,7 +183,7 @@ class WaveletFunctions:
         Scores each node and uses those scores to identify new leaves of the tree by working up the tree.
         Returns the list of new leaves of the tree.
         """
-        nnodes = 2 ** (wp.maxlevel + 1) - 1
+        nnodes = 2**(wp.maxlevel + 1) - 1
         cost = np.zeros(nnodes)
         count = 0
         for level in range(wp.maxlevel + 1):
@@ -201,13 +201,14 @@ class WaveletFunctions:
                     d = n.data**2
                     t2 = threshold * threshold
                     ds = np.sum(d > t2)
-                    cost[count] = 2 * ds - len(n.data) + t2 * ds + np.sum(d * (d <= t2))
+                    cost[count] = 2 * ds - len(n.data) + t2 * ds + np.sum(
+                        d * (d <= t2))
 
                 count += 1
 
         # Compute the best tree using those cost values
         flags = 2 * np.ones(nnodes)
-        flags[2**wp.maxlevel - 1 :] = 1
+        flags[2**wp.maxlevel - 1:] = 1
         # Work up the tree from just above leaves
         inds = np.arange(2**wp.maxlevel - 1)
         inds = inds[-1::-1]
@@ -241,15 +242,15 @@ class WaveletFunctions:
         tbd = np.unique(tbd)
 
         # I wasn't happy that these were being deleted, so am going the other way round
-        listnodes = np.arange(2 ** (wp.maxlevel + 1) - 1)
+        listnodes = np.arange(2**(wp.maxlevel + 1) - 1)
         listnodes = np.delete(listnodes, tbd)
         notleaves = np.intersect1d(newleaves, tbd)
         for i in notleaves:
             newleaves = np.delete(newleaves, np.where(newleaves == i))
 
         listleaves = np.intersect1d(
-            np.arange(2 ** (wp.maxlevel) - 1, 2 ** (wp.maxlevel + 1) - 1), listnodes
-        )
+            np.arange(2**(wp.maxlevel) - 1, 2**(wp.maxlevel + 1) - 1),
+            listnodes)
         listleaves = np.unique(np.concatenate((listleaves, newleaves)))
 
         return listleaves
@@ -257,9 +258,11 @@ class WaveletFunctions:
     # from memory_profiler import profile
     # fp = open('memory_profiler_wp.log', 'w+')
     # @profile(stream=fp)
-    def WaveletPacket(
-        self, nodes, mode="symmetric", antialias=False, antialiasFilter=True
-    ):
+    def WaveletPacket(self,
+                      nodes,
+                      mode="symmetric",
+                      antialias=False,
+                      antialiasFilter=True):
         """Reimplementation of pywt.WaveletPacket, but allowing for antialias
         following Strang & Nguyen (1996) or
         An anti-aliasing algorithm for discrete wavelet transform. Jianguo Yang & S.T. Park (2003) or
@@ -287,7 +290,9 @@ class WaveletFunctions:
         # identify max decomposition level
         maxlevel = math.floor(math.log2(max(nodes) + 1))
         if maxlevel > 10:
-            print("ERROR: got level above 10, probably the nodes are specified badly")
+            print(
+                "ERROR: got level above 10, probably the nodes are specified badly"
+            )
             return
 
         # determine which nodes need to be produced (all parents of provided nodes)
@@ -302,15 +307,12 @@ class WaveletFunctions:
         wavelet = self.wavelet
 
         # filter length for extension modes
-        flen = (
-            max(
-                len(wavelet.dec_lo),
-                len(wavelet.dec_hi),
-                len(wavelet.rec_lo),
-                len(wavelet.rec_hi),
-            )
-            // 2
-        )
+        flen = (max(
+            len(wavelet.dec_lo),
+            len(wavelet.dec_hi),
+            len(wavelet.rec_lo),
+            len(wavelet.rec_hi),
+        ) // 2)
         # this tree will store non-downsampled coefs for reconstruction
         self.tree = [self.data]
 
@@ -360,8 +362,9 @@ class WaveletFunctions:
                         nexta = signal.lfilter(lb, la, nexta)
                     else:
                         ft = pyfftw.interfaces.scipy_fftpack.fft(nexta)
-                        ft[ll // 4 : 3 * ll // 4] = 0
-                        nexta = np.real(pyfftw.interfaces.scipy_fftpack.ifft(ft))
+                        ft[ll // 4:3 * ll // 4] = 0
+                        nexta = np.real(
+                            pyfftw.interfaces.scipy_fftpack.ifft(ft))
                 # store A before downsampling
                 self.tree.append(nexta)
                 # explicit garbage collection - it helps somehow:
@@ -377,9 +380,10 @@ class WaveletFunctions:
                         nextd = signal.lfilter(hb, ha, nextd)
                     else:
                         ft = pyfftw.interfaces.scipy_fftpack.fft(nextd)
-                        ft[: ll // 4] = 0
-                        ft[3 * ll // 4 :] = 0
-                        nextd = np.real(pyfftw.interfaces.scipy_fftpack.ifft(ft))
+                        ft[:ll // 4] = 0
+                        ft[3 * ll // 4:] = 0
+                        nextd = np.real(
+                            pyfftw.interfaces.scipy_fftpack.ifft(ft))
                 # store D before downsampling
                 self.tree.append(nextd)
                 # explicit garbage collection - it helps somehow:
@@ -433,15 +437,13 @@ class WaveletFunctions:
 
         # Sanity check for empty node:
         if nwindows <= 0:
-            print(
-                "ERROR: data length %d shorter than window size %d s"
-                % (len(self.tree[node]), winsize)
-            )
+            print("ERROR: data length %d shorter than window size %d s" %
+                  (len(self.tree[node]), winsize))
             return
 
         # WC from test node(s), trimmed to non-padded size
         if wpantialias:
-            C = self.tree[node][: maxnumwcs * 2 : 2]
+            C = self.tree[node][:maxnumwcs * 2:2]
         else:
             C = self.tree[node][:maxnumwcs]
 
@@ -480,12 +482,13 @@ class WaveletFunctions:
         nodepos = graycode(nodepos)
         # positive freq is split into bands 0:1/2^lvl, 1:2/2^lvl,...
         # same for negative freq, so in total 2^lvl * 2 bands.
-        numnodes = 2 ** (lvl + 1)
+        numnodes = 2**(lvl + 1)
 
         # do the actual convolutions + upsampling
         if not isinstance(data, np.ndarray):
             data = np.asarray(data, dtype="float64")
-        data = ce.reconstruct(data, node, np.array(wv.rec_hi), np.array(wv.rec_lo), lvl)
+        data = ce.reconstruct(data, node, np.array(wv.rec_hi),
+                              np.array(wv.rec_lo), lvl)
 
         if antialias:
             if len(data) > 910 * 16000 and not antialiasFilter:
@@ -501,7 +504,8 @@ class WaveletFunctions:
                 # just stripped to minimum for speed.
                 low = nodepos / numnodes * 2
                 high = (nodepos + 1) / numnodes * 2
-                print("antialiasing by filtering between %.3f-%.3f FN" % (low, high))
+                print("antialiasing by filtering between %.3f-%.3f FN" %
+                      (low, high))
                 data = sp.FastButterworthBandpass(data, low, high)
             else:
                 # OLD METHOD for antialiasing
@@ -511,11 +515,12 @@ class WaveletFunctions:
                 ll = len(ft)
                 # to keep: [nodepos/numnodes : (nodepos+1)/numnodes] x Fs
                 # (same for negative freqs)
-                ft[: ll * nodepos // numnodes] = 0
-                ft[ll * (nodepos + 1) // numnodes : -ll * (nodepos + 1) // numnodes] = 0
+                ft[:ll * nodepos // numnodes] = 0
+                ft[ll * (nodepos + 1) // numnodes:-ll * (nodepos + 1) //
+                   numnodes] = 0
                 # indexing [-0:] wipes everything
                 if nodepos != 0:
-                    ft[-ll * nodepos // numnodes :] = 0
+                    ft[-ll * nodepos // numnodes:] = 0
                 data = np.real(pyfftw.interfaces.scipy_fftpack.ifft(ft))
 
         return data
@@ -546,8 +551,7 @@ class WaveletFunctions:
         """
         print(
             "Wavelet Denoising-Modified requested, with the following parameters: type %s, threshold %f, maxLevel %d, costfn %s, noiseest %s"
-            % (thresholdType, thrMultiplier, maxLevel, costfn, noiseest)
-        )
+            % (thresholdType, thrMultiplier, maxLevel, costfn, noiseest))
         opstartingtime = time.time()
 
         ADJBLOCKLEN = 0.15  # block length in s to be used when estimating adj
@@ -559,7 +563,7 @@ class WaveletFunctions:
             self.maxLevel = maxLevel
 
         # Create wavelet decomposition. Note: recommend full AA here
-        allnodes = range(2 ** (self.maxLevel + 1) - 1)
+        allnodes = range(2**(self.maxLevel + 1) - 1)
         self.WaveletPacket(allnodes, "symmetric", aaWP, antialiasFilter=True)
         print("Checkpoint 1, %.5f" % (time.time() - opstartingtime))
 
@@ -568,7 +572,8 @@ class WaveletFunctions:
         # Determine the best basis, or use all leaves ("fixed")
         # NOTE: nodes must be sorted here, very important!
         if costfn == "fixed":
-            bestleaves = list(range(2**self.maxLevel - 1, 2 ** (self.maxLevel + 1) - 1))
+            bestleaves = list(
+                range(2**self.maxLevel - 1, 2**(self.maxLevel + 1) - 1))
         else:
             # NOTE: using same MAD threshold for basis selection.
             # it isn't even needed if entropy costfn is used here
@@ -613,7 +618,9 @@ class WaveletFunctions:
             # (all 5th lvl leaves except top one which has filter edge effects):
             wind_nodes = list(range(31, 63))
             wind_nodes.remove(47)
-            windnodecenters = [sum(getWCFreq(n, self.treefs)) / 2 for n in wind_nodes]
+            windnodecenters = [
+                sum(getWCFreq(n, self.treefs)) / 2 for n in wind_nodes
+            ]
             regx = np.log(windnodecenters)
 
             # Regression Y: Extract log energies from the same nodes
@@ -625,7 +632,9 @@ class WaveletFunctions:
             windE = np.log(windE)
 
             # X positions to interpolate at (can be non-5th lvl nodes)
-            bestleafcenters = [sum(getWCFreq(n, self.treefs)) / 2 for n in bestleaves]
+            bestleafcenters = [
+                sum(getWCFreq(n, self.treefs)) / 2 for n in bestleaves
+            ]
             interpx = np.log(bestleafcenters)
 
             # Will fit the log energies at log center freqs of each node
@@ -634,18 +643,22 @@ class WaveletFunctions:
                 # Fill the thr array w/ OLS estimates
                 for t in range(numblocks):
                     regy = windE[t, :]
-                    pol = np.polynomial.polynomial.Polynomial.fit(regx, regy, 3)
+                    pol = np.polynomial.polynomial.Polynomial.fit(
+                        regx, regy, 3)
                     for node_ix in range(len(interpx)):
                         threshold[node_ix, t] = pol(interpx[node_ix])
             elif noiseest == "qr":
                 # Create the polynomial features manually
                 regx_poly = np.column_stack(
-                    (np.ones(len(regx)), regx, regx**2, regx**3)
-                )
+                    (np.ones(len(regx)), regx, regx**2, regx**3))
                 # Fill the thr array w/ QR estimates
                 for t in range(numblocks):
                     regy = windE[t, :]
-                    pol = QuantReg(regy, regx_poly, q=0.20, max_iter=250, p_tol=1e-3)
+                    pol = QuantReg(regy,
+                                   regx_poly,
+                                   q=0.20,
+                                   max_iter=250,
+                                   p_tol=1e-3)
                     for node_ix in range(len(interpx)):
                         threshold[node_ix, t] = pol(interpx[node_ix])
             # Threshold so far contains the predicted log-energies
@@ -657,8 +670,7 @@ class WaveletFunctions:
             for topnode in [11, 23, 47, 95, 191]:
                 if topnode in bestleaves:
                     threshold[bestleaves.index(topnode), :] = (
-                        np.median(np.abs(self.tree[topnode])) / 0.6745
-                    )
+                        np.median(np.abs(self.tree[topnode])) / 0.6745)
 
             threshold *= thrMultiplier
         else:
@@ -683,7 +695,7 @@ class WaveletFunctions:
         data = self.tree[0]
         new_signal = np.zeros(len(data))
         for i in bestleaves:
-            tmp = self.reconstructWP2(i, aaRec, True)[0 : len(data)]
+            tmp = self.reconstructWP2(i, aaRec, True)[0:len(data)]
             new_signal = new_signal + tmp
         print("Checkpoint 4, %.5f" % (time.time() - opstartingtime))
 
@@ -701,6 +713,7 @@ class WaveletFunctions:
 # License: BSD-3
 # Created: 2013-03-19
 class QuantReg:
+
     def __init__(self, endog, exog, q=0.5, max_iter=500, p_tol=1e-5):
         """
         Estimate a quantile regression model using iterative reweighted least
@@ -743,9 +756,8 @@ class QuantReg:
             diff = np.max(np.abs(beta - beta0))
 
         if n_iter == max_iter:
-            print(
-                "Warning: maximum number of iterations (" + str(max_iter) + ") reached."
-            )
+            print("Warning: maximum number of iterations (" + str(max_iter) +
+                  ") reached.")
 
         # un-transform the betas to allow predicting w/o normalizing
         self.beta = beta * np.asarray([1000, 100, 10, 1])
