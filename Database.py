@@ -3,11 +3,14 @@ import sqlite3
 
 
 class DatabaseHandler:
-
     def __init__(self, db_path):
         self.db_path = db_path
         self.connect()
         self.create_tables()
+
+    def __del__(self):
+        self.commit()
+        self.con.close()
 
     def connect(self):
         self.con = sqlite3.connect(self.db_path)
@@ -22,20 +25,20 @@ class DatabaseHandler:
         # table recording: filename, directory
         self.cursor.execute(
             """CREATE TABLE IF NOT EXISTS recording(filename CHAR PRIMARY KEY,
-            directory CHAR)""")
+            directory CHAR)"""
+        )
 
         # table operator: name
-        self.cursor.execute(
-            """CREATE TABLE IF NOT EXISTS operator(name CHAR)""")
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS operator(name CHAR)""")
 
         # table operator: name
-        self.cursor.execute(
-            """CREATE TABLE IF NOT EXISTS filters(name CHAR)""")
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS filters(name CHAR)""")
 
         # table species: scientific_name, common_name
         self.cursor.execute(
             """CREATE TABLE IF NOT EXISTS species(scientific_name CHAR,
-            common_name CHAR)""")
+            common_name CHAR)"""
+        )
 
         # table calltypes: scientific_name, calltype
         self.cursor.execute(
@@ -54,7 +57,8 @@ class DatabaseHandler:
             operator_id,
             FOREIGN KEY(filename) REFERENCES recording(filename),
             FOREIGN KEY(operator_id) REFERENCES operator(rowid))
-            """)
+            """
+        )
 
         # table segment_species: connects segments and species
         self.cursor.execute(
@@ -67,7 +71,8 @@ class DatabaseHandler:
             FOREIGN KEY(segment_id) REFERENCES segments(rowid),
             FOREIGN KEY(filter_id) REFERENCES filters(rowid),
             FOREIGN KEY(calltype_id) REFERENCES calltypes(rowid))
-            """)
+            """
+        )
 
         self.cursor.execute(
             """CREATE UNIQUE INDEX IF NOT EXISTS idx_segments_unique ON segments (filename, start, end, low, high)"""
@@ -209,19 +214,14 @@ class DatabaseHandler:
         filter_id = self.add_filter(species_list["filter"])
 
         sp_dict = {
-            "scientific_name":
-            species_list["species"],
-            "common_name":
-            species_list["species"],
-            "confidence":
-            species_list["certainty"],
-            "segment_id":
-            seg_id,
-            "filter_id":
-            filter_id,
-            "calltype":
-            species_list["calltype"]
-            if "calltype" in species_list.keys() else "non-specified",
+            "scientific_name": species_list["species"],
+            "common_name": species_list["species"],
+            "confidence": species_list["certainty"],
+            "segment_id": seg_id,
+            "filter_id": filter_id,
+            "calltype": species_list["calltype"]
+            if "calltype" in species_list.keys()
+            else "non-specified",
         }
         self.cursor.execute(
             """INSERT INTO species
@@ -296,7 +296,7 @@ class DatabaseHandler:
             """
             DELETE FROM segment_species WHERE segment_id = (?)
         """,
-            (segment_id, ),
+            (segment_id,),
         )
 
     def get_files_with_species(self, species, dirname, minconf):
@@ -316,7 +316,7 @@ class DatabaseHandler:
             INNER JOIN segments ON recording.filename=segments.filename 
             INNER JOIN segment_species ON segments.rowid = segment_species.segment_id 
             WHERE recording.directory LIKE ? GROUP BY segment_species.species_scientific_name""",
-            (dirname + "%", ),
+            (dirname + "%",),
         )
         return self.cursor.fetchall()
 
@@ -360,7 +360,7 @@ class DatabaseHandler:
         )
         return self.cursor.fetchall()
 
-    def get_dir_segments(self, dirname, minconf):
+    def get_dir_segments(self, dirname, minconf=0):
         self.cursor.execute(
             """SELECT recording.directory, recording.filename, segments.start, segments.end, 
             segments.low, segments.high, 
@@ -382,7 +382,7 @@ class DatabaseHandler:
             INNER JOIN segments ON recording.filename=segments.filename 
             INNER JOIN segment_species ON segments.rowid = segment_species.segment_id 
             WHERE recording.directory LIKE ? GROUP BY recording.filename, segment_species.species_scientific_name""",
-            (dirname + "%", ),
+            (dirname + "%",),
         )
         return self.cursor.fetchall()
 
