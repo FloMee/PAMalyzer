@@ -1587,6 +1587,7 @@ class AviaNZ(QMainWindow):
         self.listFiles.rank_sort = self.rank_sort.isChecked()
         self.listFiles.setSortingEnabled(True)
         self.listFiles.sortItems()
+        self.listFiles.restrict(self.currentSpecies, self.certSlider.value())
 
     def updateListFiles(self, force=False):
         self.listFiles.showAll = not self.tickSpecies.isChecked()
@@ -1598,8 +1599,9 @@ class AviaNZ(QMainWindow):
             #     self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
             # # elif oldSpecies != self.currentSpecies:
             # else:
-            self.listFiles.restrict(self.currentSpecies, self.certSlider.value())
+            self.listFiles.current_species = self.currentSpecies
             self.listFiles.sortItems()
+            self.listFiles.restrict(self.currentSpecies, self.certSlider.value())
             self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
         self.updateListSpecies()
 
@@ -1949,6 +1951,7 @@ class AviaNZ(QMainWindow):
         i = self.listFiles.currentRow()
         if not skipHidden and i > 1:
             self.listFiles.setCurrentRow(i - 1)
+            self.listFiles.restrict(self.currentSpecies, self.certSlider.value())
             self.listLoadFile(self.listFiles.currentItem())
             return
 
@@ -1957,6 +1960,7 @@ class AviaNZ(QMainWindow):
             self.listFiles.setCurrentRow(
                 self.listFiles.currentIndices[currentIndex - 1]
             )
+            self.listFiles.restrict(self.currentSpecies, self.certSlider.value())
 
         else:
             # Tell the user they've finished
@@ -1979,6 +1983,7 @@ class AviaNZ(QMainWindow):
         i = self.listFiles.currentRow()
         if not skipHidden and i + 1 < len(self.listFiles):
             self.listFiles.setCurrentRow(i + 1)
+            self.listFiles.restrict(self.currentSpecies, self.certSlider.value())
             self.listLoadFile(self.listFiles.currentItem())
             return
 
@@ -1987,6 +1992,7 @@ class AviaNZ(QMainWindow):
             self.listFiles.setCurrentRow(
                 self.listFiles.currentIndices[currentIndex + 1]
             )
+            self.listFiles.restrict(self.currentSpecies, self.certSlider.value())
 
         else:
             # Tell the user they've finished
