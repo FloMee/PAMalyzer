@@ -4130,7 +4130,7 @@ class AviaNZ(QMainWindow):
                     self.spectrogramDialog.high.setValue(maxFreq)
 
         self.redoFreqAxis(minFreq, maxFreq, changedY=changedY)
-
+        self.setColourLevels()
         self.statusLeft.setText("Ready")
 
     def calculateStats(self):
