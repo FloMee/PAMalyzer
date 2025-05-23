@@ -583,6 +583,7 @@ class BirdNET(QWidget):
     def updateDatabase(self, segList, filename):
         segList.parent = self.AviaNZ
         segList.save_to_database(filename)
+        self.AviaNZ.database.commit()
 
     def main(self):
         try:
@@ -609,7 +610,6 @@ class BirdNET(QWidget):
                 self.threadpool.start(worker)
 
             if self.threadpool.waitForDone(-1):
-                self.AviaNZ.database.commit()
                 e = time.time()
                 print(
                     "Analysis sucessfully completed in {:.0f}min {:.0f}s".format(
