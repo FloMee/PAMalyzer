@@ -1405,36 +1405,47 @@ class SortableListWidgetItem(QListWidgetItem):
                 painter.drawRect(self.pixmap.rect())
                 painter.end()
                 self.setIcon(QIcon(self.pixmap))
-                if not self.parent.showAll and self != self.parent.currentItem():
-                    self.setHidden(True)
-                else:
-                    self.setHidden(False)
+                # if not self.parent.showAll and self != self.parent.currentItem():
+                #     self.setHidden(True)
+                # else:
+                #     self.setHidden(False)
+                self.check_hidden()
             elif min_conf == 0:
                 self.pixmap.fill(self.parent.ColourNone)
                 self.setIcon(QIcon(self.pixmap))
-                if not self.parent.showAll:
-                    self.setHidden(False)
+                # if not self.parent.showAll:
+                #     self.setHidden(False)
+                self.check_hidden(False)
             elif min_conf < 100:
                 self.pixmap.fill(self.parent.ColourPossibleDark)
                 painter = QPainter(self.pixmap)
                 painter.setPen(self.blackpen)
                 painter.drawRect(QPixmap(int(max_conf // 2), 10).rect())
                 self.setIcon(QIcon(self.pixmap))
-                if not self.parent.showAll:
-                    self.setHidden(False)
+                # if not self.parent.showAll:
+                #     self.setHidden(False)
+                self.check_hidden(False)
             else:
                 self.pixmap.fill(self.parent.ColourNamed)
                 self.setIcon(QIcon(self.pixmap))
-                if not self.parent.showAll:
-                    self.setHidden(False)
+                # if not self.parent.showAll:
+                #     self.setHidden(False)
+                self.check_hidden(False)
         else:
-            if not self.parent.showAll and self != self.parent.currentItem():
-                self.setHidden(True)
-            else:
-                self.setHidden(False)
+            # if not self.parent.showAll and self != self.parent.currentItem():
+            #     self.setHidden(True)
+            # else:
+            #     self.setHidden(False)
+            self.check_hidden()
             # no .data for this sound file
             self.pixmap.fill(QColor(255, 255, 255, 0))
             self.setIcon(QIcon(self.pixmap))
+
+    def check_hidden(self, hide=True):
+        if hide and not self.parent.showAll and self != self.parent.currentItem():
+            self.setHidden(True)
+        else:
+            self.setHidden(False)
 
 
 class LightedFileList(QListWidget):
