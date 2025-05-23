@@ -2466,14 +2466,14 @@ class AviaNZ(QMainWindow):
         # If there are segments, show them
         for count in range(len(self.segments)):
             self.addSegment(
-                self.segments[count][0],
-                self.segments[count][1],
-                self.segments[count][2],
-                self.segments[count][3],
-                self.segments[count][4],
-                False,
-                count,
-                remaking,
+                startpoint=self.segments[count][0],
+                endpoint=self.segments[count][1],
+                y1=self.segments[count][2],
+                y2=self.segments[count][3],
+                species=self.segments[count][4],
+                saveSeg=False,
+                index=count,
+                remaking=remaking,
                 coordsAbsolute=True,
             )
 
@@ -2797,8 +2797,6 @@ class AviaNZ(QMainWindow):
             # Add the segment to the data
             if saveSeg:
                 self.segments.append(newSegment)
-
-            self.refreshFileColor()
 
         if not show:
             # Add a None element into the array so that the correct boxids work
@@ -6236,6 +6234,7 @@ class AviaNZ(QMainWindow):
 
             # reset segment playback buttons
             self.refreshSegmentControls()
+        self.refreshFileColor()
 
     def removeSegments(self, delete=True):
         """Remove all the segments in response to the menu selection, or when a new file is loaded."""
@@ -6273,26 +6272,17 @@ class AviaNZ(QMainWindow):
             self.box1id = -1
 
     def refreshFileColor(self):
-        """Extracts the minimum certainty and updates the color
-        of this file in the file list."""
-        if len(self.segments) == 0:
-            mincert = -1
-            maxcert = 0
-        else:
-            cert = [
-                lab["certainty"]
-                for seg in self.segments
-                for lab in seg[4]
-                if self.currentSpecies == "Species"
-                or lab["species"] == self.currentSpecies
-            ]
-            if cert:
-                mincert = min(cert)
-                maxcert = max(cert)
-            else:
-                mincert = -1
-                maxcert = 0
-        self.listFiles.refreshFile(os.path.basename(self.filename), mincert, maxcert)
+        """Extracts the maximum confidence value of every species in the segments,
+        sets it as item data of the current item and paints the item."""
+        data = {}
+        for segment in self.segments:
+            for detection in segment[4]:
+                sp = detection["species"]
+                conf = detection["certainty"]
+                if sp not in data.keys() or (sp in data.keys() and data[sp] < conf):
+                    data[sp] = conf
+        self.listFiles.currentItem().setData(QtCore.Qt.UserRole, data)
+        self.listFiles.currentItem().paint(self.certSlider.value(), self.currentSpecies)
 
     def saveSegments(self):
         """Save the segmentation data as a json file.
@@ -6317,7 +6307,6 @@ class AviaNZ(QMainWindow):
             self.segments.save_to_database(str(self.filename))
 
             # refresh this file's icon in file list dock
-            self.refreshFileColor()
             self.segmentsToSave = False
             self.statusLeft.setText(
                 "Segments saved at " + time.strftime("%X", time.localtime())

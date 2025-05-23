@@ -1608,41 +1608,6 @@ class LightedFileList(QListWidget):
             else:
                 self.setCurrentRow(0)
 
-    def refreshFile(self, fileName: str, min_conf: float, max_conf: float) -> None:
-        """Repaint a single file icon with the provided confidence.
-        fileName: file stem (dir will be read from self)
-        conf:     0-100, or -1 if no annotations
-        """
-        # for matching dirs - not sure if needed:
-        # index = self.findItems(fileName+"\/",Qt.MatchExactly)
-        index = self.findItems(fileName, Qt.MatchExactly)
-        if len(index) == 0:
-            return
-
-        curritem = index[0]
-        curritem.paint(self.conf_slider_value, self.current_species)
-        # Repainting
-        # if min_conf == -1:
-        #     # .data exists, but no annotations
-        #     self.pixmap.fill(QColor(255, 255, 255, 0))
-        #     painter = QPainter(self.pixmap)
-        #     painter.setPen(self.blackpen)
-        #     painter.drawRect(self.pixmap.rect())
-        #     painter.end()
-        #     curritem.setIcon(QIcon(self.pixmap))
-        # elif min_conf == 0:
-        #     self.pixmap.fill(self.ColourNone)
-        #     curritem.setIcon(QIcon(self.pixmap))
-        # elif min_conf < 100:
-        #     self.pixmap.fill(self.ColourPossibleDark)
-        #     painter = QPainter(self.pixmap)
-        #     painter.setPen(self.blackpen)
-        #     painter.drawRect(QPixmap(int(max_conf // 2), 10).rect())
-        #     curritem.setIcon(QIcon(self.pixmap))
-        # else:
-        #     self.pixmap.fill(self.ColourNamed)
-        #     curritem.setIcon(QIcon(self.pixmap))
-
     def set_item_data(
         self, item: SortableListWidgetItem, filespconf: list = []
     ) -> None:
