@@ -2476,6 +2476,7 @@ class AviaNZ(QMainWindow):
                 remaking=remaking,
                 coordsAbsolute=True,
             )
+        self.refreshFileColor()
 
         # This is the moving bar for the playback
         self.p_spec.addItem(self.bar, ignoreBounds=True)
@@ -2713,9 +2714,6 @@ class AviaNZ(QMainWindow):
                 # boxes w/o segments
                 self.SegmentRects[box].setBrush(pg.mkBrush("w"))
             self.SegmentRects[box].update()
-        # deleting is almost always paired with redoing, so no need to refresh twice
-        if not delete:
-            self.refreshFileColor()
 
     def addSegment(
         self,
@@ -2746,14 +2744,10 @@ class AviaNZ(QMainWindow):
 
         # Make sure startpoint and endpoint are in the right order
         if startpoint > endpoint:
-            temp = startpoint
-            startpoint = endpoint
-            endpoint = temp
+            startpoint, endpoint = endpoint, startpoint
         # same for freqs
         if y1 > y2:
-            temp = y1
-            y1 = y2
-            y2 = temp
+            y1, y2 = y2, y1
         # since we allow passing empty list here:
         if len(species) == 0:
             species = [{"species": "Don't Know", "certainty": 0, "filter": "M"}]
@@ -3631,6 +3625,8 @@ class AviaNZ(QMainWindow):
 
         # refresh overview boxes after all updates:
         self.refreshOverviewWith(workingSeg)
+        self.refreshFileColor()
+
         self.database.update_segment_species(
             workingSeg,
             self.SoundFileDir,
@@ -6155,6 +6151,7 @@ class AviaNZ(QMainWindow):
             self.segments[id].confirmLabels()
 
             self.refreshOverviewWith(self.segments[id])
+            self.refreshFileColor()
             self.updateText(id)
             self.updateColour(id)
             self.segInfo.setText(self.segments[id].infoString())
