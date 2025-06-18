@@ -396,6 +396,10 @@ class AviaNZ(QMainWindow):
         actionMenu.addAction(
             "Update database for current directory", self.updateDatabase
         )
+        actionMenu.addAction(
+            "Delete all segments in current directory", self.delete_all_segments
+        )
+        actionMenu.addAction("Update directory", self.update_directory)
         actionMenu.addAction("Export segments as .data files", self.export_json_files)
         actionMenu.addAction("Export files", self.exportFiles)
         actionMenu.addAction("Export segments", self.export_segments)
@@ -5557,6 +5561,18 @@ class AviaNZ(QMainWindow):
         self.database.commit()
         print("Database successfully updated.")
         self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
+
+    def delete_all_segments(self):
+        self.database.delete_dir_segments(self.SoundFileDir)
+
+    def update_directory(self):
+        for root, dir, files in os.walk(self.SoundFileDir):
+            for file in files:
+                if file.endswith(".wav"):
+                    print("root: {}, filename: {}".format(root, file))
+                    self.database.add_file(file, root)
+        self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
+        self.database.commit()
 
     def changeSettings(self):
         """Create the parameter tree when the Interface settings menu is pressed."""

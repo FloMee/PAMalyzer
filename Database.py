@@ -157,6 +157,18 @@ class DatabaseHandler:
             segment,
         )
 
+    def delete_dir_segments(self, dir):
+        self.cursor.execute(
+            """DELETE FROM segments 
+            WHERE filename IN (
+                SELECT segments.filename FROM segments
+                INNER JOIN recording ON segments.filename=recording.filename
+                WHERE recording.directory LIKE ?
+            ) RETURNING rowid""",
+            (dir + "%",),
+        )
+        self.delete_orphan_segment_species()
+
     def delete_file_segments(self, file):
         self.cursor.execute(
             """DELETE FROM segments 
