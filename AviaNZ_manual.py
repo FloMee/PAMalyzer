@@ -5448,25 +5448,25 @@ class AviaNZ(QMainWindow):
         to_export = {}
         for seg in segments:
             file = os.path.join(seg[0], seg[1])
-            seg = [
-                seg[2],
-                seg[3],
-                seg[4],
-                seg[5],
-                [
-                    {
-                        "species": seg[6],
-                        "certainty": seg[7],
-                        "calltype": seg[8],
-                        "filter": seg[9],
-                    }
-                ],
-            ]
-
-            if file in to_export.keys():
-                to_export[file].append(seg)
-            else:
-                to_export[file] = [seg]
+            if seg[7] >= self.certSlider.value():
+                seg = [
+                    seg[2],
+                    seg[3],
+                    seg[4],
+                    seg[5],
+                    [
+                        {
+                            "species": seg[6],
+                            "certainty": seg[7],
+                            "calltype": seg[8],
+                            "filter": seg[9],
+                        }
+                    ],
+                ]
+                if file in to_export.keys():
+                    to_export[file].append(seg)
+                else:
+                    to_export[file] = [seg]
         for seg in to_export:
             print("{}: {}".format(seg, to_export[seg]))
             seglist = Segment.SegmentList()
