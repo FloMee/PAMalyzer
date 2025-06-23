@@ -378,7 +378,10 @@ class AviaNZ(QMainWindow):
             actionMenu.addAction("Calculate segment statistics", self.calculateStats)
 
         importMenu = actionMenu.addMenu("&Import")
-        importMenu.addAction("Import annotations from .data files", self.updateDatabase)
+        importMenu.addAction(
+            "Import annotations from .data files", self.import_avianz_data
+        )
+        importMenu.addAction("Import raven selections table(s)", self.import_raven_data)
 
         exportMenu = actionMenu.addMenu("&Export")
         exportMenu.addAction("Export file annotations to excel", self.exportSeg)
@@ -5339,7 +5342,7 @@ class AviaNZ(QMainWindow):
 
         self.exportDialog.close()
 
-    def updateDatabase(self):
+    def import_avianz_data(self):
         self.tempsl = Segment.SegmentList()
         for root, dirs, files in os.walk(self.SoundFileDir):
             for filename in files:
@@ -5362,8 +5365,64 @@ class AviaNZ(QMainWindow):
         print("Database successfully updated.")
         self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
 
+    def import_raven_data(self):
+        """Imports data from individual raven selection tables"""
+        for root, dirs, files in os.walk(self.SoundFileDir):
+            seglistdir = {}
+            for filename in files:
+                filenamef = os.path.abspath(os.path.join(root, filename))
+                if filename.lower().endswith(".selection.table.txt"):
+                    filenameaudio = os.path.abspath(
+                        os.path.join(root, filename.split(".")[0] + ".wav")
+                    )
+                    filter = filename.split(".")[-4]
+
+                    # create a directory of segment list. The keys are the filenames, the entries the lists of segments
+                    with open(filenamef, "r") as infile:
+                        next(infile)
+                        for line in infile:
+                            l = line.split("\t")
+                            audio = os.path.abspath(
+                                os.path.join(
+                                    os.path.dirname(l[10]), os.path.basename(l[10])
+                                )
+                            )
+                            s = Segment.Segment(
+                                [
+                                    float(l[3]),  # start
+                                    float(l[4]),  # end
+                                    float(l[5]),  # low
+                                    float(l[6]),  # high
+                                    [
+                                        {
+                                            "species": l[7],
+                                            "certainty": float(l[9]) * 100,
+                                            "filter": filter,
+                                        }
+                                    ],
+                                ]
+                            )
+                            if audio not in seglistdir.keys():
+                                seglist = Segment.SegmentList()
+                                seglist.metadata = {
+                                    "Reviewer": self.reviewer,
+                                    "Operator": self.operator,
+                                }
+                                seglistdir[audio] = seglist
+                            seglistdir[audio].addSegment(s)
+
+            # insert the annotations into the database.
+            for file in seglistdir:
+                self.database.insert_segments(seglistdir[file], self.reviewer, file)
+
+        self.database.commit()
+        print("Database successfully updated.")
+        self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
+
     def delete_all_segments(self):
         self.database.delete_dir_segments(self.SoundFileDir)
+        self.database.commit()
+        self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
 
     def update_directory(self):
         for root, dir, files in os.walk(self.SoundFileDir):
