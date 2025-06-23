@@ -377,32 +377,33 @@ class AviaNZ(QMainWindow):
         if not self.DOC:
             actionMenu.addAction("Calculate segment statistics", self.calculateStats)
 
-        actionMenu.addAction("Export file segments to excel", self.exportSeg)
-        actionMenu.addAction("Export all segments to excel", self.exportExcel)
+        importMenu = actionMenu.addMenu("&Import")
+        importMenu.addAction("Import annotations from .data files", self.updateDatabase)
+
+        exportMenu = actionMenu.addMenu("&Export")
+        exportMenu.addAction("Export file annotations to excel", self.exportSeg)
+        exportMenu.addAction("Export dir annotations to excel", self.exportExcel)
+        exportMenu.addAction(
+            "Export dir annotations as .data files", self.export_json_files
+        )
+        exportMenu.addAction("Export files with species", self.exportFiles)
+        exportMenu.addAction("Export segments with species", self.export_segments)
+        if not self.DOC:
+            exportMenu.addAction("Export spectrogram image", self.saveImageRaw)
+        exportMenu.addAction("&Export current view as image", self.saveImage, "Ctrl+I")
         actionMenu.addSeparator()
         self.showInvSpec = actionMenu.addAction(
             "Save sound file", self.invertSpectrogram
         )
 
-        actionMenu.addSeparator()
-
-        if not self.DOC:
-            actionMenu.addAction("Export spectrogram image", self.saveImageRaw)
-        actionMenu.addAction("&Export current view as image", self.saveImage, "Ctrl+I")
-
-        actionMenu.addSeparator()
-
-        actionMenu.addAction(
-            "Update database for current directory", self.updateDatabase
+        databaseMenu = actionMenu.addMenu("Database")
+        databaseMenu.addAction(
+            "Delete annotations in current directory", self.delete_all_segments
         )
-        actionMenu.addAction(
-            "Delete all segments in current directory", self.delete_all_segments
+        databaseMenu.addAction(
+            "Update file directory",
+            self.update_directory,
         )
-        actionMenu.addAction("Update directory", self.update_directory)
-        actionMenu.addAction("Export segments as .data files", self.export_json_files)
-        actionMenu.addAction("Export files", self.exportFiles)
-        actionMenu.addAction("Export segments", self.export_segments)
-
         # "Recognisers" menu
         recMenu = self.menuBar().addMenu("&Recognisers")
         recMenu.addAction("Classify recordings with BirdNET", self.classifyBirdNET)
