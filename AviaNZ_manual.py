@@ -2848,7 +2848,7 @@ class AviaNZ(QMainWindow):
                 hours = (time // 3600) % 24
                 if hours > 0:
                     self.pointData.setText(
-                        "time=%.2d:%.2d:%05.2f (hh:mm:ss.ms), freq=%0.1f (Hz), power=%0.1f (dB)"
+                        "time=%.2d:%.2d:%05.3f (hh:mm:ss.ms), freq=%0.1f (Hz), power=%0.1f (dB)"
                         % (
                             hours,
                             minutes,
