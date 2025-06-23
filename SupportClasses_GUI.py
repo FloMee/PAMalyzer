@@ -1507,7 +1507,10 @@ class LightedFileList(QListWidget):
         with pg.BusyCursor():
             # Read contents of current dir
             self.listOfFiles = QDir(soundDir).entryInfoList(
-                ["..", "*.wav", "*.bmp"],
+                [
+                    "..",
+                    "*.wav",
+                ],
                 filters=QDir.AllDirs | QDir.NoDot | QDir.Files,
                 sort=QDir.DirsFirst,
             )
@@ -1532,25 +1535,11 @@ class LightedFileList(QListWidget):
                     # detailed dir view can be used for non-clickable instances
                     if addWavNum:
                         # count wavs in this dir:
-                        numbmps = 0
                         numwavs = 0
                         for root, dirs, files in os.walk(file.filePath()):
                             numwavs += sum(f.lower().endswith(".wav") for f in files)
-                            numbmps += sum(f.lower().endswith(".bmp") for f in files)
                         # keep these strings as short as possible
-                        if numbmps == 0:
-                            item.setText(
-                                "%s/\t\t(%d wav files)" % (file.fileName(), numwavs)
-                            )
-                        elif numwavs == 0:
-                            item.setText(
-                                "%s/\t\t(%d bmp files)" % (file.fileName(), numbmps)
-                            )
-                        else:
-                            item.setText(
-                                "%s/\t\t(%d wav, %d bmp files)"
-                                % (file.fileName(), numwavs, numbmps)
-                            )
+                        item.setText("%s/\t\t(%d wav)" % (file.fileName(), numwavs))
                     else:
                         item.setText(file.fileName() + "/")
 
@@ -1586,9 +1575,6 @@ class LightedFileList(QListWidget):
                                     fullname,
                                 )
                                 print(e)
-                        if file.fileName().lower().endswith(".bmp"):
-                            # For bitmaps, using hardcoded samplerate as there's no readFmt
-                            self.fsList.add(176000)
             self.restrict(species, self.conf_slider_value)
         if readFmt:
             print("Found the following Fs:", self.fsList)
