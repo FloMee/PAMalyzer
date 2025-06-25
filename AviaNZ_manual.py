@@ -32,7 +32,6 @@ import re
 import shutil
 import time
 import webbrowser
-import xml.etree.ElementTree as ET
 
 import numpy as np
 import openpyxl
@@ -274,35 +273,35 @@ class AviaNZ(QMainWindow):
         if platform.system() == "Darwin":
             fileMenu.addAction("&Quit", QApplication.quit, "Ctrl+Q")
 
-        specMenu = self.menuBar().addMenu("&Appearance")
+        viewMenu = self.menuBar().addMenu("&View")
 
-        self.useAmplitudeTick = specMenu.addAction(
+        self.useAmplitudeTick = viewMenu.addAction(
             "Show amplitude plot", self.useAmplitudeCheck
         )
         self.useAmplitudeTick.setCheckable(True)
         self.useAmplitudeTick.setChecked(self.config["showAmplitudePlot"])
         self.useAmplitude = True
 
-        self.useFilesTick = specMenu.addAction("Show file list", self.useFilesCheck)
+        self.useFilesTick = viewMenu.addAction("Show file list", self.useFilesCheck)
         self.useFilesTick.setCheckable(True)
         self.useFilesTick.setChecked(self.config["showListofFiles"])
 
         # this can go under "Change interface settings"
-        self.showOverviewSegsTick = specMenu.addAction(
+        self.showOverviewSegsTick = viewMenu.addAction(
             "Show annotation overview", self.showOverviewSegsCheck
         )
         self.showOverviewSegsTick.setCheckable(True)
         self.showOverviewSegsTick.setChecked(self.config["showAnnotationOverview"])
 
-        self.showPointerDetails = specMenu.addAction(
+        self.showPointerDetails = viewMenu.addAction(
             "Show pointer details in spectrogram", self.showPointerDetailsCheck
         )
         self.showPointerDetails.setCheckable(True)
         self.showPointerDetails.setChecked(self.config["showPointerDetails"])
 
-        specMenu.addSeparator()
+        viewMenu.addSeparator()
 
-        colMenu = specMenu.addMenu("Choose colour map")
+        colMenu = viewMenu.addMenu("Choose colour map")
         colGroup = QActionGroup(self)
         for colour in self.config["ColourList"]:
             cm = colMenu.addAction(colour)
@@ -312,116 +311,112 @@ class AviaNZ(QMainWindow):
             receiver = lambda checked, cmap=colour: self.setColourMap(cmap)
             cm.triggered.connect(receiver)
             colGroup.addAction(cm)
-        self.invertcm = specMenu.addAction("Invert colour map", self.invertColourMap)
+        self.invertcm = viewMenu.addAction("Invert colour map", self.invertColourMap)
         self.invertcm.setCheckable(True)
         self.invertcm.setChecked(self.config["invertColourMap"])
 
-        # specMenu.addSeparator()
-        specMenu.addAction(
+        # viewMenu.addSeparator()
+        viewMenu.addAction(
             "&Change spectrogram parameters", self.showSpectrogramDialog, "Ctrl+C"
         )
 
-        specMenu.addSeparator()
-        markMenu = specMenu.addMenu("Mark on spectrogram")
+        viewMenu.addSeparator()
+        markMenu = viewMenu.addMenu("Mark on spectrogram")
         self.showFundamental = markMenu.addAction(
             "Fundamental frequency", self.showFundamentalFreq, "Ctrl+F"
         )
         self.showFundamental.setCheckable(True)
         self.showFundamental.setChecked(True)
-        self.showSpectral = markMenu.addAction(
-            "Spectral derivative", self.showSpectralDeriv
-        )
-        self.showSpectral.setCheckable(True)
-        self.showSpectral.setChecked(False)
-        if not self.DOC:
-            self.showFormant = markMenu.addAction("Formants", self.showFormants)
-            self.showFormant.setCheckable(True)
-            self.showFormant.setChecked(False)
+        # self.showSpectral = markMenu.addAction(
+        #     "Spectral derivative", self.showSpectralDeriv
+        # )
+        # self.showSpectral.setCheckable(True)
+        # self.showSpectral.setChecked(False)
+        # if not self.DOC:
+        #     self.showFormant = markMenu.addAction("Formants", self.showFormants)
+        #     self.showFormant.setCheckable(True)
+        #     self.showFormant.setChecked(False)
         self.showEnergies = markMenu.addAction("Maximum energies", self.showMaxEnergy)
         self.showEnergies.setCheckable(True)
         self.showEnergies.setChecked(False)
 
         # if not self.DOC:
-        #     cqt = specMenu.addAction("Show CQT", self.showCQT)
+        #     cqt = viewMenu.addAction("Show CQT", self.showCQT)
 
-        specMenu.addSeparator()
+        viewMenu.addSeparator()
 
-        self.readonly = specMenu.addAction("Make read only", self.makeReadOnly)
+        self.readonly = viewMenu.addAction("Make read only", self.makeReadOnly)
         self.readonly.setCheckable(True)
         self.readonly.setChecked(self.config["readOnly"])
 
-        self.rank_sort = specMenu.addAction(
+        self.rank_sort = viewMenu.addAction(
             "Sort files by maximum confidence", self.toggleRankSort
         )
         self.rank_sort.setCheckable(True)
 
-        specMenu.addSeparator()
-        specMenu.addAction("Interface settings", self.changeSettings)
-        specMenu.addAction("Put docks back", self.dockReplace)
+        exportViewMenu = viewMenu.addMenu("Export view")
+        exportViewMenu.addAction("Overview spectrogram as image", self.saveImageRaw)
+        exportViewMenu.addAction(
+            "Current spectrogram as image", self.saveImage, "Ctrl+I"
+        )
 
-        actionMenu = self.menuBar().addMenu("&Actions")
-        actionMenu.addAction("Delete all segments", self.deleteAll, "Ctrl+D")
-        self.addRegularAction = actionMenu.addAction(
+        viewMenu.addSeparator()
+        viewMenu.addAction("Restore default layout", self.dockReplace)
+        viewMenu.addAction("Interface settings", self.changeSettings)
+
+        analysisMenu = self.menuBar().addMenu("&Analysis")
+        analysisMenu.addAction("Classify recordings with BirdNET", self.classifyBirdNET)
+        analysisMenu.addSeparator()
+        self.denoiseAction = analysisMenu.addAction("Denoise", self.showDenoiseDialog)
+        analysisMenu.addAction("Add metadata about noise", self.addNoiseData, "Ctrl+N")
+
+        # analysisMenu.addAction("Filter spectrogram", self.medianFilterSpec)
+
+        # analysisMenu.addSeparator()
+        #
+        # analysisMenu.addAction("Calculate segment statistics", self.calculateStats)
+
+        annotationMenu = self.menuBar().addMenu("&Annotations")
+
+        importMenu = annotationMenu.addMenu("&Import Annotations")
+        importMenu.addAction("From AviaNZ (.data files)", self.import_avianz_data)
+        importMenu.addAction("From Raven (selection tables)", self.import_raven_data)
+        # importMenu.addAction("From Excel", self.excel2Annotation)
+
+        exportMenu = annotationMenu.addMenu("&Export Annotations")
+        exportMenu.addAction("To Excel (File)", self.exportSeg)
+        exportMenu.addAction("To Excel (Directory)", self.exportExcel)
+        exportMenu.addAction("To .data files (Directory)", self.export_json_files)
+        exportFilesMenu = annotationMenu.addMenu("&Export Audio")
+        exportFilesMenu.addAction("Files with selected species", self.exportFiles)
+        exportFilesMenu.addAction(
+            "File segments with selected species", self.export_segments
+        )
+        annotationMenu.addSeparator()
+
+        deleteMenu = annotationMenu.addMenu("&Delete annotations")
+        deleteMenu.addAction("File annotations", self.deleteAll, "Ctrl+D")
+        deleteMenu.addAction("Directory annotations", self.delete_all_segments)
+
+        self.addRegularAction = annotationMenu.addAction(
             "Mark regular segments", self.addRegularSegments, "Ctrl+M"
         )
 
-        actionMenu.addSeparator()
-        self.denoiseAction = actionMenu.addAction("Denoise", self.showDenoiseDialog)
-        actionMenu.addAction("Add metadata about noise", self.addNoiseData, "Ctrl+N")
+        # annotationMenu.addAction("Backup annotations", self.backupAnnotations)
 
-        if not self.DOC:
-            actionMenu.addAction("Filter spectrogram", self.medianFilterSpec)
+        fileMenu.addSeparator()
 
-        actionMenu.addSeparator()
-
-        if not self.DOC:
-            actionMenu.addAction("Calculate segment statistics", self.calculateStats)
-
-        importMenu = actionMenu.addMenu("&Import")
-        importMenu.addAction(
-            "Import annotations from .data files", self.import_avianz_data
-        )
-        importMenu.addAction("Import raven selections table(s)", self.import_raven_data)
-
-        exportMenu = actionMenu.addMenu("&Export")
-        exportMenu.addAction("Export file annotations to excel", self.exportSeg)
-        exportMenu.addAction("Export dir annotations to excel", self.exportExcel)
-        exportMenu.addAction(
-            "Export dir annotations as .data files", self.export_json_files
-        )
-        exportMenu.addAction("Export files with species", self.exportFiles)
-        exportMenu.addAction("Export segments with species", self.export_segments)
-        if not self.DOC:
-            exportMenu.addAction("Export spectrogram image", self.saveImageRaw)
-        exportMenu.addAction("&Export current view as image", self.saveImage, "Ctrl+I")
-        actionMenu.addSeparator()
-        self.showInvSpec = actionMenu.addAction(
-            "Save sound file", self.invertSpectrogram
-        )
-
-        databaseMenu = actionMenu.addMenu("Database")
-        databaseMenu.addAction(
-            "Delete annotations in current directory", self.delete_all_segments
-        )
+        databaseMenu = annotationMenu.addMenu("Database")
         databaseMenu.addAction(
             "Update file directory",
             self.update_directory,
         )
-        # "Recognisers" menu
-        recMenu = self.menuBar().addMenu("&Recognisers")
-        recMenu.addAction("Classify recordings with BirdNET", self.classifyBirdNET)
-
-        # "Utilities" menu
-        utilMenu = self.menuBar().addMenu("&Utilities")
-        utilMenu.addAction("Import from Excel", self.excel2Annotation)
-        utilMenu.addAction("Import from Freebird", self.tag2Annotation)
-        utilMenu.addAction("Backup annotations", self.backupAnnotations)
 
         helpMenu = self.menuBar().addMenu("&Help")
-        helpMenu.addAction("Help", self.showHelp, "Ctrl+H")
+        helpMenu.addAction("&Manual", self.showHelp, "Ctrl+H")
         helpMenu.addAction("&Cheat Sheet", self.showCheatSheet)
         helpMenu.addSeparator()
-        helpMenu.addAction("About", self.showAbout, "Ctrl+A")
+        helpMenu.addAction("&About", self.showAbout, "Ctrl+A")
         if platform.system() == "Darwin":
             helpMenu.addAction("About", self.showAbout, "Ctrl+A")
 
@@ -1384,19 +1379,19 @@ class AviaNZ(QMainWindow):
                 pass
 
         # Remove spectral derivatives
-        self.showSpectral.setChecked(False)
+        # self.showSpectral.setChecked(False)
         try:
             self.p_spec.removeItem(self.derivPlot)
         except Exception:
             pass
 
         # Remove formants
-        if not self.DOC:
-            self.showFormant.setChecked(False)
-            try:
-                self.p_spec.removeItem(self.formantPlot)
-            except Exception:
-                pass
+        # if not self.DOC:
+        #     self.showFormant.setChecked(False)
+        #     try:
+        #         self.p_spec.removeItem(self.formantPlot)
+        #     except Exception:
+        #         pass
 
         # remove max energies
         self.showEnergies.setChecked(False)
@@ -1746,7 +1741,6 @@ class AviaNZ(QMainWindow):
             # Delete any denoising backups from the previous file
             if hasattr(self, "audiodata_backup"):
                 self.audiodata_backup = None
-            # self.showInvSpec.setChecked(False)
 
             self.timeaxis.setOffset(self.startRead + self.startTime)
 
@@ -2026,38 +2020,38 @@ class AviaNZ(QMainWindow):
                 self.p_spec.removeItem(self.energyPlot)
             self.statusLeft.setText("Ready")
 
-    def showSpectralDeriv(self):
-        with pg.BusyCursor():
-            if self.showSpectral.isChecked():
-                self.statusLeft.setText("Drawing spectral derivative...")
-                x, y = self.sp.drawSpectralDeriv()
+    # def showSpectralDeriv(self):
+    #     with pg.BusyCursor():
+    #         if self.showSpectral.isChecked():
+    #             self.statusLeft.setText("Drawing spectral derivative...")
+    #             x, y = self.sp.drawSpectralDeriv()
+    #
+    #             self.derivPlot = pg.ScatterPlotItem()
+    #             self.derivPlot.setData(x, y, pen=pg.mkPen("b", width=5))
+    #
+    #             self.p_spec.addItem(self.derivPlot)
+    #         else:
+    #             self.statusLeft.setText("Removing spectral derivative...")
+    #             self.p_spec.removeItem(self.derivPlot)
+    #         self.statusLeft.setText("Ready")
 
-                self.derivPlot = pg.ScatterPlotItem()
-                self.derivPlot.setData(x, y, pen=pg.mkPen("b", width=5))
-
-                self.p_spec.addItem(self.derivPlot)
-            else:
-                self.statusLeft.setText("Removing spectral derivative...")
-                self.p_spec.removeItem(self.derivPlot)
-            self.statusLeft.setText("Ready")
-
-    def showFormants(self):
-        with pg.BusyCursor():
-            if self.showFormant.isChecked():
-                self.statusLeft.setText("Drawing formants...")
-                x, y = self.sp.drawFormants()
-                self.formantPlot = pg.ScatterPlotItem()
-                # step = self.config['window_width'] // self.config['incr']
-                # starts = np.arange(0,np.shape(self.sg)[0],step)
-                # for i in range(len(starts)):
-                # for j in range(len(formants[i])):
-                # self.formantPlot.addPoints(starts[i], formants[i][j], pen=pg.mkPen('b', width=5))
-                self.formantPlot.setData(x, y, pen=pg.mkPen("b", width=0.05))
-                self.p_spec.addItem(self.formantPlot)
-            else:
-                self.statusLeft.setText("Removing formants...")
-                self.p_spec.removeItem(self.formantPlot)
-            self.statusLeft.setText("Ready")
+    # def showFormants(self):
+    #     with pg.BusyCursor():
+    #         if self.showFormant.isChecked():
+    #             self.statusLeft.setText("Drawing formants...")
+    #             x, y = self.sp.drawFormants()
+    #             self.formantPlot = pg.ScatterPlotItem()
+    #             # step = self.config['window_width'] // self.config['incr']
+    #             # starts = np.arange(0,np.shape(self.sg)[0],step)
+    #             # for i in range(len(starts)):
+    #             # for j in range(len(formants[i])):
+    #             # self.formantPlot.addPoints(starts[i], formants[i][j], pen=pg.mkPen('b', width=5))
+    #             self.formantPlot.setData(x, y, pen=pg.mkPen("b", width=0.05))
+    #             self.p_spec.addItem(self.formantPlot)
+    #         else:
+    #             self.statusLeft.setText("Removing formants...")
+    #             self.p_spec.removeItem(self.formantPlot)
+    #         self.statusLeft.setText("Ready")
 
     def drawGuidelines(self):
         # Frequency guides for bat mode
@@ -2079,39 +2073,6 @@ class AviaNZ(QMainWindow):
     #     print(np.shape(cqt),np.shape(self.sg))
     #     self.specPlot.setImage(10*np.log10(np.real(cqt*np.conj(cqt))).T)
     #     self.p_spec.setXRange(0, np.shape(cqt)[1], update=True, padding=0)
-
-    def invertSpectrogram(self):
-        """Listener for the menu item that inverts the spectrogram in bat mode"""
-        # TODO: Check this!
-
-        with pg.BusyCursor():
-            self.statusLeft.setText("Inverting...")
-            print("Inverting spectrogam with window ", 1024, " and increment ", 512)
-
-            spec = self.sp.sg
-            print(spec)
-            spec = np.rot90(spec, -1, (1, 0))  # undo rotation
-            spec = spec[::8, :]  # undo row repetition
-
-            # adding blanck rows on top
-            row_dim = 7 * np.shape(spec)[0]
-            appo = np.zeros((row_dim, np.shape(spec)[1]))
-            spec = np.concatenate((appo, spec))
-
-            # put in  shape invert spectrogram likes
-            spec = np.flipud(spec)
-            spec = spec.T
-            print(spec)
-
-            samplerate = 176000
-
-            wave = self.sp.invertSpectrogram(spec, 1024, 512, window="Blackman")
-            wavFile = str(self.filename + ".wav")
-            wavio.write(wavFile, wave, samplerate, sampwidth=2)
-            print("File written:", wavFile)
-            self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
-
-            self.statusLeft.setText("Ready")
 
     def medianFilterSpec(self):
         """Median filter the spectrogram. To be used in conjunction with spectrogram inversion."""
@@ -4446,16 +4407,16 @@ class AviaNZ(QMainWindow):
                 self.p_spec.removeItem(self.derivPlot)
             except Exception:
                 pass
-            else:
-                self.showSpectralDeriv()
+            # else:
+            #     self.showSpectralDeriv()
 
-            if not self.DOC:
-                try:
-                    self.p_spec.removeItem(self.formantPlot)
-                except Exception:
-                    pass
-                else:
-                    self.showFormants()
+            # if not self.DOC:
+            #     try:
+            #         self.p_spec.removeItem(self.formantPlot)
+            #     except Exception:
+            #         pass
+            #     else:
+            #         self.showFormants()
 
             try:
                 self.p_spec.removeItem(self.energyPlot)
@@ -4474,13 +4435,6 @@ class AviaNZ(QMainWindow):
         self.excel2AnnotationDialog.btnGenerateAnnot.clicked.connect(
             self.genExcel2Annot
         )
-
-    def tag2Annotation(self):
-        """Utility function dialog: Generate AviaNZ style annotations given freebird style (XML) annotations"""
-        self.tag2AnnotationDialog = Dialogs.Tag2Annotation()
-        self.tag2AnnotationDialog.show()
-        self.tag2AnnotationDialog.activateWindow()
-        self.tag2AnnotationDialog.btnGenerateAnnot.clicked.connect(self.genTag2Annot)
 
     def backupAnnotations(self):
         """Utility function dialog: backup annotation files"""
@@ -4542,88 +4496,6 @@ class AviaNZ(QMainWindow):
             msg.exec_()
         except Exception as e:
             print("ERROR: Generating annotation failed with error:")
-            print(e)
-            return
-
-    def genTag2Annot(self):
-        """Utility function: Generate AviaNZ style annotations given the freebird style annotations"""
-
-        values = self.tag2AnnotationDialog.getValues()
-        if values:
-            [sessiondir, duration] = values
-        else:
-            return
-
-        try:
-            # Read freebird bird list
-            spName = []
-            spCode = []
-            book = openpyxl.load_workbook(
-                os.path.join(self.configdir, "Freebird_species_list.xlsx")
-            )
-            sheet = book.active
-            name = sheet["A2" : "A" + str(sheet.max_row)]
-            code = sheet["B2" : "B" + str(sheet.max_row)]
-            for i in range(len(name)):
-                spName.append(str(name[i][0].value))
-            for i in range(len(code)):
-                spCode.append(int(code[i][0].value))
-            spDict = dict(zip(spCode, spName))
-
-            # Generate the .data files from .tag, read operator/reviewer from the corresponding .setting file
-            for root, dirs, files in os.walk(str(sessiondir)):
-                for file in files:
-                    if file.endswith(".tag"):
-                        annotation = []
-                        tagFile = os.path.join(root, file)
-                        tree = ET.parse(tagFile)
-                        troot = tree.getroot()
-
-                        for elem in troot:
-                            species = spDict[int(elem[0].text)]
-                            annotation.append(
-                                [
-                                    float(elem[1].text),
-                                    float(elem[1].text) + float(elem[2].text),
-                                    0,
-                                    0,
-                                    species,
-                                ]
-                            )
-
-                        operator = ""
-                        reviewer = ""
-                        stree = ET.parse(tagFile[:-4] + ".setting")
-                        stroot = stree.getroot()
-                        for elem in stroot:
-                            if elem.tag == "Operator":
-                                operator = elem.text
-                            if elem.tag == "Reviewer" and elem.text:
-                                reviewer = elem.text
-                        annotation.insert(
-                            0,
-                            {
-                                "Operator": operator,
-                                "Reviewer": reviewer,
-                                "Duration": duration,
-                            },
-                        )
-                        # save .data, possible over-writing
-                        file = open(tagFile[:-4] + ".wav.data", "w")
-                        json.dump(annotation, file)
-                        file.close()
-            self.tag2AnnotationDialog.txtDuration.setText("")
-            self.tag2AnnotationDialog.txtSession.setText("")
-            msg = SupportClasses_GUI.MessagePopup(
-                "d",
-                "Generated annotation",
-                "Successfully saved the annotations in: " + "\n" + sessiondir,
-            )
-            msg.exec_()
-        except Exception as e:
-            print(
-                "Warning: Generating annotation from %s failed with error:" % (tagFile)
-            )
             print(e)
             return
 
