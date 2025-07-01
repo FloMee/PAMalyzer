@@ -5239,53 +5239,58 @@ class AviaNZ(QMainWindow):
 
     def import_raven_data(self):
         """Imports data from individual raven selection tables"""
-        for root, dirs, files in os.walk(self.SoundFileDir):
-            seglistdir = {}
-            for filename in files:
-                filenamef = os.path.abspath(os.path.join(root, filename))
-                if filename.lower().endswith(".selection.table.txt"):
-                    filenameaudio = os.path.abspath(
-                        os.path.join(root, filename.split(".")[0] + ".wav")
+
+        file_names, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Choose Raven selection tables",
+            self.SoundFileDir,
+            "Raven selection tables (*.txt)",
+        )
+        seglistdir = {}
+        print(file_names)
+        for filename in file_names:
+            # TODO: How to set filter -> manually? by name?
+            if len(os.path.basename(filename).split(".")) == 5:
+                filter = os.path.basename(filename).split(".")[-4]
+            else:
+                filter = "BirdNET-Analyzer"
+
+            # create a directory of segment list. The keys are the filenames, the entries the lists of segments
+            with open(filename, "r") as infile:
+                next(infile)
+                for line in infile:
+                    l = line.split("\t")
+                    audio = os.path.abspath(
+                        os.path.join(os.path.dirname(l[10]), os.path.basename(l[10]))
                     )
-                    filter = filename.split(".")[-4]
-
-                    # create a directory of segment list. The keys are the filenames, the entries the lists of segments
-                    with open(filenamef, "r") as infile:
-                        next(infile)
-                        for line in infile:
-                            l = line.split("\t")
-                            audio = os.path.abspath(
-                                os.path.join(
-                                    os.path.dirname(l[10]), os.path.basename(l[10])
-                                )
-                            )
-                            s = Segment.Segment(
-                                [
-                                    float(l[3]),  # start
-                                    float(l[4]),  # end
-                                    float(l[5]),  # low
-                                    float(l[6]),  # high
-                                    [
-                                        {
-                                            "species": l[7],
-                                            "certainty": float(l[9]) * 100,
-                                            "filter": filter,
-                                        }
-                                    ],
-                                ]
-                            )
-                            if audio not in seglistdir.keys():
-                                seglist = Segment.SegmentList()
-                                seglist.metadata = {
-                                    "Reviewer": self.reviewer,
-                                    "Operator": self.operator,
+                    print(audio)
+                    s = Segment.Segment(
+                        [
+                            float(l[3]),  # start
+                            float(l[4]),  # end
+                            float(l[5]),  # low
+                            float(l[6]),  # high
+                            [
+                                {
+                                    "species": l[7],
+                                    "certainty": float(l[9]) * 100,
+                                    "filter": filter,
                                 }
-                                seglistdir[audio] = seglist
-                            seglistdir[audio].addSegment(s)
+                            ],
+                        ]
+                    )
+                    if audio not in seglistdir.keys():
+                        seglist = Segment.SegmentList()
+                        seglist.metadata = {
+                            "Reviewer": self.reviewer,
+                            "Operator": self.operator,
+                        }
+                        seglistdir[audio] = seglist
+                    seglistdir[audio].addSegment(s)
 
-            # insert the annotations into the database.
-            for file in seglistdir:
-                self.database.insert_segments(seglistdir[file], self.reviewer, file)
+        # insert the annotations into the database.
+        for file in seglistdir:
+            self.database.insert_segments(seglistdir[file], self.reviewer, file)
 
         self.database.commit()
         print("Database successfully updated.")
