@@ -1669,11 +1669,6 @@ class AviaNZ(QMainWindow):
             # Normalize the spectrogram, appropriately for the current mode and user settings
             self.setSpectrogram()
 
-            # ANNOTATIONS: init empty list
-            self.segments = Segment.SegmentList()
-            # Load any previous segments stored
-            self.segments.getData(self, self.filename)
-
             self.drawProtocolMarks()
 
             self.statusRight.setText(
@@ -2256,11 +2251,18 @@ class AviaNZ(QMainWindow):
         # (3*SpecRange/4,round(self.sp.minFreqShow/1000+3*FreqRange/4000, 2)),
         # (SpecRange,round(self.sp.minFreqShow/1000+FreqRange/1000, 2))]])
 
-        self.updateOverview()
+        # self.updateOverview()
         self.textpos = int(
             (self.sp.maxFreqShow - self.sp.minFreqShow) / height
         )  # + self.config['textoffset']
 
+        # This is the moving bar for the playback
+        self.p_spec.addItem(self.bar, ignoreBounds=True)
+
+        # ANNOTATIONS: init empty list
+        self.segments = Segment.SegmentList()
+        # Load any previous segments stored
+        self.segments.getData(self, self.filename)
         # If there are segments, show them
         for count in range(len(self.segments)):
             self.addSegment(
@@ -2275,9 +2277,6 @@ class AviaNZ(QMainWindow):
                 coordsAbsolute=True,
             )
         self.refreshFileColor()
-
-        # This is the moving bar for the playback
-        self.p_spec.addItem(self.bar, ignoreBounds=True)
 
         QApplication.processEvents()
 
