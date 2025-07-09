@@ -1515,7 +1515,7 @@ class AviaNZ(QMainWindow):
             self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
         self.updateListSpecies()
 
-    def loadFile(self, name=None, cs=False):
+    def loadFile(self, name=None):
         """This does the work of loading a file.
         We are using wavio to do the reading. We turn the data into a float, but do not normalise it (/2^(15)).
         For 2 channels, just take the first one.
@@ -1583,11 +1583,6 @@ class AviaNZ(QMainWindow):
 
             self.sp.readWav(self.filename, lenRead, self.startRead)
             self.datalength = np.shape(self.sp.data)[0]
-
-            # resample to 16K if needed (SignalProc will determine)
-            if cs:
-                self.sp.resample(16000)
-                self.sp.maxFreqShow = 8000
 
             # Parse wav format details based on file header:
             self.sampleRate = self.sp.sampleRate
