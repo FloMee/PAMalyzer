@@ -524,6 +524,7 @@ class BirdNET(QWidget):
         self.progress.setAutoClose(True)
         self.progress.setRange(0, len(self.filelist))
         self.threadpool = QThreadPool()
+        self.workers_done = 0
 
     def fillFileList(self, filelist):
         for file in filelist:
@@ -573,17 +574,26 @@ class BirdNET(QWidget):
 
     @pyqtSlot(list)
     def updateFilelist(self, filelist):
-        if self.AviaNZ.filename in filelist:
+        self.workers_done += 1
+        if self.workers_done == self.total_workers:
+            self.AviaNZ.database.commit()
             self.AviaNZ.loadFile(name=self.AviaNZ.filename)
-        self.AviaNZ.fillFileList(
-            self.AviaNZ.SoundFileDir, os.path.basename(self.AviaNZ.filename)
-        )
+            self.AviaNZ.fillFileList(
+                self.AviaNZ.SoundFileDir, os.path.basename(self.AviaNZ.filename)
+            )
+            end_time = time.time()
+            print(
+                "\nAnalysis sucessfully completed in {:.0f}h {:.0f}min {:.0f}s".format(
+                    (end_time - self.start_time) // 3600,
+                    (end_time - self.start_time) // 60,
+                    (end_time - self.start_time) % 60,
+                )
+            )
 
     @pyqtSlot(Segment.SegmentList, str)
     def updateDatabase(self, segList, filename):
         segList.parent = self.AviaNZ
         segList.save_to_database(filename)
-        self.AviaNZ.database.commit()
 
     def main(self):
         try:
@@ -599,7 +609,8 @@ class BirdNET(QWidget):
                 "Analyzing {} files...".format(len(self.filelist))
             )
             self.progress.show()
-            a = time.time()
+            self.start_time = time.time()
+            self.total_workers = len(file_threads)
             for flist in file_threads:
                 worker = BirdNET_Worker(
                     self, param=self.param, filelist=flist, labels=self.labels
@@ -609,13 +620,13 @@ class BirdNET(QWidget):
                 worker.sendSegList.send.connect(self.updateDatabase)
                 self.threadpool.start(worker)
 
-            if self.threadpool.waitForDone(-1):
-                e = time.time()
-                print(
-                    "Analysis sucessfully completed in {:.0f}min {:.0f}s".format(
-                        (e - a) // 60, (e - a) % 60
-                    )
-                )
+            # if self.threadpool.waitForDone(-1):
+            #     e = time.time()
+            #     print(
+            #         "Analysis sucessfully completed in {:.0f}min {:.0f}s".format(
+            #             (e - a) // 60, (e - a) % 60
+            #         )
+            #     )
             #     self.progress.autoReset()
             #     self.progress.autoClose()
             #     self.AviaNZ.loadFile(name=self.AviaNZ.filename)
