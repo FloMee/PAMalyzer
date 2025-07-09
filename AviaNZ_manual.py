@@ -1557,44 +1557,7 @@ class AviaNZ(QMainWindow):
                     )
 
                 self.currentFileSection = 0
-
-                if hasattr(self, "timeaxis"):
-                    self.w_spec.removeItem(self.timeaxis)
-
-                # Check if the filename is in standard DOC format
-                # Which is xxxxxx_xxxxxx.wav or ccxx_cccc_xxxxxx_xxxxxx.wav (c=char, x=0-9), could have _ afterward
-                # So this checks for the 6 ints _ 6 ints part anywhere in string
-                DOCRecording = re.search("(\d{6})_(\d{6})", name[-17:-4])
-
-                if DOCRecording:
-                    self.startTime = DOCRecording.group(2)
-
-                    # if int(self.startTime[:2]) > 8 or int(self.startTime[:2]) < 8:
-                    if (
-                        int(self.startTime[:2]) > 17 or int(self.startTime[:2]) < 7
-                    ):  # 6pm to 6am
-                        print("Night time DOC recording")
-                    else:
-                        print("Day time DOC recording")
-                        # TODO: And modify the order of the bird list
-                    self.startTime = (
-                        int(self.startTime[:2]) * 3600
-                        + int(self.startTime[2:4]) * 60
-                        + int(self.startTime[4:6])
-                    )
-                    self.timeaxis = SupportClasses_GUI.TimeAxisHour(
-                        orientation="bottom", linkView=self.p_ampl
-                    )
-                else:
-                    self.startTime = 0
-                    self.timeaxis = SupportClasses_GUI.TimeAxisMin(
-                        orientation="bottom", linkView=self.p_ampl
-                    )
-
-                self.w_spec.addItem(self.timeaxis, row=1, col=1)
-
-                # This next line is a hack to make the axis update
-                # self.changeWidth(self.widthWindow.value())
+                self.set_time_axis()
 
             dlg += 1
             dlg.update()
@@ -2001,6 +1964,27 @@ class AviaNZ(QMainWindow):
                     self.p_spec.removeItem(r)
                 self.segmentPlots = []
             self.statusLeft.setText("Ready")
+
+    def set_time_axis(self):
+        if hasattr(self, "timeaxis"):
+            self.w_spec.removeItem(self.timeaxis)
+
+        # Check if the filename is in standard DOC format
+        # Which is xxxxxx_xxxxxx.wav or ccxx_cccc_xxxxxx_xxxxxx.wav (c=char, x=0-9), could have _ afterward
+        # So this checks for the 6 ints _ 6 ints part anywhere in string
+        doc, startTime = self.listFiles.currentItem().get_doc_start_time()
+        self.startTime = startTime
+
+        if doc:
+            self.timeaxis = SupportClasses_GUI.TimeAxisHour(
+                orientation="bottom", linkView=self.p_ampl
+            )
+        else:
+            self.timeaxis = SupportClasses_GUI.TimeAxisMin(
+                orientation="bottom", linkView=self.p_ampl
+            )
+
+        self.w_spec.addItem(self.timeaxis, row=1, col=1)
 
     def showMaxEnergy(self):
         with pg.BusyCursor():

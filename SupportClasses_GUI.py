@@ -26,6 +26,7 @@
 import io
 import math
 import os
+import re
 from collections.abc import Generator
 from time import sleep
 
@@ -1446,6 +1447,25 @@ class SortableListWidgetItem(QListWidgetItem):
             self.setHidden(True)
         else:
             self.setHidden(False)
+
+    def get_doc_start_time(self):
+        if not hasattr(self, "doc"):
+            DOCRecording = re.search("(\d{6})_(\d{6})", self.text()[-17:-4])
+
+            if DOCRecording:
+                self.doc = True
+                self.startTime = DOCRecording.group(2)
+
+                self.startTime = (
+                    int(self.startTime[:2]) * 3600
+                    + int(self.startTime[2:4]) * 60
+                    + int(self.startTime[4:6])
+                )
+            else:
+                self.doc = False
+                self.startTime = 0
+
+        return (self.doc, self.startTime)
 
 
 class LightedFileList(QListWidget):
