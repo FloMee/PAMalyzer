@@ -2108,6 +2108,7 @@ class AviaNZ(QMainWindow):
         )
         self.widthOverviewSegment = np.shape(self.sg)[0] // numSegments
 
+        # init self.overviewSegments: holds number of segments for each label category (Don't know, Possible, Named) per overview segment
         self.overviewSegments = np.zeros((numSegments, 3))
 
         # Delete the overview segments
@@ -3651,7 +3652,6 @@ class AviaNZ(QMainWindow):
 
     def prepare5minMove(self):
         self.saveSegments()
-        self.resetStorageArrays()
         self.loadFile()
 
     def movePrev5mins(self):
@@ -5859,7 +5859,6 @@ class AviaNZ(QMainWindow):
 
         self.saveConfig = True
 
-        self.resetStorageArrays()
         # pass the file name to reset interface properly
         self.loadFile(self.filename)
 
