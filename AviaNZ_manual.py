@@ -1019,6 +1019,7 @@ class AviaNZ(QMainWindow):
         self.menuBird2.installEventFilter(self)
         self.fillBirdList()
         self.menuBirdList.triggered.connect(self.birdSelectedMenu)
+        self.menuBirdList.aboutToHide.connect(self.refreshFileColor)
         self.menuBird2.triggered.connect(self.birdSelectedMenu)
         # self.menuBirdList.aboutToHide.connect(self.processMultipleBirdSelections)
 
@@ -1654,7 +1655,7 @@ class AviaNZ(QMainWindow):
             )
 
             # Create the main spectrogram
-            _ = self.sp.spectrogram(
+            self.sp.spectrogram(
                 window_width=self.config["window_width"],
                 incr=self.config["incr"],
                 window=str(self.windowType),
@@ -3399,7 +3400,6 @@ class AviaNZ(QMainWindow):
 
         # refresh overview boxes after all updates:
         self.refreshOverviewWith(workingSeg)
-        self.refreshFileColor()
 
         self.database.update_segment_species(
             workingSeg,
