@@ -127,6 +127,7 @@ def test_min_max_confidence_with_data_species(qtbot, sortable_item_one):
 
 
 def test_paint_vulture(qtbot, lighted_file_list, sortable_item_one, qicon_vulture_one):
+    lighted_file_list.insertItem(1, sortable_item_one)
     sortable_item_one.paint(90, "Bartgeier")
     assert not sortable_item_one.isHidden()
     lighted_file_list.showAll = False

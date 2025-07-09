@@ -1333,7 +1333,7 @@ class SortableListWidgetItem(QListWidgetItem):
     """Custom QListWidgetItem to allow for different sorting depending on set item data and rank_sort option"""
 
     def __init__(self, parent=None):
-        super(SortableListWidgetItem, self).__init__(parent)
+        super(SortableListWidgetItem, self).__init__()
         self.parent = parent
         self.pixmap = QPixmap(50, 10)
         self.blackpen = fn.mkPen(color=(160, 160, 160, 255), width=2)
@@ -1522,7 +1522,7 @@ class LightedFileList(QListWidget):
                     file_sp_conf_dict[f].append((s, c))
                 else:
                     file_sp_conf_dict[f] = [(s, c)]
-            for file in self.listOfFiles:
+            for i, file in enumerate(self.listOfFiles):
                 # add entry to the list
                 # item = QListWidgetItem(self)
                 item = SortableListWidgetItem(self)
@@ -1530,26 +1530,27 @@ class LightedFileList(QListWidget):
                 if file.isDir():
                     if file.fileName() == "..":
                         item.setText(file.fileName() + "/")
-                        continue
-
-                    # detailed dir view can be used for non-clickable instances
-                    if addWavNum:
-                        # count wavs in this dir:
-                        numwavs = 0
-                        for root, dirs, files in os.walk(file.filePath()):
-                            numwavs += sum(f.lower().endswith(".wav") for f in files)
-                        # keep these strings as short as possible
-                        item.setText("%s/\t\t(%d wav)" % (file.fileName(), numwavs))
                     else:
-                        item.setText(file.fileName() + "/")
+                        # detailed dir view can be used for non-clickable instances
+                        if addWavNum:
+                            # count wavs in this dir:
+                            numwavs = 0
+                            for root, dirs, files in os.walk(file.filePath()):
+                                numwavs += sum(
+                                    f.lower().endswith(".wav") for f in files
+                                )
+                            # keep these strings as short as possible
+                            item.setText("%s/\t\t(%d wav)" % (file.fileName(), numwavs))
+                        else:
+                            item.setText(file.fileName() + "/")
 
-                    # We still might need to walk the subfolders for sp lists and wav formats!
-                    if not recursive:
-                        continue
-                    dirspcert = self.database.get_dir_species_max_confidence(
-                        os.path.abspath(file)
-                    )
-                    self.set_item_data(item, dirspcert)
+                        # We still might need to walk the subfolders for sp lists and wav formats!
+                        if not recursive:
+                            continue
+                        dirspcert = self.database.get_dir_species_max_confidence(
+                            os.path.abspath(file)
+                        )
+                        self.set_item_data(item, dirspcert)
 
                 else:
                     item.setText(file.fileName())
@@ -1575,6 +1576,7 @@ class LightedFileList(QListWidget):
                                     fullname,
                                 )
                                 print(e)
+                self.insertItem(i, item)
             self.restrict(species, self.conf_slider_value)
         if readFmt:
             print("Found the following Fs:", self.fsList)
