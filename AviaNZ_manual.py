@@ -673,17 +673,14 @@ class AviaNZ(QMainWindow):
         self.w_overview.layout.addLayout(placeInFileBox, 3, 1)
 
         # Corresponding keyboard shortcuts:
-        self.moveLeftKey = QShortcut(QKeySequence(Qt.Key_Left), self)
-        self.moveLeftKey.activated.connect(self.moveLeft)
-        self.moveRightKey = QShortcut(QKeySequence(Qt.Key_Right), self)
-        self.moveRightKey.activated.connect(self.moveRight)
-        self.movePrev5minsKey = QShortcut(QKeySequence("Shift+Left"), self)
-        self.movePrev5minsKey.activated.connect(self.movePrev5mins)
-        self.moveNext5minsKey = QShortcut(QKeySequence("Shift+Right"), self)
-        self.moveNext5minsKey.activated.connect(self.moveNext5mins)
-
-        self.toggleLabelType = QShortcut(QKeySequence("Tab"), self)
-        self.toggleLabelType.activated.connect(self.toggleViewSp)
+        self.move_left_key = QShortcut(QKeySequence(Qt.Key_Left), self)
+        self.move_left_key.activated.connect(self.moveLeft)
+        self.move_right_key = QShortcut(QKeySequence(Qt.Key_Right), self)
+        self.move_right_key.activated.connect(self.moveRight)
+        self.move_prev_5mins_key = QShortcut(QKeySequence("Shift+Left"), self)
+        self.move_prev_5mins_key.activated.connect(self.movePrev5mins)
+        self.move_next_5mins_key = QShortcut(QKeySequence("Shift+Right"), self)
+        self.move_next_5mins_key.activated.connect(self.moveNext5mins)
 
         # AMPLITUDE dock
         self.w_ampl = pg.GraphicsLayoutWidget()
@@ -877,11 +874,16 @@ class AviaNZ(QMainWindow):
         self.quickDenButton.setToolTip("Denoise segment")
         self.quickDenButton.clicked.connect(self.denoiseSeg)
 
-        self.viewSpButton = QtWidgets.QToolButton()
-        self.viewSpButton.setIcon(QIcon("img/splarge-ct.png"))
-        self.viewSpButton.setIconSize(QtCore.QSize(35, 20))
-        self.viewSpButton.setToolTip("Toggle between species/calltype views [Tab]")
-        self.viewSpButton.clicked.connect(self.toggleViewSp)
+        self.toggle_label_type_btn = QtWidgets.QToolButton()
+        self.toggle_label_type_btn.setIcon(QIcon("img/splarge-ct.png"))
+        self.toggle_label_type_btn.setIconSize(QtCore.QSize(35, 20))
+        self.toggle_label_type_btn.setToolTip(
+            "Toggle between species/calltype views [Tab]"
+        )
+        self.toggle_label_type_btn.clicked.connect(self.toggle_label_type)
+
+        self.toggle_label_type_key = QShortcut(QKeySequence("Tab"), self)
+        self.toggle_label_type_key.activated.connect(self.toggle_label_type)
 
         self.playBandLimitedSegButton = QtWidgets.QToolButton()
         self.playBandLimitedSegButton.setIcon(QtGui.QIcon("img/playBandLimited.png"))
@@ -958,7 +960,7 @@ class AviaNZ(QMainWindow):
             self.w_controls.addWidget(self.quickDenButton, row=1, col=2)
             # self.w_controls.addWidget(self.quickDenNButton,row=1,col=1)
 
-        self.w_controls.addWidget(self.viewSpButton, row=1, col=3)
+        self.w_controls.addWidget(self.toggle_label_type_btn, row=1, col=3)
 
         self.w_controls.addWidget(self.specControls, row=2, col=0, rowspan=2, colspan=4)
 
@@ -1645,14 +1647,14 @@ class AviaNZ(QMainWindow):
                     )
                     self.prev5mins.setEnabled(False)
                     self.next5mins.setEnabled(True)
-                    self.movePrev5minsKey.setEnabled(False)
-                    self.moveNext5minsKey.setEnabled(True)
+                    self.move_prev_5mins_key.setEnabled(False)
+                    self.move_next_5mins_key.setEnabled(True)
                 else:
                     self.nFileSections = 1
                     self.prev5mins.setEnabled(False)
                     self.next5mins.setEnabled(False)
-                    self.movePrev5minsKey.setEnabled(False)
-                    self.moveNext5minsKey.setEnabled(False)
+                    self.move_prev_5mins_key.setEnabled(False)
+                    self.move_next_5mins_key.setEnabled(False)
                 print("number of pages: ", self.nFileSections)
 
             # Update overview info
@@ -3258,7 +3260,7 @@ class AviaNZ(QMainWindow):
                     [self.convertAmpltoSpec(self.start_ampl_loc), mousePoint.x()]
                 )
 
-    def toggleViewSp(self):
+    def toggle_label_type(self):
         """Toggles between species-calltype level displays.
         Needs to swap the context menu, and the segment label text.
         """
@@ -3266,13 +3268,13 @@ class AviaNZ(QMainWindow):
         if self.viewCallType:
             self.viewCallType = False
             self.menuBirdList.triggered.connect(self.birdSelectedMenu)
-            self.viewSpButton.setIcon(QIcon("img/splarge-ct.png"))
+            self.toggle_label_type_btn.setIcon(QIcon("img/splarge-ct.png"))
             # not sure if we need to re-set the size after every icon change
-            # self.viewSpButton.setIconSize(QtCore.QSize(35, 20))
+            # self.toggle_label_type_btn.setIconSize(QtCore.QSize(35, 20))
         else:
             self.viewCallType = True
             self.menuBirdList.triggered.connect(self.callSelectedMenu)
-            self.viewSpButton.setIcon(QIcon("img/sp-ctlarge.png"))
+            self.toggle_label_type_btn.setIcon(QIcon("img/sp-ctlarge.png"))
 
         for seg in range(len(self.listLabels)):
             if self.listLabels[seg] is not None:
@@ -3689,10 +3691,10 @@ class AviaNZ(QMainWindow):
         """
         self.currentFileSection -= 1
         self.next5mins.setEnabled(True)
-        self.moveNext5minsKey.setEnabled(True)
+        self.move_next_5mins_key.setEnabled(True)
         if self.currentFileSection <= 0:
             self.prev5mins.setEnabled(False)
-            self.movePrev5minsKey.setEnabled(False)
+            self.move_prev_5mins_key.setEnabled(False)
         self.prepare5minMove()
 
     def moveNext5mins(self):
@@ -3702,10 +3704,10 @@ class AviaNZ(QMainWindow):
         """
         self.currentFileSection += 1
         self.prev5mins.setEnabled(True)
-        self.movePrev5minsKey.setEnabled(True)
+        self.move_prev_5mins_key.setEnabled(True)
         if self.currentFileSection >= self.nFileSections - 1:
             self.next5mins.setEnabled(False)
-            self.moveNext5minsKey.setEnabled(False)
+            self.move_next_5mins_key.setEnabled(False)
         self.prepare5minMove()
 
     def moveTo5mins(self, pagenum=None):
@@ -3723,17 +3725,17 @@ class AviaNZ(QMainWindow):
         self.currentFileSection = pagenum - 1
         if self.currentFileSection >= self.nFileSections - 1:
             self.next5mins.setEnabled(False)
-            self.moveNext5minsKey.setEnabled(False)
+            self.move_next_5mins_key.setEnabled(False)
         else:
             self.next5mins.setEnabled(True)
-            self.moveNext5minsKey.setEnabled(True)
+            self.move_next_5mins_key.setEnabled(True)
 
         if self.currentFileSection <= 0:
             self.prev5mins.setEnabled(False)
-            self.movePrev5minsKey.setEnabled(False)
+            self.move_prev_5mins_key.setEnabled(False)
         else:
             self.prev5mins.setEnabled(True)
-            self.movePrev5minsKey.setEnabled(True)
+            self.move_prev_5mins_key.setEnabled(True)
         self.prepare5minMove()
 
     def scroll(self):
