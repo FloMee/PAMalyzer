@@ -607,25 +607,46 @@ class AviaNZ(QMainWindow):
         self.placeInFileSelector.editingFinished.connect(self.moveTo5mins)
         self.placeInFileSelector.setMinimumHeight(25)
 
-        # "Find next annotation" buttons
-        self.annotJumpLabel = QLabel("Jump to next mark:")
-        self.annotJumpG = QToolButton()
-        self.annotJumpG.setIcon(QIcon("img/findnext-g.png"))
-        self.annotJumpG.setToolTip("Any label [Ctrl+Right]")
-        # self.annotJumpG.setAutoRaise(True)
-        self.annotJumpG.setMinimumSize(35, 30)
-        self.annotJumpG.setIconSize(QtCore.QSize(20, 17))
-        self.annotJumpG.clicked.connect(lambda: self.annotJumper(100))
-        self.annotJumpGKey = QShortcut(QKeySequence("Ctrl+Right"), self)
-        self.annotJumpGKey.activated.connect(lambda: self.annotJumper(100))
+        # Find previous annotation buttons
+        self.annot_prev_label = QLabel("Jump to previous mark:")
+        self.annot_any_prev_btn = QToolButton()
+        self.annot_any_prev_btn.setIcon(QIcon("img/findprev-g.png"))
+        self.annot_any_prev_btn.setToolTip("Any label [Ctrl+Left]")
+        # self.annot_any_prev_btn.setAutoRaise(True)
+        self.annot_any_prev_btn.setMinimumSize(35, 30)
+        self.annot_any_prev_btn.setIconSize(QtCore.QSize(20, 17))
+        self.annot_any_prev_btn.clicked.connect(lambda: self.annot_jump_prev(100))
 
-        self.annotJumpY = QToolButton()
-        self.annotJumpY.setIcon(QIcon("img/findnext-y.png"))
-        self.annotJumpY.setToolTip("Uncertain label")
-        # self.annotJumpY.setAutoRaise(True)
-        self.annotJumpY.setMinimumSize(35, 30)
-        self.annotJumpY.setIconSize(QtCore.QSize(20, 17))
-        self.annotJumpY.clicked.connect(lambda: self.annotJumper(99))
+        self.annot_any_prev_key = QShortcut(QKeySequence("Ctrl+Left"), self)
+        self.annot_any_prev_key.activated.connect(lambda: self.annot_jump_prev(100))
+
+        self.annot_uncert_prev_btn = QToolButton()
+        self.annot_uncert_prev_btn.setIcon(QIcon("img/findprev-y.png"))
+        self.annot_uncert_prev_btn.setToolTip("Uncertain label")
+        # self.annot_uncert_prev_btn.setAutoRaise(True)
+        self.annot_uncert_prev_btn.setMinimumSize(35, 30)
+        self.annot_uncert_prev_btn.setIconSize(QtCore.QSize(20, 17))
+        self.annot_uncert_prev_btn.clicked.connect(lambda: self.annot_jump_prev(99))
+
+        # "Find next annotation" buttons
+        self.annot_next_label = QLabel("Jump to next mark:")
+        self.annot_any_next_btn = QToolButton()
+        self.annot_any_next_btn.setIcon(QIcon("img/findnext-g.png"))
+        self.annot_any_next_btn.setToolTip("Any label [Ctrl+Right]")
+        # self.annot_any_next_btn.setAutoRaise(True)
+        self.annot_any_next_btn.setMinimumSize(35, 30)
+        self.annot_any_next_btn.setIconSize(QtCore.QSize(20, 17))
+        self.annot_any_next_btn.clicked.connect(lambda: self.annotJumper(100))
+        self.annot_any_next_key = QShortcut(QKeySequence("Ctrl+Right"), self)
+        self.annot_any_next_key.activated.connect(lambda: self.annotJumper(100))
+
+        self.annot_uncert_next_btn = QToolButton()
+        self.annot_uncert_next_btn.setIcon(QIcon("img/findnext-y.png"))
+        self.annot_uncert_next_btn.setToolTip("Uncertain label")
+        # self.annot_uncert_next_btn.setAutoRaise(True)
+        self.annot_uncert_next_btn.setMinimumSize(35, 30)
+        self.annot_uncert_next_btn.setIconSize(QtCore.QSize(20, 17))
+        self.annot_uncert_next_btn.clicked.connect(lambda: self.annotJumper(99))
 
         # position everything in the dock
         self.w_overview.layout.addLayout(fileInfo, 0, 0, 1, 3)
@@ -634,16 +655,20 @@ class AviaNZ(QMainWindow):
         self.w_overview.addWidget(self.leftBtn, row=2, col=0)
         self.w_overview.addWidget(self.rightBtn, row=2, col=2)
         placeInFileBox = QHBoxLayout()
-        placeInFileBox.addStretch(10)
+        placeInFileBox.addStretch(4)
+        placeInFileBox.addWidget(self.annot_prev_label)
+        placeInFileBox.addWidget(self.annot_any_prev_btn)
+        placeInFileBox.addWidget(self.annot_uncert_prev_btn)
+        placeInFileBox.addStretch(4)
         placeInFileBox.addWidget(self.placeInFileLabel2)
         placeInFileBox.addWidget(self.prev5mins)
         placeInFileBox.addWidget(self.placeInFileSelector)
         placeInFileBox.addWidget(self.next5mins)
         placeInFileBox.addWidget(self.placeInFileLabel)
         placeInFileBox.addStretch(4)
-        placeInFileBox.addWidget(self.annotJumpLabel)
-        placeInFileBox.addWidget(self.annotJumpG)
-        placeInFileBox.addWidget(self.annotJumpY)
+        placeInFileBox.addWidget(self.annot_next_label)
+        placeInFileBox.addWidget(self.annot_any_next_btn)
+        placeInFileBox.addWidget(self.annot_uncert_next_btn)
         placeInFileBox.addStretch(4)
         self.w_overview.layout.addLayout(placeInFileBox, 3, 1)
 
@@ -3753,6 +3778,8 @@ class AviaNZ(QMainWindow):
         else:
             minX, maxX = self.overviewImageRegion.getRegion()
             currx = self.convertSpectoAmpl(minX) + self.startRead
+            # set currx to -1 to find segment starting at 0 if no segment is selected yet
+            currx = -1 if currx == 0 else currx
 
         # Find next annotation:
         targetix = None
@@ -3772,17 +3799,80 @@ class AviaNZ(QMainWindow):
                     targetix = segix
         if targetix is None:
             QApplication.restoreOverrideCursor()
-            # print("No further annotation to jump to found")
-            # msg = SupportClasses_GUI.MessagePopup("w", "No more annotations", "No further annotation to jump to found")
-            # msg.exec_()
+            print("No further annotation to jump to found")
+            msg = SupportClasses_GUI.MessagePopup(
+                "w", "No more annotations", "No further annotation to jump to found"
+            )
+            msg.exec_()
             return
 
         target = self.segments[targetix]
 
         if target[0] > self.startRead + self.datalengthSec:
-            pagenum, relstart = divmod(target[0], self.config["maxFileShow"])
+            pagenum, _ = divmod(target[0], self.config["maxFileShow"])
             pagenum = int(pagenum + 1)
             if pagenum > self.nFileSections:
+                print("Warning: annotation outside file bounds")
+                QApplication.restoreOverrideCursor()
+                msg = SupportClasses_GUI.MessagePopup(
+                    "w",
+                    "No more annotations",
+                    "No further annotation to jump to found in this sound file",
+                )
+                msg.exec_()
+                return
+            self.moveTo5mins(pagenum)
+        newminT = target[0] - self.startRead - self.windowSize / 2  # in s
+        newminX = self.convertAmpltoSpec(newminT)  # in spec pixels
+        newmaxX = self.convertAmpltoSpec(newminT + self.windowSize)
+        # this will trigger update of the other views
+        self.overviewImageRegion.setRegion([newminX, newmaxX])
+        self.selectSegment(targetix)
+        QApplication.restoreOverrideCursor()
+
+    def annot_jump_prev(self, maxcert):
+        """Scrolls to previous annotation of no more than maxcert certainty."""
+        # (this is just a manual pg.BusyCursor)
+        QApplication.setOverrideCursor(QtGui.QCursor(Qt.WaitCursor))
+        # Identify the "current" annotation: selected or whatever is on screen
+        if self.box1id > -1:
+            currx = self.segments[self.box1id][1]
+            self.deselectSegment(self.box1id)
+        else:
+            minX, maxX = self.overviewImageRegion.getRegion()
+            currx = self.convertSpectoAmpl(maxX) + self.startRead
+
+        # Find previous annotation:
+        targetix = None
+        for segix in range(len(self.segments)):
+            seg = self.segments[segix]
+            if seg[1] >= currx:
+                continue
+            # Note that the segments are not sorted by time,
+            # hence some extra mess to find the next one:
+            if targetix is not None and seg[1] <= self.segments[targetix][1]:
+                continue
+            for lab in seg[4]:
+                if lab["certainty"] <= maxcert and (
+                    lab["species"] == self.currentSpecies
+                    or self.currentSpecies == "Species"
+                ):
+                    targetix = segix
+        if targetix is None:
+            QApplication.restoreOverrideCursor()
+            print("No further annotation to jump to found")
+            msg = SupportClasses_GUI.MessagePopup(
+                "w", "No more annotations", "No further annotation to jump to found"
+            )
+            msg.exec_()
+            return
+
+        target = self.segments[targetix]
+
+        if target[0] < self.startRead:
+            pagenum, _ = divmod(target[0], self.config["maxFileShow"])
+            pagenum = int(pagenum + 1)
+            if pagenum < 0:
                 print("Warning: annotation outside file bounds")
                 QApplication.restoreOverrideCursor()
                 msg = SupportClasses_GUI.MessagePopup(
