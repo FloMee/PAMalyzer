@@ -554,8 +554,6 @@ class AviaNZ(QMainWindow):
         fileInfo.addWidget(self.fileInfoDur)
         fileInfo.addStretch(5)
 
-        # annotInfo = QLabel("<b>Annotations present</b> (details go here)")
-
         self.p_overview = SupportClasses_GUI.DemousedViewBox()
         self.w_overview1.addItem(self.p_overview, row=0, col=0)
         self.p_overview2 = SupportClasses_GUI.ChildInfoViewBox(
@@ -786,12 +784,6 @@ class AviaNZ(QMainWindow):
         self.w_files = pg.LayoutWidget()
         self.d_files.addWidget(self.w_files)
 
-        # Button to move to the previous file in the list
-        # self.previousFileBtn=QToolButton()
-        # self.previousFileBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaSkipBackward))
-        # self.previousFileBtn.clicked.connect(lambda: self.openPreviousFile(skipHidden=True))
-        # self.previousFileBtn.setToolTip("Open previous file [Up]")
-        # self.w_files.addWidget(self.previousFileBtn,row=6,col=0)
         self.skipBackwardKey = QShortcut(QKeySequence("Up"), self)
         self.skipBackwardKey.activated.connect(
             lambda: self.openPreviousFile(skipHidden=True)
@@ -801,12 +793,6 @@ class AviaNZ(QMainWindow):
             lambda: self.openPreviousFile(skipHidden=False)
         )
 
-        # Button to move to the next file in the list
-        # self.nextFileBtn=QToolButton()
-        # self.nextFileBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaSkipForward))
-        # self.nextFileBtn.clicked.connect(lambda: self.openNextFile(skipHidden=True))
-        # self.nextFileBtn.setToolTip("Open next file [Down]")
-        # self.w_files.addWidget(self.nextFileBtn,row=6,col=1)
         self.skipForwardKey = QShortcut(QKeySequence("Down"), self)
         self.skipForwardKey.activated.connect(
             lambda: self.openNextFile(skipHidden=True)
@@ -849,12 +835,6 @@ class AviaNZ(QMainWindow):
         self.playSlowButton.setToolTip("Play slowly")
         self.playSlowButton.clicked.connect(self.playSlowSegment)
 
-        # self.speedButton = QtWidgets.QToolButton()
-        # self.speedButton.setPopupMode(QtWidgets.QToolButton.InstantPopup)
-        # self.speedButton.setText(u'\u00BD')
-        # self.speedButton.setIconSize(QtCore.QSize(20, 20))
-        # self.speedButton.setToolTip("Playback speed")
-        # self.speedButton.clicked.connect(self.playSlowSegment)
         speedMenu = QMenu()
         extraGroup = QActionGroup(self)
         for ename in ["2", "\u00bd", "\u00bc"]:
@@ -865,7 +845,6 @@ class AviaNZ(QMainWindow):
             receiver = lambda checked, ename=ename: self.setSpeed(ename)
             em.triggered.connect(receiver)
             extraGroup.addAction(em)
-        # self.speedButton.setMenu(speedMenu)
         self.playSlowButton.setMenu(speedMenu)
 
         self.quickDenButton = QtWidgets.QToolButton()
@@ -984,19 +963,6 @@ class AviaNZ(QMainWindow):
             segContrsBox.addWidget(self.exportSlowSoundBtn)
         self.w_controls.addWidget(segContrs, row=12, col=0, colspan=4)
 
-        # # add spacers to control stretch - seems to be ignored though
-        # self.w_controls.addWidget(QLabel(), row=12, col=0)
-        # self.w_controls.layout.setRowMinimumHeight(2, 25)
-        # self.w_controls.layout.setRowMinimumHeight(3, 10)
-        # self.w_controls.layout.setRowMinimumHeight(8, 10)
-        # self.w_controls.layout.setRowMinimumHeight(12, 5)
-        # # self.w_controls.layout.setColumnStretch(4, 3)
-        # # set all cells to stretch equally
-        # for r in range(11):
-        #     self.w_controls.layout.setRowStretch(r, 2)
-        # for c in range(4):
-        #     self.w_controls.layout.setColumnStretch(c, 2)
-
         # A slider to move through the file easily
         self.scrollSlider = QScrollBar(Qt.Horizontal)
         self.scrollSlider.valueChanged.connect(self.scroll)
@@ -1027,11 +993,8 @@ class AviaNZ(QMainWindow):
         self.certValue.setToolTip("Current selected minimum confidence value.")
         self.certValue.setText(str(self.certSlider.value()))
 
-        # self.w_files.addWidget(QLabel('Double click to open'),row=0,col=0)
-        # self.w_files.addWidget(QLabel('Icon marks annotation confidence'),row=1,col=0)
         self.w_files.addWidget(self.listSpecies, row=2, col=0)
         self.w_files.addWidget(self.tickSpecies, row=2, col=1)
-        # self.w_files.addWidget(QLabel('Minimum confidence'), row=4, col=0)
         self.w_files.addWidget(self.certSlider, row=4, col=0)
         self.w_files.addWidget(self.certValue, row=4, col=1)
         self.w_files.addWidget(self.listFiles, row=5, colspan=2)
@@ -1040,7 +1003,6 @@ class AviaNZ(QMainWindow):
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.menuBirdList = QMenu()
         self.menuBird2 = QMenu("Other")
-        # self.menuBird2 = self.menuBirdList.addMenu('Other')
         # New line to allow multiple selections
         self.menuBirdList.installEventFilter(self)
         self.menuBird2.installEventFilter(self)
@@ -1048,7 +1010,6 @@ class AviaNZ(QMainWindow):
         self.menuBirdList.triggered.connect(self.birdSelectedMenu)
         self.menuBirdList.aboutToHide.connect(self.refreshFileColor)
         self.menuBird2.triggered.connect(self.birdSelectedMenu)
-        # self.menuBirdList.aboutToHide.connect(self.processMultipleBirdSelections)
 
         # Hack to get the type of an ROI
         p_spec_r = SupportClasses_GUI.ShadedRectROI(0, 0)
@@ -1071,11 +1032,6 @@ class AviaNZ(QMainWindow):
         self.statusRight = QLabel("")
         self.statusRight.setAlignment(Qt.AlignRight)
         self.statusRight.setFrameStyle(QFrame.Panel | QFrame.Sunken)
-        # Style
-        # statusStyle='QLabel {border:transparent}'
-        # self.statusLeft.setStyleSheet(statusStyle)
-        # self.statusRO.setStyleSheet(statusStyle)
-        # self.statusRight.setStyleSheet(statusStyle)
         self.statusBar().addPermanentWidget(self.statusLeft, 3)
         self.statusBar().addPermanentWidget(self.statusBM, 1)
         self.statusBar().addPermanentWidget(self.statusRO, 1)
@@ -1129,7 +1085,7 @@ class AviaNZ(QMainWindow):
                 btn.setEnabled(True)
 
             # special case for BandLimitedButton b/c it requires set freq bands
-            if type(self.listRectanglesa2[self.box1id]) == self.ROItype:
+            if type(self.listRectanglesa2[self.box1id]) is self.ROItype:
                 # it's a rectangle box:
                 self.playBandLimitedSegButton.setEnabled(True)
             else:
@@ -1864,7 +1820,7 @@ class AviaNZ(QMainWindow):
         """
         if self.config["transparentBoxes"]:
             for box in self.listRectanglesa2:
-                if type(box) == self.ROItype:
+                if type(box) is self.ROItype:
                     col = box.brush.color()
                     col.setAlpha(255)
                     box.transparent = True
@@ -1874,7 +1830,7 @@ class AviaNZ(QMainWindow):
                     col.setAlpha(100)
         else:
             for box in self.listRectanglesa2:
-                if type(box) == self.ROItype:
+                if type(box) is self.ROItype:
                     col = box.pen.color()
                     col.setAlpha(self.ColourNamed.alpha())
                     box.transparent = False
@@ -2407,7 +2363,7 @@ class AviaNZ(QMainWindow):
 
             # update the corresponding spectrogram segment
             self.listRectanglesa2[i].blockSignals(True)
-            if type(self.listRectanglesa2[i]) == self.ROItype:
+            if type(self.listRectanglesa2[i]) is self.ROItype:
                 # update the box
                 y1 = self.listRectanglesa2[i].pos().y()
                 y2 = self.listRectanglesa2[i].size().y()
@@ -2771,24 +2727,24 @@ class AviaNZ(QMainWindow):
         # (This is somewhat convoluted to keep amplitude segments updated even in bat mode,
         # as they are used for tracking prevBoxCol)
         col = self.prevBoxCol
-        col.setAlpha(100)
+        # col.setAlpha(100)
         self.listRectanglesa1[boxid].setBrush(fn.mkBrush(col))
         self.listRectanglesa2[boxid].setBrush(fn.mkBrush(col))
         self.listRectanglesa1[boxid].setHoverBrush(fn.mkBrush(col))
         self.listRectanglesa2[boxid].setHoverBrush(fn.mkBrush(col))
-        col.setAlpha(100)
+        # col.setAlpha(100)
 
         if (
             self.config["transparentBoxes"]
-            and type(self.listRectanglesa2[boxid]) == self.ROItype
+            and type(self.listRectanglesa2[boxid]) is self.ROItype
         ):
             col = self.prevBoxCol.rgb()
             col = QtGui.QColor(col)
-            col.setAlpha(255)
+            # col.setAlpha(255)
             self.listRectanglesa2[boxid].setBrush(pg.mkBrush(None))
             self.listRectanglesa2[boxid].setHoverBrush(pg.mkBrush(None))
             self.listRectanglesa2[boxid].setPen(col, width=1)
-            col.setAlpha(100)
+            # col.setAlpha(100)
 
         self.listRectanglesa1[boxid].update()
         self.listRectanglesa2[boxid].update()
