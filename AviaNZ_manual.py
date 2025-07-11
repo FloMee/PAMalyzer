@@ -1590,10 +1590,8 @@ class AviaNZ(QMainWindow):
 
             # Read in the file and make the spectrogram
             # Determine where to start and how much to read for this page (in seconds):
-            self.startRead = max(
-                0,
-                self.currentFileSection * self.config["maxFileShow"]
-                - self.config["fileOverlap"],
+            self.startRead = self.currentFileSection * (
+                self.config["maxFileShow"] - self.config["fileOverlap"]
             )
             # avoid files with no data (Tier 1 has 0Kb .wavs)
             if os.stat(self.filename).st_size == 0:
@@ -1602,12 +1600,10 @@ class AviaNZ(QMainWindow):
 
             self.sp.minFreqShow = self.config["minFreq"]
             self.sp.maxFreqShow = self.config["maxFreq"]
-            if self.startRead == 0:
-                lenRead = self.config["maxFileShow"] + self.config["fileOverlap"]
-            else:
-                lenRead = self.config["maxFileShow"] + 2 * self.config["fileOverlap"]
 
-            self.sp.readWav(self.filename, lenRead, self.startRead)
+            self.sp.readWav(
+                self.filename, len=self.config["maxFileShow"], off=self.startRead
+            )
             self.datalength = np.shape(self.sp.data)[0]
 
             # Parse wav format details based on file header:
@@ -1621,7 +1617,6 @@ class AviaNZ(QMainWindow):
             dlg += 1
             dlg.update()
 
-            print(self.datalength, self.sampleRate)
             self.datalengthSec = self.datalength / self.sampleRate
             print(
                 "Length of file is ",
@@ -1640,7 +1635,13 @@ class AviaNZ(QMainWindow):
             if name is not None:  # i.e. starting a new file, not next section
                 if self.datalength != self.sp.fileLength:
                     self.nFileSections = int(
-                        np.ceil(self.sp.fileLength / self.datalength)
+                        np.ceil(
+                            (
+                                self.sp.fileLength / self.sampleRate
+                                - self.config["fileOverlap"]
+                            )
+                            / (self.config["maxFileShow"] - self.config["fileOverlap"])
+                        )
                     )
                     self.prev5mins.setEnabled(False)
                     self.next5mins.setEnabled(True)
@@ -3807,9 +3808,10 @@ class AviaNZ(QMainWindow):
             return
 
         target = self.segments[targetix]
-
-        if target[0] > self.startRead + self.datalengthSec:
-            pagenum, _ = divmod(target[0], self.config["maxFileShow"])
+        if target[0] >= self.startRead + self.datalengthSec:
+            pagenum = target[0] // (
+                self.config["maxFileShow"] - self.config["fileOverlap"]
+            )
             pagenum = int(pagenum + 1)
             if pagenum > self.nFileSections:
                 print("Warning: annotation outside file bounds")
@@ -3871,6 +3873,9 @@ class AviaNZ(QMainWindow):
 
         if target[0] < self.startRead:
             pagenum, _ = divmod(target[0], self.config["maxFileShow"])
+            pagenum = target[0] // (
+                self.config["maxFileShow"] - self.config["fileOverlap"]
+            )
             pagenum = int(pagenum + 1)
             if pagenum < 0:
                 print("Warning: annotation outside file bounds")
