@@ -1901,12 +1901,12 @@ class AviaNZ(QMainWindow):
             # this will re-make segment boxes with correct moving abilities:
             if hasattr(self, "sp"):
                 self.removeSegments(delete=False)
-                self.drawfigMain(remaking=True)
+                self.drawfigMain(reusing=True)
         else:
             self.p_spec.enableDrag = self.config["specMouseAction"] == 3
             if hasattr(self, "sp"):
                 self.removeSegments(delete=False)
-                self.drawfigMain(remaking=True)
+                self.drawfigMain(reusing=True)
 
     def dockReplace(self):
         """Listener for if the docks should be replaced menu item.
@@ -2180,7 +2180,7 @@ class AviaNZ(QMainWindow):
         QApplication.processEvents()
         self.updateRequestedByOverview = False
 
-    def drawfigMain(self, remaking=False):
+    def drawfigMain(self, reusing=False):
         """Draws the main amplitude and spectrogram plots and any segments on them.
         Has to do some work to get the axis labels correct.
         """
@@ -2252,19 +2252,20 @@ class AviaNZ(QMainWindow):
         # (3*SpecRange/4,round(self.sp.minFreqShow/1000+3*FreqRange/4000, 2)),
         # (SpecRange,round(self.sp.minFreqShow/1000+FreqRange/1000, 2))]])
 
-        # self.updateOverview()
+        self.updateOverview()
         self.textpos = int(
             (self.sp.maxFreqShow - self.sp.minFreqShow) / height
         )  # + self.config['textoffset']
 
         # This is the moving bar for the playback
         self.p_spec.addItem(self.bar, ignoreBounds=True)
+        if not reusing:
+            # ANNOTATIONS: init empty list
+            self.segments = Segment.SegmentList()
+            # Load any previous segments stored
+            self.segments.getData(self, self.filename)
+            # If there are segments, show them
 
-        # ANNOTATIONS: init empty list
-        self.segments = Segment.SegmentList()
-        # Load any previous segments stored
-        self.segments.getData(self, self.filename)
-        # If there are segments, show them
         for count in range(len(self.segments)):
             self.addSegment(
                 startpoint=self.segments[count][0],
@@ -2274,7 +2275,7 @@ class AviaNZ(QMainWindow):
                 species=self.segments[count][4],
                 saveSeg=False,
                 index=count,
-                remaking=remaking,
+                reusing=reusing,
                 coordsAbsolute=True,
             )
         self.refreshFileColor()
@@ -2522,7 +2523,7 @@ class AviaNZ(QMainWindow):
         species=[],
         saveSeg=True,
         index=-1,
-        remaking=False,
+        reusing=False,
         coordsAbsolute=False,
     ):
         """When a new segment is created, does the work of creating it and connecting its
@@ -2533,7 +2534,7 @@ class AviaNZ(QMainWindow):
         y1, y2 should be the frequencies (between 0 and Fs//2)
         species - list of labels (including certainties, .data format)
         saveSeg - store the created segment on self.segments. Set to False when drawing the saved ones.
-        remaking - can be turned to True to reuse existing graphics objects
+        reusing - can be turned to True to reuse existing graphics objects
         coordsAbsolute - set to True to accept start,end in absolute coords (from file start)
         """
         print("Segment added at %d-%d, %d-%d" % (startpoint, endpoint, y1, y2))
@@ -2592,7 +2593,7 @@ class AviaNZ(QMainWindow):
 
         if not show:
             # Add a None element into the array so that the correct boxids work
-            if remaking:
+            if reusing:
                 self.listRectanglesa1[index] = None
                 self.listRectanglesa2[index] = None
                 self.listLabels[index] = None
@@ -2681,7 +2682,7 @@ class AviaNZ(QMainWindow):
         label.setPos(self.convertAmpltoSpec(startpoint), self.textpos)
 
         # Add the segments to the relevent lists
-        if remaking:
+        if reusing:
             self.listRectanglesa1[index] = p_ampl_r
             self.listRectanglesa2[index] = p_spec_r
             self.listLabels[index] = label
@@ -3652,6 +3653,7 @@ class AviaNZ(QMainWindow):
 
     def prepare5minMove(self):
         self.saveSegments()
+        # selr.resetStorageArrays()
         self.loadFile()
 
     def movePrev5mins(self):
@@ -4370,7 +4372,7 @@ class AviaNZ(QMainWindow):
             # Remove everything and redraw it
             self.removeSegments(delete=False)
             self.drawOverview()
-            self.drawfigMain(remaking=True)
+            self.drawfigMain(reusing=True)
 
             try:
                 for r in self.segmentPlots:
