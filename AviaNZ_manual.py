@@ -501,7 +501,7 @@ class AviaNZ(QMainWindow):
             255,
         )
 
-        # Make the docks and lay them out
+        # Make the docks and lay them out: d_ -> dock
         self.d_overview = Dock("Overview", size=(1200, 150))
         self.d_ampl = Dock("Amplitude", size=(1200, 150))
         self.d_spec = Dock("Spectrogram", size=(1200, 300))
@@ -520,7 +520,7 @@ class AviaNZ(QMainWindow):
         containers, docks = self.area.findAll()
         self.state_cont = [cont.sizes() for cont in containers]
 
-        # Put content widgets in the docks:
+        # Put content widgets in the docks: w_ -> widget
         # OVERVIEW dock
         self.w_overview = pg.LayoutWidget()
         self.w_overview.layout.setColumnStretch(1, 10)
@@ -554,8 +554,11 @@ class AviaNZ(QMainWindow):
         fileInfo.addWidget(self.fileInfoDur)
         fileInfo.addStretch(5)
 
+        # p_overview holds the overview plot image
         self.p_overview = SupportClasses_GUI.DemousedViewBox()
         self.w_overview1.addItem(self.p_overview, row=0, col=0)
+
+        # p_overview2 holds the sexgment boxes in the overview dock
         self.p_overview2 = SupportClasses_GUI.ChildInfoViewBox(
             enableMouse=False, enableMenu=False
         )
