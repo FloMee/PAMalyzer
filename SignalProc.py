@@ -20,13 +20,14 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import copy
-import gc
+from itertools import chain, repeat
 
 import librosa
 import numpy as np
-import scipy.fftpack as fft
+import scipy.fft as fft
 import scipy.signal as signal
-from PyQt5.QtGui import QImage
+import tensorflow as tf
+from scipy.signal import medfilt
 from scipy.stats import boxcox
 
 import wavio
@@ -47,9 +48,6 @@ except ImportError:
 
 # for fund freq
 # for impulse masking
-from itertools import chain, repeat
-
-from scipy.signal import medfilt
 
 
 class SignalProc:
@@ -59,11 +57,9 @@ class SignalProc:
     Primary parameters are the width of a spectrogram window (window_width) and the shift between them (incr)
     """
 
-    def __init__(self,
-                 window_width=256,
-                 incr=128,
-                 minFreqShow=0,
-                 maxFreqShow=float("inf")):
+    def __init__(
+        self, window_width=256, incr=128, minFreqShow=0, maxFreqShow=float("inf")
+    ):
         # maxFreq = 0 means fall back to Fs/2 for any file.
         self.window_width = window_width
         self.incr = incr
@@ -114,127 +110,14 @@ class SignalProc:
 
         if not silent:
             if QtMM:
-                print("Detected format: %d channels, %d Hz, %d bit samples" % (
-                    self.audioFormat.channelCount(),
-                    self.audioFormat.sampleRate(),
-                    self.audioFormat.sampleSize(),
-                ))
-
-    def readBmp(self,
-                file,
-                len=None,
-                off=0,
-                silent=False,
-                rotate=True,
-                repeat=True):
-        """Reads DOC-standard bat recordings in 8x row-compressed BMP format.
-        For similarity with readWav, accepts len and off args, in seconds.
-        rotate: if True, rotates to match setImage and other spectrograms (rows=time)
-            otherwise preserves normal orientation (cols=time)
-        """
-        # !! Important to set these, as they are used in other functions
-        self.sampleRate = 176000
-        # TODO: why was this here?
-        # if not repeat:
-        # self.incr = 512
-        self.incr = 512
-
-        img = QImage(file, "BMP")
-        h = img.height()
-        w = img.width()
-        colc = img.colorCount()
-        if h == 0 or w == 0:
-            print("ERROR: image was not loaded")
-            return 1
-
-        # Check color format and convert to grayscale
-        if not silent and (not img.allGray() or colc > 256):
-            print(
-                "Warning: image provided not in 8-bit grayscale, information will be lost"
-            )
-        img.convertTo(QImage.Format_Grayscale8)
-
-        # Convert to numpy
-        # (remember that pyqtgraph images are column-major)
-        ptr = img.constBits()
-        ptr.setsize(h * w * 1)
-        img2 = np.array(ptr).reshape(h, w)
-
-        # Determine if original image was rotated, based on expected num of freq bins and freq 0 being empty
-        # We also used to check if np.median(img2[-1,:])==0,
-        # but some files happen to have the bottom freq bin around 90, so we cannot rely on that.
-        if h == 64:
-            # standard DoC format
-            pass
-        elif w == 64:
-            # seems like DoC format, rotated at -90*
-            img2 = np.rot90(img2, 1, (1, 0))
-            w, h = h, w
-        else:
-            print("ERROR: image does not appear to be in DoC format!")
-            print("Format details:")
-            print(img2)
-            print(h, w)
-            print(min(img2[-1, :]), max(img2[-1, :]))
-            print(np.sum(img2[-1, :] > 0))
-            print(np.median(img2[-1, :]))
-            return 1
-
-        # print(np.shape(img2))
-        # Could skip that for visual mode - maybe useful for establishing contrast?
-        img2[-1, :] = 254  # lowest freq bin is 0, flip that
-        img2 = 255 - img2  # reverse value having the black as the most intense
-        img2 = img2 / np.max(img2)  # normalization
-        img2 = img2[:,
-                    1:]  # Cutting first time bin because it only contains the scale and cutting last columns
-        if repeat:
-            img2 = np.repeat(
-                img2, 8,
-                axis=0)  # repeat freq bins 7 times to fit invertspectrogram
-        # print(np.shape(img2))
-
-        self.data = []
-        self.fileLength = (w - 2) * self.incr + self.window_width  # in samples
-        # Alternatively:
-        # self.fileLength = self.convertSpectoAmpl(h-1)*self.sampleRate
-
-        # NOTE: conversions will use self.sampleRate and self.incr, so ensure those are already set!
-        # trim to specified offset and length:
-        if off > 0 or len is not None:
-            # Convert offset from seconds to pixels
-            off = int(self.convertAmpltoSpec(off))
-            if len is None:
-                img2 = img2[:, off:]
-            else:
-                # Convert length from seconds to pixels:
-                len = int(self.convertAmpltoSpec(len))
-                img2 = img2[:, off:(off + len)]
-
-        if rotate:
-            # rotate for display, b/c required spectrogram dimensions are:
-            #  t increasing over rows, f increasing over cols
-            # This will be enough if the original image was spectrogram-shape.
-            img2 = np.rot90(img2, 1, (1, 0))
-
-        self.sg = img2
-
-        if QtMM:
-            self.audioFormat.setChannelCount(0)
-            self.audioFormat.setSampleSize(0)
-            self.audioFormat.setSampleRate(self.sampleRate)
-        # else:
-        # self.audioFormat['channelCount'] = 0
-        # self.audioFormat['sampleSize'] = 0
-        # self.audioFormat['sampleRate'] = self.sampleRate
-
-        self.minFreq = 0
-        self.maxFreq = self.sampleRate // 2
-        self.minFreqShow = max(self.minFreq, self.minFreqShow)
-        self.maxFreqShow = min(self.maxFreq, self.maxFreqShow)
-
-        if not silent:
-            print("Detected BMP format: %d x %d px, %d colours" % (w, h, colc))
-        return 0
+                print(
+                    "Detected format: %d channels, %d Hz, %d bit samples"
+                    % (
+                        self.audioFormat.channelCount(),
+                        self.audioFormat.sampleRate(),
+                        self.audioFormat.sampleSize(),
+                    )
+                )
 
     def resample(self, target):
         if len(self.data) == 0:
@@ -244,8 +127,7 @@ class SignalProc:
             print("No resampling needed")
             return
 
-        self.data = librosa.core.audio.resample(self.data, self.sampleRate,
-                                                target)
+        self.data = librosa.core.audio.resample(self.data, self.sampleRate, target)
 
         self.sampleRate = target
         if QtMM:
@@ -272,8 +154,7 @@ class SignalProc:
         if f > self.maxFreqShow:
             return -100
         else:
-            return (f - self.minFreqShow) * sgy / (self.maxFreqShow -
-                                                   self.minFreqShow)
+            return (f - self.minFreqShow) * sgy / (self.maxFreqShow - self.minFreqShow)
 
     # SRM: TO TEST **
     def convertHztoMel(self, f):
@@ -305,21 +186,18 @@ class SignalProc:
         b[inds] = (b[inds] + 4.422) / 1.22
         return 1960 * ((b + 0.53) / (26.28 - b))
 
-    def mel_filter(self,
-                   filter="mel",
-                   nfilters=40,
-                   minfreq=0,
-                   maxfreq=None,
-                   normalise=True):
+    def mel_filter(
+        self, filter="mel", nfilters=40, minfreq=0, maxfreq=None, normalise=True
+    ):
         # Transform the spectrogram to mel or bark scale
         if maxfreq is None:
             maxfreq = self.sampleRate / 2
         print(filter, nfilters, minfreq, maxfreq, normalise)
 
         if filter == "mel":
-            filter_points = np.linspace(self.convertHztoMel(minfreq),
-                                        self.convertHztoMel(maxfreq),
-                                        nfilters + 2)
+            filter_points = np.linspace(
+                self.convertHztoMel(minfreq), self.convertHztoMel(maxfreq), nfilters + 2
+            )
             bins = self.convertMeltoHz(filter_points)
         elif filter == "bark":
             filter_points = np.linspace(
@@ -338,16 +216,17 @@ class SignalProc:
         filterbank = np.zeros((nfft, nfilters))
         for m in range(nfilters):
             # Find points in first and second halves of the triangle
-            inds1 = np.where((freq_points >= bins[m])
-                             & (freq_points <= bins[m + 1]))
-            inds2 = np.where((freq_points >= bins[m + 1])
-                             & (freq_points <= bins[m + 2]))
+            inds1 = np.where((freq_points >= bins[m]) & (freq_points <= bins[m + 1]))
+            inds2 = np.where(
+                (freq_points >= bins[m + 1]) & (freq_points <= bins[m + 2])
+            )
             # Compute their contributions
-            filterbank[inds1, m] = (freq_points[inds1] -
-                                    bins[m]) / (bins[m + 1] - bins[m])
-            filterbank[inds2,
-                       m] = (bins[m + 2] - freq_points[inds2]) / (bins[m + 2] -
-                                                                  bins[m + 1])
+            filterbank[inds1, m] = (freq_points[inds1] - bins[m]) / (
+                bins[m + 1] - bins[m]
+            )
+            filterbank[inds2, m] = (bins[m + 2] - freq_points[inds2]) / (
+                bins[m + 2] - bins[m + 1]
+            )
 
         if normalise:
             # Normalise to unit area if desired
@@ -357,14 +236,10 @@ class SignalProc:
 
         return filterbank
 
-    def convertToMel(self,
-                     filt="mel",
-                     nfilters=40,
-                     minfreq=0,
-                     maxfreq=None,
-                     normalise=True):
-        filterbank = self.mel_filter(filt, nfilters, minfreq, maxfreq,
-                                     normalise)
+    def convertToMel(
+        self, filt="mel", nfilters=40, minfreq=0, maxfreq=None, normalise=True
+    ):
+        filterbank = self.mel_filter(filt, nfilters, minfreq, maxfreq, normalise)
         self.sg = np.dot(self.sg, filterbank)
 
     # ====
@@ -381,10 +256,11 @@ class SignalProc:
 
     def SnNR(self, startSignal, startNoise):
         # Compute the estimated signal-to-noise ratio
-        pS = (np.sum(self.data[startSignal:startSignal + self.length]**2) /
-              self.length)
-        pN = np.sum(self.data[startNoise:startNoise + self.length]**
-                    2) / self.length
+        pS = (
+            np.sum(self.data[startSignal : startSignal + self.length] ** 2)
+            / self.length
+        )
+        pN = np.sum(self.data[startNoise : startNoise + self.length] ** 2) / self.length
         return 10.0 * np.log10(pS / pN)
 
     def equalLoudness(self, data):
@@ -401,32 +277,36 @@ class SignalProc:
         # 10 coefficient Yule-Walker fit for [0,120;20,113;30,103;40,97;50,93;60,91;70,89;80,87;90,86;100,85;200,78;300,76;400,76;500,76;600,76;700,77;800,78;900,79.5;1000,80;1500,79;2000,77;2500,74;3000,71.5;3700,70;4000,70.5;5000,74;6000,79;7000,84;8000,86]
         # Or at least, EL80(:,1)./(fs/2) and m=10.^((70-EL80(:,2))/20);
 
-        ay = np.array([
-            1.0000,
-            -0.6282,
-            0.2966,
-            -0.3726,
-            0.0021,
-            -0.4203,
-            0.2220,
-            0.0061,
-            0.0675,
-            0.0578,
-            0.0322,
-        ])
-        by = np.array([
-            0.4492,
-            -0.1435,
-            -0.2278,
-            -0.0142,
-            0.0408,
-            -0.1240,
-            0.0410,
-            0.1048,
-            -0.0186,
-            -0.0319,
-            0.0054,
-        ])
+        ay = np.array(
+            [
+                1.0000,
+                -0.6282,
+                0.2966,
+                -0.3726,
+                0.0021,
+                -0.4203,
+                0.2220,
+                0.0061,
+                0.0675,
+                0.0578,
+                0.0322,
+            ]
+        )
+        by = np.array(
+            [
+                0.4492,
+                -0.1435,
+                -0.2278,
+                -0.0142,
+                0.0408,
+                -0.1240,
+                0.0410,
+                0.1048,
+                -0.0186,
+                -0.0319,
+                0.0054,
+            ]
+        )
 
         # Butterworth highpass
         ab = np.array([1.0000, -1.9167, 0.9201])
@@ -440,6 +320,7 @@ class SignalProc:
     # from memory_profiler import profile
     # fp = open('memory_profiler_sp.log', 'w+')
     # @profile(stream=fp)
+
     def spectrogram(
         self,
         window_width=None,
@@ -461,8 +342,7 @@ class SignalProc:
         Assumes that the values are not normalised.
         """
         if self.data is None or len(self.data) == 0:
-            print(
-                "ERROR: attempted to calculate spectrogram without audiodata")
+            print("ERROR: attempted to calculate spectrogram without audiodata")
             return
 
         # S = librosa.feature.melspectrogram(self.data, sr=self.sampleRate, power=1)
@@ -481,60 +361,7 @@ class SignalProc:
         self.sg = np.copy(self.data)
         if self.sg.dtype != "float":
             self.sg = self.sg.astype("float")
-
         # Set of window options
-        if window == "Hann":
-            # This is the Hann window
-            window = 0.5 * (1 - np.cos(2 * np.pi * np.arange(window_width) /
-                                       (window_width - 1)))
-        elif window == "Parzen":
-            # Parzen (window_width even)
-            n = np.arange(window_width) - 0.5 * window_width
-            window = np.where(
-                np.abs(n) < 0.25 * window_width,
-                1 - 6 * (n / (0.5 * window_width))**2 * (1 - np.abs(n) /
-                                                         (0.5 * window_width)),
-                2 * (1 - np.abs(n) / (0.5 * window_width))**3,
-            )
-        elif window == "Welch":
-            # Welch
-            window = (1.0 - ((np.arange(window_width) - 0.5 *
-                              (window_width - 1)) / (0.5 *
-                                                     (window_width - 1)))**2)
-        elif window == "Hamming":
-            # Hamming
-            alpha = 0.54
-            beta = 1.0 - alpha
-            window = alpha - beta * np.cos(
-                2 * np.pi * np.arange(window_width) / (window_width - 1))
-        elif window == "Blackman":
-            # Blackman
-            alpha = 0.16
-            a0 = 0.5 * (1 - alpha)
-            a1 = 0.5
-            a2 = 0.5 * alpha
-            window = (a0 - a1 * np.cos(2 * np.pi * np.arange(window_width) /
-                                       (window_width - 1)) +
-                      a2 * np.cos(4 * np.pi * np.arange(window_width) /
-                                  (window_width - 1)))
-        elif window == "BlackmanHarris":
-            # Blackman-Harris
-            a0 = 0.358375
-            a1 = 0.48829
-            a2 = 0.14128
-            a3 = 0.01168
-            window = (a0 - a1 * np.cos(2 * np.pi * np.arange(window_width) /
-                                       (window_width - 1)) +
-                      a2 * np.cos(4 * np.pi * np.arange(window_width) /
-                                  (window_width - 1)) -
-                      a3 * np.cos(6 * np.pi * np.arange(window_width) /
-                                  (window_width - 1)))
-        elif window == "Ones":
-            window = np.ones(window_width)
-        else:
-            print("Unknown window, using Hann")
-            window = 0.5 * (1 - np.cos(2 * np.pi * np.arange(window_width) /
-                                       (window_width - 1)))
 
         if equal_loudness:
             self.sg = self.equalLoudness(self.sg)
@@ -542,118 +369,113 @@ class SignalProc:
         if mean_normalise:
             self.sg -= self.sg.mean()
 
-        starts = range(0, len(self.sg) - window_width, incr)
-        if sgType == "Multi-tapered":
-            if specExtra:
-                [tapers, eigen] = dpss(window_width, 2.5, 4)
-                counter = 0
-                out = np.zeros((len(starts), window_width // 2))
-                for start in starts:
-                    Sk, weights, eigen = pmtm(
-                        self.sg[start:start + window_width],
-                        v=tapers,
-                        e=eigen,
-                        show=False,
-                    )
-                    Sk = abs(Sk)**2
-                    Sk = np.mean(Sk.T * weights, axis=1)
-                    out[counter:counter + 1, :] = Sk[window_width // 2:].T
-                    counter += 1
-                self.sg = np.fliplr(out)
-            else:
-                print("Option not available")
-        elif sgType == "Reassigned":
-            ft = np.zeros((len(starts), window_width), dtype="complex")
-            ft2 = np.zeros((len(starts), window_width), dtype="complex")
-            for i in starts:
-                winddata = window * self.sg[i:i + window_width]
-                ft[i // incr, :] = fft.fft(winddata)[:window_width]
-                winddata = window * np.roll(self.sg[i:i + window_width], 1)
-                ft2[i // incr, :] = fft.fft(winddata)[:window_width]
+        if window == "Hann":
+            window_fn = self.window_hann
+        elif window == "Welch":
+            window_fn = self.window_welch
+        elif window == "Blackman":
+            window_fn = self.window_blackman
+        elif window == "Parzen":
+            window_fn = self.window_parzen
+        elif window == "Hamming":
+            window_fn = self.window_hamming
+        elif window == "BlackmanHarris":
+            window_fn = self.window_blackmanharris
+        elif window == "Ones":
+            window_fn = self.window_ones
 
-            # Approximate the derivative by finite differences and get the angle of the complex number
-            CIF = np.mod(np.angle(ft * np.conj(ft2)) / (2 * np.pi), 1.0)
-            delay = 0.5 - np.mod(
-                np.angle(ft * np.conj(np.roll(ft, 1, axis=1))) /
-                (2 * np.pi), 1.0)
-
-            # Messiness. Need to work out where to put each pixel
-            # I wish I could think of a way that didn't need a histogram
-            times = (np.tile(
-                np.arange(
-                    0,
-                    (len(self.data) - window_width) / self.sampleRate,
-                    incr / self.sampleRate,
-                ) + window_width / self.sampleRate / 2,
-                (np.shape(delay)[1], 1),
-            ).T + delay * window_width / self.sampleRate)
-            self.sg, _, _ = np.histogram2d(
-                times.flatten(),
-                CIF.flatten(),
-                weights=np.abs(ft).flatten(),
-                bins=np.shape(ft),
+        self.sg = tf.abs(
+            tf.signal.stft(
+                self.sg[tf.newaxis, ...],
+                window_width,
+                incr,
+                window_fn=window_fn,
+            )
+        )[0]
+        if sgScale == "Mel Frequency":
+            self.convertToMel(
+                filt="mel", nfilters=nfilters, minfreq=0, maxfreq=None, normalise=True
+            )
+        elif sgScale == "Bark Frequency":
+            self.convertToMel(
+                filt="bark", nfilters=nfilters, minfreq=0, maxfreq=None, normalise=True
             )
 
-            self.sg = np.absolute(self.sg[:, :window_width // 2])  # + 0.1
-
-            print("SG range:", np.min(self.sg), np.max(self.sg))
-        else:
-            if need_even:
-                starts = np.hstack((
-                    starts,
-                    np.zeros((window_width - len(self.sg) % window_width),
-                             dtype=int),
-                ))
-
-            # this mode is optimized for speed, but reportedly sometimes
-            # results in crashes when lots of large files are batch processed.
-            # The FFTs here could be causing this, but I'm not sure.
-            # hi_mem = False should switch FFTs to go over smaller vectors
-            # and possibly use less caching, at the cost of 1.5x longer CPU time.
-            hi_mem = True
-            if hi_mem:
-                ft = np.zeros((len(starts), window_width))
-                for i in starts:
-                    ft[i // incr, :] = self.sg[i:i + window_width]
-                ft = np.multiply(window, ft)
-
-                if onesided:
-                    self.sg = np.absolute(fft.fft(ft)[:, :window_width // 2])
-                else:
-                    self.sg = np.absolute(fft.fft(ft))
-            else:
-                if onesided:
-                    ft = np.zeros((len(starts), window_width // 2))
-                    for i in starts:
-                        winddata = window * self.sg[i:i + window_width]
-                        ft[i // incr, :] = fft.fft(winddata)[:window_width //
-                                                             2]
-                else:
-                    ft = np.zeros((len(starts), window_width))
-                    for i in starts:
-                        winddata = window * self.sg[i:i + window_width]
-                        ft[i // incr, :] = fft.fft(winddata)
-                self.sg = np.absolute(ft)
-            print(np.min(self.sg), np.max(self.sg))
-
-            del ft
-            gc.collect()
-            # sg = (ft*np.conj(ft))[:,window_width // 2:].T
-
-        if sgScale == "Mel Frequency":
-            self.convertToMel(filt="mel",
-                              nfilters=nfilters,
-                              minfreq=0,
-                              maxfreq=None,
-                              normalise=True)
-        elif sgScale == "Bark Frequency":
-            self.convertToMel(filt="bark",
-                              nfilters=nfilters,
-                              minfreq=0,
-                              maxfreq=None,
-                              normalise=True)
-
         return self.sg
+
+    def window_hann(self, window_length, dtype):
+        # This is the Hann window
+        window = 0.5 * (
+            1 - np.cos(2 * np.pi * np.arange(window_length) / (window_length - 1))
+        )
+        return tf.convert_to_tensor(window, dtype=dtype)
+
+    def window_parzen(self, window_length, dtype):
+        # Parzen (window_width even)
+        window_length = window_length.numpy()
+        n = np.arange(window_length) - 0.5 * window_length
+        window = np.where(
+            np.abs(n) < 0.25 * window_length,
+            1
+            - 6
+            * (n / (0.5 * window_length)) ** 2
+            * (1 - np.abs(n) / (0.5 * window_length)),
+            2 * (1 - np.abs(n) / (0.5 * window_length)) ** 3,
+        )
+        return tf.convert_to_tensor(window, dtype=dtype)
+
+    def window_welch(self, window_length, dtype):
+        window_length = window_length.numpy()
+        window = (
+            1.0
+            - (
+                (np.arange(window_length) - 0.5 * (window_length - 1))
+                / (0.5 * (window_length - 1))
+            )
+            ** 2
+        )
+        return tf.convert_to_tensor(window, dtype=dtype)
+
+    def window_hamming(self, window_length, dtype):
+        window_length = window_length.numpy()
+        alpha = 0.54
+        beta = 1.0 - alpha
+        window = alpha - beta * np.cos(
+            2 * np.pi * np.arange(window_length) / (window_length - 1)
+        )
+        return tf.convert_to_tensor(window, dtype=dtype)
+
+    def window_blackman(self, window_length, dtype):
+        window_length = window_length.numpy()
+        alpha = 0.16
+        a0 = 0.5 * (1 - alpha)
+        a1 = 0.5
+        a2 = 0.5 * alpha
+        window = (
+            a0
+            - a1 * np.cos(2 * np.pi * np.arange(window_length) / (window_length - 1))
+            + a2 * np.cos(4 * np.pi * np.arange(window_length) / (window_length - 1))
+        )
+        return tf.convert_to_tensor(window, dtype=dtype)
+
+    def window_blackmanharris(self, window_length, dtype):
+        window_length = window_length.numpy()
+        a0 = 0.358375
+        a1 = 0.48829
+        a2 = 0.14128
+        a3 = 0.01168
+        window = (
+            a0
+            - a1 * np.cos(2 * np.pi * np.arange(window_length) / (window_length - 1))
+            + a2 * np.cos(4 * np.pi * np.arange(window_length) / (window_length - 1))
+            - a3 * np.cos(6 * np.pi * np.arange(window_length) / (window_length - 1))
+        )
+        return tf.convert_to_tensor(window, dtype=dtype)
+
+    def window_ones(self, window_length, dtype):
+        window_length = window_length.numpy()
+        window = np.ones(window_length)
+        return tf.convert_to_tensor(window, dtype=dtype)
 
     def normalisedSpec(self, tr="Log"):
         """Assumes the spectrogram was precomputed.
@@ -691,8 +513,8 @@ class SignalProc:
             eps = 1e-6
             s = 1 - np.exp(-self.incr / (t * self.sampleRate))
             M = signal.lfilter([s], [1, s - 1], self.sg)
-            smooth = (eps + M)**(-gain)
-            return (self.sg * smooth + bias)**power - bias**power
+            smooth = (eps + M) ** (-gain)
+            return (self.sg * smooth + bias) ** power - bias**power
         else:
             print("ERROR: unrecognized transformation", tr)
 
@@ -709,9 +531,9 @@ class SignalProc:
         window = np.exp(-(p**2) / 2).T
 
         f_tran = fft.fft(self.audiodata, 2 * width, overwrite_x=True)
-        diag_con = np.linalg.toeplitz(np.conj(f_tran[:width + 1]), f_tran)
+        diag_con = np.linalg.toeplitz(np.conj(f_tran[: width + 1]), f_tran)
         # Remove zero freq line
-        diag_con = diag_con[1:width + 1, :]
+        diag_con = diag_con[1 : width + 1, :]
         return np.flipud(fft.ifft(diag_con * window, axis=1))
 
     def bandpassFilter(self, data=None, sampleRate=None, start=0, end=None):
@@ -737,16 +559,14 @@ class SignalProc:
 
         if start == 0:
             # Low pass
-            taps = signal.firwin(ntaps,
-                                 cutoff=[end / nyquist],
-                                 window=("hamming"),
-                                 pass_zero=True)
+            taps = signal.firwin(
+                ntaps, cutoff=[end / nyquist], window=("hamming"), pass_zero=True
+            )
         elif end == sampleRate / 2:
             # High pass
-            taps = signal.firwin(ntaps,
-                                 cutoff=[start / nyquist],
-                                 window=("hamming"),
-                                 pass_zero=False)
+            taps = signal.firwin(
+                ntaps, cutoff=[start / nyquist], window=("hamming"), pass_zero=False
+            )
         else:
             # Bandpass
             taps = signal.firwin(
@@ -759,12 +579,7 @@ class SignalProc:
         # taps = signal.firwin(ntaps,cutoff = [500/nyquist,8000/nyquist], window=('kaiser', beta),pass_zero=False)
         return signal.lfilter(taps, 1.0, data)
 
-    def ButterworthBandpass(self,
-                            data,
-                            sampleRate,
-                            low=0,
-                            high=None,
-                            band=0.005):
+    def ButterworthBandpass(self, data, sampleRate, low=0, high=None, band=0.005):
         """Basic IIR bandpass filter.
         Identifies order of filter, max 10. If single-stage polynomial is unstable,
         switches to order 30, second-order filter.
@@ -820,8 +635,7 @@ class SignalProc:
         else:
             # Band pass
             # calculate the best order
-            order, wN = signal.buttord([lowPass, highPass],
-                                       [lowStop, highStop], 3, 40)
+            order, wN = signal.buttord([lowPass, highPass], [lowStop, highStop], 3, 40)
             if order > 10:
                 order = 10
             b, a = signal.butter(order, wN, btype="bandpass")
@@ -893,19 +707,13 @@ class SignalProc:
             # uses order=30 because why not
             print("single-stage filter unstable, switching to SOS filtering")
             if lowPass == 0:
-                sos = signal.butter(30,
-                                    highPass,
-                                    btype="lowpass",
-                                    output="sos")
+                sos = signal.butter(30, highPass, btype="lowpass", output="sos")
             elif highPass == 1:
-                sos = signal.butter(30,
-                                    lowPass,
-                                    btype="highpass",
-                                    output="sos")
+                sos = signal.butter(30, lowPass, btype="highpass", output="sos")
             else:
-                sos = signal.butter(30, [lowPass, highPass],
-                                    btype="bandpass",
-                                    output="sos")
+                sos = signal.butter(
+                    30, [lowPass, highPass], btype="bandpass", output="sos"
+                )
 
             # do the actual filtering
             data = signal.sosfilt(sos, data)
@@ -915,12 +723,7 @@ class SignalProc:
         return data
 
     # The next functions perform spectrogram inversion
-    def invertSpectrogram(self,
-                          sg,
-                          window_width=256,
-                          incr=64,
-                          nits=10,
-                          window="Hann"):
+    def invertSpectrogram(self, sg, window_width=256, incr=64, nits=10, window="Hann"):
         # Assumes that this is the plain (not power) spectrogram
         # Make the spectrogram two-sided and make the values small
         sg = np.concatenate([sg, sg[:, ::-1]], axis=1)
@@ -935,26 +738,19 @@ class SignalProc:
                 window=window,
             )
             self.setData(invertedSgram)
-            est = self.spectrogram(window_width,
-                                   incr,
-                                   onesided=False,
-                                   need_even=True,
-                                   window=window)
+            est = self.spectrogram(
+                window_width, incr, onesided=False, need_even=True, window=window
+            )
             phase = est / np.maximum(np.max(sg) / 1e8, np.abs(est))
-            sg_best = sg * phase[:len(sg)]
-        invertedSgram = self.inversion_iteration(sg_best,
-                                                 incr,
-                                                 calculate_offset=True,
-                                                 set_zero_phase=False,
-                                                 window=window)
+            sg_best = sg * phase[: len(sg)]
+        invertedSgram = self.inversion_iteration(
+            sg_best, incr, calculate_offset=True, set_zero_phase=False, window=window
+        )
         return np.real(invertedSgram)
 
-    def inversion_iteration(self,
-                            sg,
-                            incr,
-                            calculate_offset=True,
-                            set_zero_phase=True,
-                            window="Hann"):
+    def inversion_iteration(
+        self, sg, incr, calculate_offset=True, set_zero_phase=True, window="Hann"
+    ):
         """
         Under MSR-LA License
         Based on MATLAB implementation from Spectrogram Inversion Toolbox
@@ -981,51 +777,53 @@ class SignalProc:
         # Set of window options
         if window == "Hann":
             # This is the Hann window
-            window = 0.5 * (1 - np.cos(2 * np.pi * np.arange(size) /
-                                       (size - 1)))
+            window = 0.5 * (1 - np.cos(2 * np.pi * np.arange(size) / (size - 1)))
         elif window == "Parzen":
             # Parzen (window_width even)
             n = np.arange(size) - 0.5 * size
             window = np.where(
                 np.abs(n) < 0.25 * size,
-                1 - 6 * (n / (0.5 * size))**2 * (1 - np.abs(n) / (0.5 * size)),
-                2 * (1 - np.abs(n) / (0.5 * size))**3,
+                1 - 6 * (n / (0.5 * size)) ** 2 * (1 - np.abs(n) / (0.5 * size)),
+                2 * (1 - np.abs(n) / (0.5 * size)) ** 3,
             )
         elif window == "Welch":
             # Welch
-            window = (1.0 - ((np.arange(size) - 0.5 * (size - 1)) /
-                             (0.5 * (size - 1)))**2)
+            window = (
+                1.0 - ((np.arange(size) - 0.5 * (size - 1)) / (0.5 * (size - 1))) ** 2
+            )
         elif window == "Hamming":
             # Hamming
             alpha = 0.54
             beta = 1.0 - alpha
-            window = alpha - beta * np.cos(2 * np.pi * np.arange(size) /
-                                           (size - 1))
+            window = alpha - beta * np.cos(2 * np.pi * np.arange(size) / (size - 1))
         elif window == "Blackman":
             # Blackman
             alpha = 0.16
             a0 = 0.5 * (1 - alpha)
             a1 = 0.5
             a2 = 0.5 * alpha
-            window = (a0 - a1 * np.cos(2 * np.pi * np.arange(size) /
-                                       (size - 1)) +
-                      a2 * np.cos(4 * np.pi * np.arange(size) / (size - 1)))
+            window = (
+                a0
+                - a1 * np.cos(2 * np.pi * np.arange(size) / (size - 1))
+                + a2 * np.cos(4 * np.pi * np.arange(size) / (size - 1))
+            )
         elif window == "BlackmanHarris":
             # Blackman-Harris
             a0 = 0.358375
             a1 = 0.48829
             a2 = 0.14128
             a3 = 0.01168
-            window = (a0 - a1 * np.cos(2 * np.pi * np.arange(size) /
-                                       (size - 1)) +
-                      a2 * np.cos(4 * np.pi * np.arange(size) / (size - 1)) -
-                      a3 * np.cos(6 * np.pi * np.arange(size) / (size - 1)))
+            window = (
+                a0
+                - a1 * np.cos(2 * np.pi * np.arange(size) / (size - 1))
+                + a2 * np.cos(4 * np.pi * np.arange(size) / (size - 1))
+                - a3 * np.cos(6 * np.pi * np.arange(size) / (size - 1))
+            )
         elif window == "Ones":
             window = np.ones(size)
         else:
             print("Unknown window, using Hann")
-            window = 0.5 * (1 - np.cos(2 * np.pi * np.arange(size) /
-                                       (size - 1)))
+            window = 0.5 * (1 - np.cos(2 * np.pi * np.arange(size) / (size - 1)))
 
         est_start = int(size // 2) - 1
         est_end = est_start + size
@@ -1045,15 +843,17 @@ class SignalProc:
                     # print("WARNING: Large step size >50\% detected! " "This code works best with high overlap - try " "with 75% or greater")
                     offset_size = incr
                 offset = self.xcorr_offset(
-                    wave[wave_start:wave_start + offset_size],
-                    wave_est[est_start:est_start + offset_size],
+                    wave[wave_start : wave_start + offset_size],
+                    wave_est[est_start : est_start + offset_size],
                 )
             else:
                 offset = 0
             wave[wave_start:wave_end] += (
-                window * wave_est[est_start - offset:est_end - offset])
+                window * wave_est[est_start - offset : est_end - offset]
+            )
             total_windowing_sum[wave_start:wave_end] += (
-                window**2)  # Virginia: needed square
+                window**2
+            )  # Virginia: needed square
         wave = np.real(wave) / (total_windowing_sum + 1e-6)
         return wave
 
@@ -1075,21 +875,26 @@ class SignalProc:
             data = self.data
         mData = np.zeros(len(data))
         for i in range(width, len(data) - width):
-            mData[i] = np.median(data[i - width:i + width])
+            mData[i] = np.median(data[i - width : i + width])
         for i in range(len(data)):
             wid = min(i, len(data) - i, width)
-            mData[i] = np.median(data[i - wid:i + wid])
+            mData[i] = np.median(data[i - wid : i + wid])
 
         return mData
 
     # Could be either features of signal processing things. Anyway, they are here -- spectral derivatives and extensions
     def wiener_entropy(self, sg):
         return np.sum(np.log(sg), 1) / np.shape(sg)[1] - np.log(
-            np.sum(sg, 1) / np.shape(sg)[1])
+            np.sum(sg, 1) / np.shape(sg)[1]
+        )
 
     def mean_frequency(self, sampleRate, timederiv, freqderiv):
-        freqs = (sampleRate // 2 / np.shape(timederiv)[1] *
-                 (np.arange(np.shape(timederiv)[1]) + 1))
+        freqs = (
+            sampleRate
+            // 2
+            / np.shape(timederiv)[1]
+            * (np.arange(np.shape(timederiv)[1]) + 1)
+        )
         mfd = np.sum(timederiv**2 + freqderiv**2, axis=1)
         mfd = np.where(mfd == 0, 1, mfd)
         mf = np.sum(freqs * (timederiv**2 + freqderiv**2), axis=1) / mfd
@@ -1098,16 +903,12 @@ class SignalProc:
     def goodness_of_pitch(self, spectral_deriv, sg):
         return np.max(np.abs(fft.fft(spectral_deriv / sg, axis=0)), axis=0)
 
-    def spectral_derivative(self,
-                            window_width,
-                            incr,
-                            K=2,
-                            threshold=0.5,
-                            returnAll=False):
+    def spectral_derivative(
+        self, window_width, incr, K=2, threshold=0.5, returnAll=False
+    ):
         """Compute the spectral derivative"""
         if self.data is None or len(self.data) == 0:
-            print(
-                "ERROR: attempted to calculate spectrogram without audiodata")
+            print("ERROR: attempted to calculate spectrogram without audiodata")
             return
         if not specExtra:
             print("Option not available")
@@ -1119,10 +920,9 @@ class SignalProc:
         sg = np.zeros((len(starts), window_width, K), dtype=complex)
         for k in range(K):
             for i in starts:
-                sg[i // incr, :,
-                   k] = tapers[:, k] * self.data[i:i + window_width]
+                sg[i // incr, :, k] = tapers[:, k] * self.data[i : i + window_width]
             sg[:, :, k] = fft.fft(sg[:, :, k])
-        sg = sg[:, window_width // 2:, :]
+        sg = sg[:, window_width // 2 :, :]
 
         # Spectral derivative is the real part of exp(i \phi) \sum_ k s_k conj(s_{k+1}) where s_k is the k-th tapered spectrogram
         # and \phi is the direction of maximum change (tan inverse of the ratio of pure time and pure frequency components)
@@ -1147,8 +947,9 @@ class SignalProc:
         sdf = spectral_deriv * np.roll(spectral_deriv, 1, 1)
         sdtf = spectral_deriv * np.roll(spectral_deriv, 1, (0, 1))
         sdft = spectral_deriv * np.roll(spectral_deriv, (1, -1), (0, 1))
-        indt, indf = np.where(((sdt < 0) | (sdf < 0) | (sdtf < 0) | (sdft < 0))
-                              & (spectral_deriv < 0))
+        indt, indf = np.where(
+            ((sdt < 0) | (sdf < 0) | (sdtf < 0) | (sdft < 0)) & (spectral_deriv < 0)
+        )
 
         # Noise reduction using a threshold
         we = np.abs(self.wiener_entropy(sg))
@@ -1159,24 +960,28 @@ class SignalProc:
         for i in range(len(indf)):
             f = indf[i]
             t = indt[i]
-            if ((t > 0)
-                    & (t < (np.shape(sg)[0] - 1))
-                    & (f > 0)
-                    & (f < (np.shape(sg)[1] - 1))):
+            if (
+                (t > 0)
+                & (t < (np.shape(sg)[0] - 1))
+                & (f > 0)
+                & (f < (np.shape(sg)[1] - 1))
+            ):
                 thr = threshold * we[t] / np.abs(freqs[f] - mf[t])
-                if (sdt[t, f] < 0) & (sg[t - 1, f] > thr) & (sg[t + 1, f]
-                                                             > thr):
+                if (sdt[t, f] < 0) & (sg[t - 1, f] > thr) & (sg[t + 1, f] > thr):
                     contours[t, f] = 1
-                if (sdf[t, f] < 0) & (sg[t, f - 1] > thr) & (sg[t, f + 1]
-                                                             > thr):
+                if (sdf[t, f] < 0) & (sg[t, f - 1] > thr) & (sg[t, f + 1] > thr):
                     contours[t, f] = 1
-                if ((sdtf[t, f] < 0)
-                        & (sg[t - 1, f - 1] > thr)
-                        & (sg[t + 1, f + 1] > thr)):
+                if (
+                    (sdtf[t, f] < 0)
+                    & (sg[t - 1, f - 1] > thr)
+                    & (sg[t + 1, f + 1] > thr)
+                ):
                     contours[t, f] = 1
-                if ((sdft[t, f] < 0)
-                        & (sg[t - 1, f + 1] > thr)
-                        & (sg[t - 1, f + 1] > thr)):
+                if (
+                    (sdft[t, f] < 0)
+                    & (sg[t - 1, f + 1] > thr)
+                    & (sg[t - 1, f + 1] > thr)
+                ):
                     contours[t, f] = 1
 
         if returnAll:
@@ -1193,8 +998,7 @@ class SignalProc:
         # remove points beyond frq range to show
         y1 = [i * self.sampleRate // 2 / np.shape(self.sg)[1] for i in y]
         y1 = np.asarray(y1)
-        valminfrq = self.minFreqShow / (self.sampleRate // 2 /
-                                        np.shape(self.sg)[1])
+        valminfrq = self.minFreqShow / (self.sampleRate // 2 / np.shape(self.sg)[1])
 
         inds = np.where((y1 >= self.minFreqShow) & (y1 <= self.maxFreqShow))
         x = x[inds]
@@ -1216,18 +1020,15 @@ class SignalProc:
         # reliable estimation (i.e max period such that 3 periods
         # fit in the F0 window):
         minReliableFreq = self.sampleRate / (Wsamples / 3)
-        print("Warning: F0 estimation below %d Hz will be unreliable" %
-              minReliableFreq)
+        print("Warning: F0 estimation below %d Hz will be unreliable" % minReliableFreq)
         # returns pitch in Hz for each window of Wsamples/2
         # over the entire data provided (so full page here)
         thr = 0.5
-        pitchshape = Shapes.fundFreqShaper(self.data, Wsamples, thr,
-                                           self.sampleRate)
+        pitchshape = Shapes.fundFreqShaper(self.data, Wsamples, thr, self.sampleRate)
         pitch = pitchshape.y  # pitch is a shape with y in Hz
 
         # find out which marks should be visible
-        ind = np.logical_and(pitch > self.minFreqShow + 50, pitch
-                             < self.maxFreqShow)
+        ind = np.logical_and(pitch > self.minFreqShow + 50, pitch < self.maxFreqShow)
         if not np.any(ind):
             print("Warning: no fund. freq. identified in this page")
             return
@@ -1243,8 +1044,9 @@ class SignalProc:
         yadjfact = 2 / self.sampleRate * np.shape(self.sg)[1]
 
         # then create the x sequence (in spec coordinates)
-        starts = (np.arange(len(pitch)) * pitchshape.tunit + pitchshape.tstart
-                  )  # in seconds
+        starts = (
+            np.arange(len(pitch)) * pitchshape.tunit + pitchshape.tstart
+        )  # in seconds
         # (pitchshape.tstart should always be 0 here as it used full data)
         starts = starts * self.sampleRate / self.incr  # in spec columns
 
@@ -1285,14 +1087,11 @@ class SignalProc:
         # remove points beyond frq range to show
         for t in range(len(ys)):
             for f in range(len(ys[t])):
-                if (ys[t][f] >= self.minFreqShow) & (ys[t][f]
-                                                     <= self.maxFreqShow):
+                if (ys[t][f] >= self.minFreqShow) & (ys[t][f] <= self.maxFreqShow):
                     x.append(starts[t])
-                    y.append(ys[t][f] / self.sampleRate * 2 *
-                             np.shape(self.sg)[1])
+                    y.append(ys[t][f] / self.sampleRate * 2 * np.shape(self.sg)[1])
 
-        valminfrq = self.minFreqShow / (self.sampleRate // 2 /
-                                        np.shape(self.sg)[1])
+        valminfrq = self.minFreqShow / (self.sampleRate // 2 / np.shape(self.sg)[1])
         y = [i - valminfrq for i in y]
 
         return x, y
@@ -1327,8 +1126,7 @@ class SignalProc:
         y = y[inds]
 
         # adjust y pos for when spec doesn't start at 0
-        specstarty = self.minFreqShow / (self.sampleRate // 2 /
-                                         np.shape(self.sg)[1])
+        specstarty = self.minFreqShow / (self.sampleRate // 2 / np.shape(self.sg)[1])
         y = [i - specstarty for i in y]
 
         return x, y
@@ -1341,13 +1139,14 @@ class SignalProc:
             # TODO
             ncoeff = 2 + self.sampleRate // 1000
 
-        window = 0.5 * (1 - np.cos(2 * np.pi * np.arange(self.window_width) /
-                                   (self.window_width - 1)))
-        starts = range(0,
-                       len(self.data) - self.window_width, self.window_width)
+        window = 0.5 * (
+            1
+            - np.cos(2 * np.pi * np.arange(self.window_width) / (self.window_width - 1))
+        )
+        starts = range(0, len(self.data) - self.window_width, self.window_width)
         freqs = []
         for start in starts:
-            x = self.data[start:start + self.window_width] * window
+            x = self.data[start : start + self.window_width] * window
             # High-pass filter
             x = signal.lfilter([1], [1.0, 0.63], x)
 
@@ -1383,30 +1182,29 @@ class SignalProc:
 
         imspec = self.sg[:, ::8].T
         print("click", np.shape(imspec))
-        df = self.sampleRate // 2 / (np.shape(imspec)[0] + 1
-                                     )  # frequency increment
+        df = self.sampleRate // 2 / (np.shape(imspec)[0] + 1)  # frequency increment
         # up_len=math.ceil(0.05/dt) #0.5 second lenth in indices divided by 11
         up_len = 17
         # up_len=math.ceil((0.5/11)/dt)
 
         # Frequency band
         f0 = 24000
-        index_f0 = -1 + math.floor(
-            f0 / df)  # lower bound needs to be rounded down
+        # lower bound needs to be rounded down
+        index_f0 = -1 + math.floor(f0 / df)
         f1 = 54000
-        index_f1 = -1 + math.ceil(
-            f1 / df)  # upper bound needs to be rounded up
+        # upper bound needs to be rounded up
+        index_f1 = -1 + math.ceil(f1 / df)
 
         # Mean in the frequency band
         mean_spec = np.mean(imspec[index_f0:index_f1, :], axis=0)
 
         # Threshold
         mean_spec_all = np.mean(imspec, axis=0)[2:]
-        thr_spec = (np.mean(mean_spec_all) +
-                    thresh * np.std(mean_spec_all)) * np.ones(
-                        (np.shape(mean_spec)))
+        thr_spec = (np.mean(mean_spec_all) + thresh * np.std(mean_spec_all)) * np.ones(
+            (np.shape(mean_spec))
+        )
 
-        ## clickfinder
+        # clickfinder
         # check when the mean is bigger than the threshold
         # clicks is an array which elements are equal to 1 only where the sum is bigger
         # than the mean, otherwise are equal to 0
@@ -1465,15 +1263,16 @@ class SignalProc:
         width = filterSize // 2
 
         sgnew = np.zeros(np.shape(sg))
-        sgnew[0:width + 1, :] = sg[0:width + 1, :]
+        sgnew[0 : width + 1, :] = sg[0 : width + 1, :]
         sgnew[-width:, :] = sg[-width:, :]
-        sgnew[:, 0:width + 1] = sg[:, 0:width + 1]
+        sgnew[:, 0 : width + 1] = sg[:, 0 : width + 1]
         sgnew[:, -width:] = sg[:, -width:]
 
         for i in range(width, x - width):
             for j in range(width, y - width):
-                sgnew[i, j] = np.median(sg[i - width:i + width + 1,
-                                           j - width:j + width + 1])
+                sgnew[i, j] = np.median(
+                    sg[i - width : i + width + 1, j - width : j + width + 1]
+                )
 
         print(sgnew)
         return sgnew
@@ -1504,7 +1303,7 @@ class SignalProc:
         newsg = newsg.T
         for c in range(col):
             if longest[c] > 10:
-                newsg[c, start[c]:start[c] + longest[c]] = 1
+                newsg[c, start[c] : start[c] + longest[c]] = 1
         print(longest)
         return newsg.T
 
@@ -1517,15 +1316,13 @@ class SignalProc:
             print("Don't use this interface for wavelets")
             return
         elif str(alg) == "Bandpass":
-            self.data = self.bandpassFilter(self.data,
-                                            self.sampleRate,
-                                            start=start,
-                                            end=end)
+            self.data = self.bandpassFilter(
+                self.data, self.sampleRate, start=start, end=end
+            )
         elif str(alg) == "Butterworth Bandpass":
-            self.data = self.ButterworthBandpass(self.data,
-                                                 self.sampleRate,
-                                                 low=start,
-                                                 high=end)
+            self.data = self.ButterworthBandpass(
+                self.data, self.sampleRate, low=start, high=end
+            )
         else:
             # Median Filter
             self.data = self.medianFilter(self.data, int(str(width)))
@@ -1557,8 +1354,8 @@ class SignalProc:
         """
 
         # Calculate window length
-        w1 = np.floor(
-            fs / 250)  # Window length of 1/250 sec selected experimentally
+        # Window length of 1/250 sec selected experimentally
+        w1 = np.floor(fs / 250)
         arr = [2**i for i in range(5, 11)]
         pos = np.abs(arr - w1).argmin()
         window = arr[pos]
@@ -1571,8 +1368,8 @@ class SignalProc:
         # For each frq band get sections where energy exceeds some (90%) percentile, engp
         # and generate a binary spectrogram
         sgb = np.zeros((np.shape(sg)))
-        ep = np.percentile(sg, engp,
-                           axis=0)  # note thr - 90% for energy percentile
+        # note thr - 90% for energy percentile
+        ep = np.percentile(sg, engp, axis=0)
         for y in range(np.shape(sg)[1]):
             ey = sg[:, y]
             sgb[np.where(ey > ep[y]), y] = 1
@@ -1580,8 +1377,8 @@ class SignalProc:
         # If lots of frq bands got 1 then predict a click
         # 1 - presence of impulse noise, 0 - otherwise here
         impulse = np.where(
-            np.count_nonzero(sgb, axis=1) > np.shape(sgb)[1] * fp, 1,
-            0)  # Note thr fp
+            np.count_nonzero(sgb, axis=1) > np.shape(sgb)[1] * fp, 1, 0
+        )  # Note thr fp
 
         # When an impulsive noise detected, it's better to check neighbours to make sure its not a bird call
         # very close to the microphone.
@@ -1591,18 +1388,18 @@ class SignalProc:
         impulse = []
         for item in imp:
             if (
-                    item > blocksize or item == 0
+                item > blocksize or item == 0
             ):  # Note threshold - blocksize, 10 consecutive blocks ~1/25 sec
                 impulse.append(1)
             else:
                 impulse.append(0)
 
-        impulse = list(chain.from_iterable(
-            repeat(e, window)
-            for e in impulse))  # Make it same length as self.audioData
+        impulse = list(
+            chain.from_iterable(repeat(e, window) for e in impulse)
+        )  # Make it same length as self.audioData
 
         if len(impulse) > len(self.data):  # Sanity check
-            impulse = impulse[0:len(self.data)]
+            impulse = impulse[0 : len(self.data)]
         elif len(impulse) < len(self.data):
             gap = len(self.data) - len(impulse)
             impulse = np.pad(impulse, (0, gap), "constant")
@@ -1622,12 +1419,9 @@ class SignalProc:
             t += 1
         return res
 
-    def generateFeaturesCNN(self,
-                            seglen,
-                            real_spec_width,
-                            frame_size,
-                            frame_hop=None,
-                            CNNfRange=None):
+    def generateFeaturesCNN(
+        self, seglen, real_spec_width, frame_size, frame_hop=None, CNNfRange=None
+    ):
         """
         Prepare a syllable to input to the CNN model
         Returns the features (spectrogram for each frame)
@@ -1661,8 +1455,7 @@ class SignalProc:
             self.sg[:, ub:] = 0.0
 
         # extract each frame:
-        featuress = np.empty((n, spec_height, real_spec_width, 1),
-                             dtype=np.float32)
+        featuress = np.empty((n, spec_height, real_spec_width, 1), dtype=np.float32)
         for i in range(n):
             sgstart = int(frame_hop * i * self.sampleRate / self.incr)
             sgend = sgstart + real_spec_width
@@ -1685,14 +1478,10 @@ class SignalProc:
         # this may be needed for dealing w/ boundary issues
         # which is maybe possible if the spec window is larger than the
         # CNN frame size, or due to inconsistent rounding
-        featuress = featuress[:(i + 1), :, :, :]
+        featuress = featuress[: (i + 1), :, :, :]
         return featuress
 
-    def generateFeaturesCNN2(self,
-                             seglen,
-                             real_spec_width,
-                             frame_size,
-                             frame_hop=None):
+    def generateFeaturesCNN2(self, seglen, real_spec_width, frame_size, frame_hop=None):
         """
         Prepare a syllable to input to the CNN model
         Returns the features (currently the spectrogram)
@@ -1727,14 +1516,16 @@ class SignalProc:
 
             # Standardize/rescale here.
             # NOTE the resulting features are on linear scale, not dB
-            sgRaw_i = np.empty((real_spec_width, spec_height, 3),
-                               dtype=np.float32)
+            sgRaw_i = np.empty((real_spec_width, spec_height, 3), dtype=np.float32)
             sgRaw_i[:, :, 0] = sgRaw1[sgstart:sgend, :] / np.max(
-                sgRaw1[sgstart:sgend, :])
+                sgRaw1[sgstart:sgend, :]
+            )
             sgRaw_i[:, :, 1] = sgRaw2[sgstart:sgend, :] / np.max(
-                sgRaw2[sgstart:sgend, :])
+                sgRaw2[sgstart:sgend, :]
+            )
             sgRaw_i[:, :, 2] = sgRaw3[sgstart:sgend, :] / np.max(
-                sgRaw3[sgstart:sgend, :])
+                sgRaw3[sgstart:sgend, :]
+            )
             featuress[i, :, :, :] = np.rot90(sgRaw_i)
 
         # NOTE using i to account for possible loop break
