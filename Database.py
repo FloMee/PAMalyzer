@@ -24,58 +24,74 @@ class DatabaseHandler:
 
         # table recording: filename, directory
         self.cursor.execute(
-            """CREATE TABLE IF NOT EXISTS recording(filename CHAR PRIMARY KEY,
+            """CREATE TABLE IF NOT EXISTS recording(
+            filename CHAR PRIMARY KEY,
             directory CHAR)"""
         )
 
         # table operator: name
-        self.cursor.execute("""CREATE TABLE IF NOT EXISTS operator(name CHAR)""")
+        self.cursor.execute(
+            """CREATE TABLE IF NOT EXISTS operator(
+            operator_id INTEGER PRIMARY KEY,
+            name CHAR)"""
+        )
 
         # table operator: name
-        self.cursor.execute("""CREATE TABLE IF NOT EXISTS filters(name CHAR)""")
-
+        self.cursor.execute(
+            """CREATE TABLE IF NOT EXISTS filters(
+            filter_id INTEGER PRIMARY KEY,
+            name CHAR)"""
+        )
         # table species: scientific_name, common_name
         self.cursor.execute(
-            """CREATE TABLE IF NOT EXISTS species(scientific_name CHAR,
+            """CREATE TABLE IF NOT EXISTS species(
+            scientific_name CHAR PRIMARY KEY,
             common_name CHAR)"""
         )
 
         # table calltypes: scientific_name, calltype
         self.cursor.execute(
-            """CREATE TABLE IF NOT EXISTS calltypes(scientific_name CHAR,
+            """CREATE TABLE IF NOT EXISTS calltypes(
+            calltype_id INTEGER PRIMARY KEY,
+            scientific_name CHAR,
             calltype CHAR,
             FOREIGN KEY(scientific_name) REFERENCES species(scientific_name))"""
         )
 
         # table segments: filename, start, end, low, high, operator_id
         self.cursor.execute(
-            """CREATE TABLE IF NOT EXISTS segments(filename CHAR,
+            """CREATE TABLE IF NOT EXISTS segments(
+            segment_id INTEGER PRIMARY KEY,
+            filename CHAR,
             start REAL,
             end REAL,
             low REAL,
             high REAL,
             operator_id,
             FOREIGN KEY(filename) REFERENCES recording(filename),
-            FOREIGN KEY(operator_id) REFERENCES operator(rowid))
-            """
+            FOREIGN KEY(operator_id) REFERENCES operator(operator_id))"""
         )
 
         # table segment_species: connects segments and species
         self.cursor.execute(
-            """CREATE TABLE IF NOT EXISTS segment_species(species_scientific_name,
+            """CREATE TABLE IF NOT EXISTS segment_species(
+            species_scientific_name,
             confidence REAL,
             segment_id,
             filter_id,
             calltype_id,
             FOREIGN KEY(species_scientific_name) REFERENCES species(scientific_name),
-            FOREIGN KEY(segment_id) REFERENCES segments(rowid),
-            FOREIGN KEY(filter_id) REFERENCES filters(rowid),
-            FOREIGN KEY(calltype_id) REFERENCES calltypes(rowid))
+            FOREIGN KEY(segment_id) REFERENCES segments(segment_id),
+            FOREIGN KEY(filter_id) REFERENCES filters(filter_id),
+            FOREIGN KEY(calltype_id) REFERENCES calltypes(calltype_id))
             """
         )
 
         self.cursor.execute(
             """CREATE UNIQUE INDEX IF NOT EXISTS idx_segments_unique ON segments (filename, start, end, low, high)"""
+        )
+        self.cursor.execute(
+            """CREATE UNIQUE INDEX IF NOT EXISTS idx_segment_species_unique on segment_species(species_scientific_name, confidence, segment_id, filter_id, calltype_id)"""
         )
 
     def insert_segments(self, segmentList, operator, filename):
@@ -101,31 +117,36 @@ class DatabaseHandler:
 
     def add_operator(self, operator):
         self.cursor.execute(
-            """SELECT rowid FROM operator WHERE name = (?)""", (operator,)
+            """SELECT operator_id FROM operator WHERE name = (?)""", (operator,)
         )
         existing_row_id = self.cursor.fetchone()
         if existing_row_id:
             op_id = existing_row_id[0]
         else:
-            self.cursor.execute("""INSERT INTO operator VALUES (?)""", (operator,))
+            self.cursor.execute(
+                """INSERT INTO operator(name) VALUES (?)""", (operator,)
+            )
             op_id = self.cursor.lastrowid
         return op_id
 
     def add_filter(self, filter):
-        self.cursor.execute("""SELECT rowid FROM filters WHERE name = (?)""", (filter,))
+        self.cursor.execute(
+            """SELECT filter_id FROM filters WHERE name = (?)""", (filter,)
+        )
         existing_row_id = self.cursor.fetchone()
         if existing_row_id:
             filter_id = existing_row_id[0]
         else:
             self.cursor.execute(
-                """INSERT INTO filters VALUES (?) RETURNING rowid""", (filter,)
+                """INSERT INTO filters(name) VALUES (?) RETURNING filter_id""",
+                (filter,),
             )
             filter_id = self.cursor.fetchone()[0]
         return filter_id
 
     def add_calltype(self, data):
         self.cursor.execute(
-            """SELECT rowid FROM calltypes WHERE calltype = (:calltype) AND scientific_name = (:scientific_name)""",
+            """SELECT calltype_id FROM calltypes WHERE calltype = (:calltype) AND scientific_name = (:scientific_name)""",
             data,
         )
 
@@ -134,7 +155,7 @@ class DatabaseHandler:
             calltype_id = existing_row_id[0]
         else:
             self.cursor.execute(
-                """INSERT INTO calltypes VALUES (:scientific_name, :calltype) RETURNING rowid""",
+                """INSERT INTO calltypes(scientific_name, calltype) VALUES (:scientific_name, :calltype) RETURNING calltype_id""",
                 data,
             )
             calltype_id = self.cursor.fetchone()[0]
@@ -150,10 +171,10 @@ class DatabaseHandler:
 
     def insert_segment(self, segment):
         self.cursor.execute(
-            """INSERT INTO segments
+            """INSERT INTO segments(filename, start, end, low, high, operator_id)
                 VALUES (:filename, :start, :end, :low, :high, :operator_id)
                 ON CONFLICT (filename, start, end, low, high) DO UPDATE SET operator_id = :operator_id
-                RETURNING rowid""",
+                RETURNING segment_id""",
             segment,
         )
 
@@ -164,7 +185,7 @@ class DatabaseHandler:
                 SELECT segments.filename FROM segments
                 INNER JOIN recording ON segments.filename=recording.filename
                 WHERE recording.directory LIKE ?
-            ) RETURNING rowid""",
+            ) RETURNING segment_id""",
             (dir + "%",),
         )
         self.delete_orphan_segment_species()
@@ -176,7 +197,7 @@ class DatabaseHandler:
                 SELECT segments.filename FROM segments
                 INNER JOIN recording ON segments.filename=recording.filename
                 WHERE segments.filename = ? AND recording.directory = ?
-            ) RETURNING rowid""",
+            ) RETURNING segment_id""",
             (os.path.basename(file), os.path.dirname(file)),
         )
         self.delete_orphan_segment_species()
@@ -193,7 +214,7 @@ class DatabaseHandler:
 
         self.cursor.execute(
             """DELETE FROM segments
-                WHERE rowid IN (SELECT segments.rowid FROM segments 
+                WHERE segment_id IN (SELECT segments.segment_id FROM segments 
                 INNER JOIN recording ON segments.filename=recording.filename
                 WHERE start = (:start) AND 
                 end = (:end) AND 
@@ -208,7 +229,7 @@ class DatabaseHandler:
 
     def get_segment_id(self, segment):
         self.cursor.execute(
-            """SELECT segments.rowid FROM segments 
+            """SELECT segments.segment_id FROM segments 
                 INNER JOIN recording ON segments.filename=recording.filename
                 WHERE start = (:start) AND 
                 end = (:end) AND 
@@ -315,7 +336,7 @@ class DatabaseHandler:
         self.cursor.execute(
             """SELECT recording.filename, recording.directory FROM recording 
             INNER JOIN segments ON recording.filename=segments.filename 
-            INNER JOIN segment_species ON segments.rowid = segment_species.segment_id 
+            INNER JOIN segment_species ON segments.segment_id = segment_species.segment_id 
             WHERE recording.directory LIKE ? AND segment_species.species_scientific_name = (?) AND
             segment_species.confidence >= ? GROUP BY recording.filename""",
             (dirname + "%", species, minconf),
@@ -326,7 +347,7 @@ class DatabaseHandler:
         self.cursor.execute(
             """SELECT segment_species.species_scientific_name, MAX(segment_species.confidence) FROM recording 
             INNER JOIN segments ON recording.filename=segments.filename 
-            INNER JOIN segment_species ON segments.rowid = segment_species.segment_id 
+            INNER JOIN segment_species ON segments.segment_id = segment_species.segment_id 
             WHERE recording.directory LIKE ? GROUP BY segment_species.species_scientific_name""",
             (dirname + "%",),
         )
@@ -337,7 +358,7 @@ class DatabaseHandler:
             """SELECT recording.directory, recording.filename, segments.start, segments.end, 
             segment_species.species_scientific_name, MAX(segment_species.confidence) FROM recording 
             INNER JOIN segments ON recording.filename=segments.filename 
-            INNER JOIN segment_species ON segments.rowid = segment_species.segment_id 
+            INNER JOIN segment_species ON segments.segment_id = segment_species.segment_id 
             WHERE recording.directory LIKE ? AND segment_species.species_scientific_name = (?) AND
             segment_species.confidence >= ? GROUP BY segments.start, segments.end, segment_species.species_scientific_name""",
             (dirname + "%", species, minconf),
@@ -351,9 +372,9 @@ class DatabaseHandler:
             segment_species.species_scientific_name, segment_species.confidence, 
             calltypes.calltype, filters.name FROM recording 
             INNER JOIN segments ON recording.filename = segments.filename 
-            INNER JOIN segment_species ON segments.rowid = segment_species.segment_id 
-            INNER JOIN calltypes ON segment_species.calltype_id = calltypes.rowid
-            INNER JOIN filters ON segment_species.filter_id = filters.rowid
+            INNER JOIN segment_species ON segments.segment_id = segment_species.segment_id 
+            INNER JOIN calltypes ON segment_species.calltype_id = calltypes.calltype_id
+            INNER JOIN filters ON segment_species.filter_id = filters.filter_id
             WHERE recording.directory LIKE ? AND segment_species.species_scientific_name = (?) AND
             segment_species.confidence >= ?""",
             (dirname + "%", species, minconf),
@@ -365,7 +386,7 @@ class DatabaseHandler:
             """SELECT recording.directory, recording.filename, segments.start, segments.end, 
             segment_species.species_scientific_name, MAX(segment_species.confidence) FROM recording 
             INNER JOIN segments ON recording.filename=segments.filename 
-            INNER JOIN segment_species ON segments.rowid = segment_species.segment_id 
+            INNER JOIN segment_species ON segments.segment_id = segment_species.segment_id 
             WHERE recording.directory LIKE ? AND
             segment_species.confidence >= ? GROUP BY segments.start, segments.end, segment_species.species_scientific_name""",
             (dirname + "%", minconf),
@@ -379,9 +400,9 @@ class DatabaseHandler:
             segment_species.species_scientific_name, segment_species.confidence, 
             calltypes.calltype, filters.name FROM recording 
             INNER JOIN segments ON recording.filename=segments.filename 
-            INNER JOIN segment_species ON segments.rowid = segment_species.segment_id
-            INNER JOIN calltypes ON segment_species.calltype_id = calltypes.rowid
-            INNER JOIN filters ON segment_species.filter_id = filters.rowid
+            INNER JOIN segment_species ON segments.segment_id = segment_species.segment_id
+            INNER JOIN calltypes ON segment_species.calltype_id = calltypes.calltype_id
+            INNER JOIN filters ON segment_species.filter_id = filters.filter_id
             WHERE recording.directory LIKE ? AND
             segment_species.confidence >= ?""",
             (dirname + "%", minconf),
@@ -392,7 +413,7 @@ class DatabaseHandler:
         self.cursor.execute(
             """SELECT recording.directory, recording.filename, segment_species.species_scientific_name, MAX(segment_species.confidence) FROM recording 
             INNER JOIN segments ON recording.filename=segments.filename 
-            INNER JOIN segment_species ON segments.rowid = segment_species.segment_id 
+            INNER JOIN segment_species ON segments.segment_id = segment_species.segment_id 
             WHERE recording.directory LIKE ? GROUP BY recording.filename, segment_species.species_scientific_name""",
             (dirname + "%",),
         )
@@ -404,9 +425,9 @@ class DatabaseHandler:
             segment_species.species_scientific_name, segment_species.confidence,
             filters.name, calltypes.calltype FROM recording 
             INNER JOIN segments ON recording.filename=segments.filename 
-            INNER JOIN segment_species ON segments.rowid = segment_species.segment_id
-            INNER JOIN filters ON segment_species.filter_id = filters.rowid
-            INNER JOIN calltypes ON segment_species.calltype_id = calltypes.rowid   
+            INNER JOIN segment_species ON segments.segment_id = segment_species.segment_id
+            INNER JOIN filters ON segment_species.filter_id = filters.filter_id
+            INNER JOIN calltypes ON segment_species.calltype_id = calltypes.calltype_id  
             WHERE recording.filename = ? AND recording.directory = ?""",
             (filename, dirname),
         )
@@ -415,4 +436,4 @@ class DatabaseHandler:
     def delete_orphan_segment_species(self):
         self.cursor.execute("""DELETE FROM segment_species 
             WHERE segment_id NOT IN 
-            (SELECT rowid FROM segments)""")
+            (SELECT segment_id FROM segments)""")
