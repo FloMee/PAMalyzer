@@ -1,9 +1,14 @@
 import os
 import sqlite3
 
+from PyQt5.QtCore import QObject, pyqtSlot
 
-class DatabaseHandler:
+import Segment
+
+
+class DatabaseHandler(QObject):
     def __init__(self, db_path):
+        super().__init__()
         self.db_path = db_path
         self.connect()
         self.create_tables()
@@ -94,7 +99,8 @@ class DatabaseHandler:
             """CREATE UNIQUE INDEX IF NOT EXISTS idx_segment_species_unique on segment_species(species_scientific_name, confidence, segment_id, filter_id, calltype_id)"""
         )
 
-    def insert_segments(self, segmentList, operator, filename):
+    @pyqtSlot(Segment.SegmentList, str)
+    def insert_segments(self, segmentList, filename):
         dirname = os.path.dirname(filename)
         filename = os.path.basename(filename)
         op_id = self.add_operator(segmentList.metadata["Operator"])

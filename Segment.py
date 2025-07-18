@@ -494,7 +494,7 @@ class SegmentList(list):
         # annots = [self.metadata]
         # for seg in self:
         #     annots.append(seg)
-        self.parent.database.insert_segments(self, self.metadata["Operator"], file)
+        self.parent.database.insert_segments(self, file)
         # self.parent.database.commit()
         return 1
 

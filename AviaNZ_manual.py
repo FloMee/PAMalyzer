@@ -5326,7 +5326,7 @@ class AviaNZ(QMainWindow):
 
         # insert the annotations into the database.
         for file in seglistdir:
-            self.database.insert_segments(seglistdir[file], self.reviewer, file)
+            self.database.insert_segments(seglistdir[file], file)
 
         self.database.commit()
         print("Database successfully updated.")

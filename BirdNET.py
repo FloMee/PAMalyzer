@@ -61,6 +61,7 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 from tensorflow import lite as tflite
+from tqdm import tqdm
 
 import Segment
 
@@ -513,9 +514,7 @@ class BirdNET(QWidget):
         super(BirdNET, self).__init__()
         self.AviaNZ = AviaNZmanual
         self.filelist = []
-        # self.filelist = [file.absoluteFilePath() for file in AviaNZmanual.listFiles.listOfFiles if file.isFile()]
         self.fillFileList(AviaNZmanual.listFiles.listOfFiles)
-        print(len(self.filelist))
         self.param = None
         self.progress = QProgressDialog()
         self.progress.setCancelButton(None)
@@ -535,7 +534,7 @@ class BirdNET(QWidget):
             elif file.isDir():
                 self.fillFileList(
                     QDir(file.absoluteFilePath()).entryInfoList(
-                        ["..", "*.wav", "*.bmp"],
+                        ["*.wav"],
                         filters=QDir.AllDirs | QDir.NoDot | QDir.Files,
                         sort=QDir.DirsFirst,
                     )
@@ -611,27 +610,15 @@ class BirdNET(QWidget):
             self.progress.show()
             self.start_time = time.time()
             self.total_workers = len(file_threads)
-            for flist in file_threads:
+            for i, flist in enumerate(file_threads):
                 worker = BirdNET_Worker(
-                    self, param=self.param, filelist=flist, labels=self.labels
+                    self, param=self.param, wid=i, filelist=flist, labels=self.labels
                 )
                 worker.fileProcessed.update.connect(self.updateProgress)
                 worker.filelistProcessed.done.connect(self.updateFilelist)
-                worker.sendSegList.send.connect(self.updateDatabase)
+                worker.sendSegList.send.connect(self.AviaNZ.database.insert_segments)
                 self.threadpool.start(worker)
 
-            # if self.threadpool.waitForDone(-1):
-            #     e = time.time()
-            #     print(
-            #         "Analysis sucessfully completed in {:.0f}min {:.0f}s".format(
-            #             (e - a) // 60, (e - a) % 60
-            #         )
-            #     )
-            #     self.progress.autoReset()
-            #     self.progress.autoClose()
-            #     self.AviaNZ.loadFile(name=self.AviaNZ.filename)
-            #     self.AviaNZ.fillFileList(self.AviaNZ.SoundFileDir, os.path.basename(self.AviaNZ.filename))
-            #
         except:
             print(traceback.format_exc())
 
@@ -643,9 +630,10 @@ class MyEmitter(QObject):
 
 
 class BirdNET_Worker(QRunnable):
-    def __init__(self, parent, param, filelist, labels, *args, **kwargs):
+    def __init__(self, parent, param, wid, filelist, labels, *args, **kwargs):
         super(BirdNET_Worker, self).__init__()
         self.parent = parent
+        self.wid = wid
         self.filelist = filelist
         self.m_interpreter = None
         self.model = None
@@ -672,14 +660,21 @@ class BirdNET_Worker(QRunnable):
 
     def run(self, *args, **kwargs):
         self.parent.progress.activateWindow()
-        for file in self.filelist:
-            self.analyze(file)
+        with tqdm(
+            total=len(self.filelist),
+            desc="Thread: {}".format(self.wid),
+            position=self.wid,
+            leave=True,
+        ) as pbar:
+            for file in self.filelist:
+                pbar.set_postfix(file=os.path.basename(file))
+                self.analyze(file)
+                pbar.update(1)
+        pbar.close()
         self.filelistProcessed.done.emit(self.filelist)
 
     def loadModel(self):
         try:
-            print("Loading BirdNET model...", end=" ")
-
             if self.lite:
                 mdlpath = os.path.join(
                     "models", "Lite", "BirdNET_6K_GLOBAL_MODEL.tflite"
@@ -690,7 +685,6 @@ class BirdNET_Worker(QRunnable):
                 mdlpath = os.path.join(
                     "models", "Analyzer", "BirdNET_GLOBAL_6K_V2.4_Model_FP32.tflite"
                 )
-            print(mdlpath)
             # Load TFLite model and allocate tensors.
             interpreter = tflite.Interpreter(model_path=mdlpath)
             interpreter.allocate_tensors()
@@ -715,14 +709,12 @@ class BirdNET_Worker(QRunnable):
                 interpreter,
             ]
 
-            print("DONE!")
         except Exception():
             print(traceback.format_exc())
 
         return model
 
     def loadMetaModel(self):
-        print("load MetaModel", flush=True)
         # Load TFLite model and allocate tensors.
         self.m_interpreter = tflite.Interpreter(
             model_path=os.path.join(
@@ -845,12 +837,6 @@ class BirdNET_Worker(QRunnable):
         return noise.astype("float32")
 
     def readAudioData(self, path, sample_rate=48000):
-        print(
-            "READING AUDIO DATA FROM FILE {}...".format(os.path.split(path)[1]),
-            end=" ",
-            flush=True,
-        )
-
         # TODO: Does the following makes sense? Taken from BirdNET-Analyzer
         try:
             sig, rate = librosa.load(
@@ -862,8 +848,6 @@ class BirdNET_Worker(QRunnable):
 
         # Split audio into 3-second chunks
         chunks = self.splitSignal(sig, rate)
-
-        print("DONE! READ {} CHUNKS.".format(len(chunks)))
 
         return chunks
 
@@ -943,12 +927,6 @@ class BirdNET_Worker(QRunnable):
         detections_mea = np.zeros(shape=(len(chunks), len(self.model[3])))
 
         start = time.time()
-        print(
-            "ANALYZING AUDIO FROM {} ...".format(os.path.basename(file)),
-            end=" ",
-            flush=True,
-        )
-
         # Parse every chunk
         timestamps = []
         pred_start = 0.0
@@ -998,7 +976,6 @@ class BirdNET_Worker(QRunnable):
                 pred_start = pred_end - self.overlap
                 j += 1
 
-            print("DONE! TIME {:.1f} SECONDS".format(time.time() - start))
             return (detections_mea.transpose(), timestamps, detections)
 
         else:
