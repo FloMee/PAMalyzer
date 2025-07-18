@@ -5266,7 +5266,6 @@ class AviaNZ(QMainWindow):
                         if len(self.tempsl) > 0:
                             self.database.insert_segments(
                                 self.tempsl,
-                                self.operator,
                                 filenamef,
                             )
         self.database.commit()
