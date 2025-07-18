@@ -26,4 +26,6 @@
 "protocolOn": false, "protocolSize": 15, "protocolInterval": 300,
 "guidepos": [20000, 60000, 36000, 50000], "guidelinesOn": false,
 "guidecol": [[255, 232, 140, 255], [255, 232, 140, 255], [239, 189, 124, 255], [239, 189, 124, 255]],
-"fs_start": 0, "fs_end": 0, "window": "Hann", "FiltersDir": "Filters"}
+"fs_start": 0, "fs_end": 0, "window": "Hann", "FiltersDir": "Filters",
+"BirdNET_model": "BirdNET-Analyzer","BirdNET_latitude": -1,"BirdNET_longitude": -1,"BirdNET_week": 0,"BirdNET_custom_species_list": "","BirdNET_language": "en","BirdNET_overlap": 0,"BirdNET_sensitivity": 1.0,"BirdNET_min_confidence": 0.1,"BirdNET_n_threads": 0, "BirdNET_moving_exponential_average": false, "BirdNET_batchsize": 1,"BirdNET_location_threshold": 0.03, "BirdNET_custom_classifier": ""
+}

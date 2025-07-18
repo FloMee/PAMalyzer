@@ -75,7 +75,7 @@ class BirdNETDialog(QDialog):
         self.parent = parent
 
         self.slist_path = ""
-        self.classifierPath = ""
+        self.classifier_path = ""
         self.setWindowTitle("Classify Recordings with BirdNET")
         self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
 
@@ -95,8 +95,6 @@ class BirdNETDialog(QDialog):
         # BirdNET-Lite/BirdNET-Analyzer options
         self.lite = QRadioButton("BirdNET-Lite")
         self.analyzer = QRadioButton("BirdNET-Analyzer")
-        self.lite.clicked.connect(self.updateDialog)
-        self.analyzer.clicked.connect(self.updateDialog)
 
         self.lat_label = QLabel("Latitude")
         self.lat_label.setToolTip(
@@ -104,8 +102,6 @@ class BirdNETDialog(QDialog):
         )
         self.lat = QDoubleSpinBox()
         self.lat.setRange(-90, 90)
-        self.lat.setValue(-1.0)
-        self.lat.valueChanged.connect(self.updateDialog)
 
         self.lon_label = QLabel("Longitude")
         self.lon_label.setToolTip(
@@ -113,8 +109,6 @@ class BirdNETDialog(QDialog):
         )
         self.lon = QDoubleSpinBox()
         self.lon.setRange(-180, 180)
-        self.lon.setValue(-1.0)
-        self.lon.valueChanged.connect(self.updateDialog)
 
         self.week_label = QLabel("Week")
         self.week_label.setToolTip(
@@ -123,7 +117,6 @@ class BirdNETDialog(QDialog):
         )
         self.week = QSpinBox()
         self.week.setRange(0, 48)
-        self.week.valueChanged.connect(self.updateDialog)
 
         self.overlap_label = QLabel("Overlap")
         self.overlap_label.setToolTip(
@@ -135,7 +128,6 @@ class BirdNETDialog(QDialog):
         self.overlap = QDoubleSpinBox()
         self.overlap.setRange(0, 2.9)
         self.overlap.setSingleStep(0.1)
-        self.overlap.setValue(0.0)
 
         self.sensitivity_label = QLabel("Sensitivity")
         self.sensitivity_label.setToolTip(
@@ -146,7 +138,6 @@ class BirdNETDialog(QDialog):
         self.sensitivity = QDoubleSpinBox()
         self.sensitivity.setRange(0.5, 1.5)
         self.sensitivity.setSingleStep(0.05)
-        self.sensitivity.setValue(1.0)
 
         self.min_conf_label = QLabel("Minimum confidence")
         self.min_conf_label.setToolTip(
@@ -156,13 +147,11 @@ class BirdNETDialog(QDialog):
         self.min_conf = QDoubleSpinBox()
         self.min_conf.setRange(0.01, 0.99)
         self.min_conf.setSingleStep(0.01)
-        self.min_conf.setValue(0.1)
 
         self.slist = QLineEdit()
         self.slist.setReadOnly(True)
         self.slist.setClearButtonEnabled(True)
         self.slist.findChild(QToolButton).setEnabled(True)
-        self.slist.textChanged.connect(self.updateDialog)
 
         self.btn_slist = QPushButton("Select custom species list")
         self.btn_slist.setToolTip(
@@ -172,7 +161,6 @@ class BirdNETDialog(QDialog):
             "language; Find these files in the installation directory of PAMalyzer "
             "under labels."
         )
-        self.btn_slist.clicked.connect(self.chooseSpeciesList)
 
         self.threads_label = QLabel("Number of threads")
         self.threads_label.setToolTip(
@@ -181,7 +169,6 @@ class BirdNETDialog(QDialog):
         )
         self.threads = QSpinBox()
         self.threads.setRange(1, os.cpu_count())
-        self.threads.setValue(os.cpu_count())
 
         self.mea = QCheckBox("Calculate moving exponential average")
         self.mea.setToolTip(
@@ -191,7 +178,6 @@ class BirdNETDialog(QDialog):
         )
         self.datetime_format_label = QLabel("Datetime format")
         self.datetime_format = QLineEdit()
-        self.datetime_format.textChanged.connect(self.updateDialog)
 
         self.locale = QComboBox()
         # TODO: get list of possible languages from labels_directory?
@@ -236,7 +222,6 @@ class BirdNETDialog(QDialog):
             "Defaults to 1."
         )
         self.batchsize = QSpinBox()
-        self.batchsize.setValue(1)
 
         self.sf_thresh_label = QLabel("Threshold for location filter")
         self.sf_thresh_label.setToolTip(
@@ -248,30 +233,25 @@ class BirdNETDialog(QDialog):
         self.sf_thresh = QDoubleSpinBox()
         self.sf_thresh.setRange(0.000001, 0.999999)
         self.sf_thresh.setSingleStep(0.000001)
-        self.sf_thresh.setValue(0.030000)
         self.sf_thresh.setDecimals(6)
         self.sf_thresh.setDisabled(True)
 
-        self.customClassifier = QLineEdit()
-        self.customClassifier.setReadOnly(True)
-        self.customClassifier.setClearButtonEnabled(True)
-        self.customClassifier.findChild(QToolButton).setEnabled(True)
-        self.customClassifier.textChanged.connect(self.updateDialog)
+        self.custom_classifier = QLineEdit()
+        self.custom_classifier.setReadOnly(True)
+        self.custom_classifier.setClearButtonEnabled(True)
+        self.custom_classifier.findChild(QToolButton).setEnabled(True)
 
-        self.btn_customClassifier = QPushButton("Select custom classifier")
-        self.btn_customClassifier.setToolTip(
+        self.btn_custom_classifier = QPushButton("Select custom classifier")
+        self.btn_custom_classifier.setToolTip(
             "Select the classifier that is used by BirdNET-Analyzer. "
             "This can be either one of the classifiers that are shipped with "
             "BirdNET or a self trained custom classifier based on BirdNET-Analyzer"
         )
-        self.btn_customClassifier.clicked.connect(self.chooseCustomClassifier)
 
         self.btnAdvanced = QPushButton("Show Advanced Settings")
-        self.btnAdvanced.clicked.connect(self.updateSettings)
 
         # Button to start analysis
         self.btnAnalyze = QPushButton("Analyze")
-        self.btnAnalyze.clicked.connect(self.onClickanalyze)
 
         # labels for QLineEdit analyze options
 
@@ -326,8 +306,8 @@ class BirdNETDialog(QDialog):
         param_advanced.addWidget(self.sf_thresh_label, 14, 0)
         param_advanced.addWidget(self.sf_thresh, 14, 1)
 
-        param_advanced.addWidget(self.customClassifier, 15, 0)
-        param_advanced.addWidget(self.btn_customClassifier, 15, 1)
+        param_advanced.addWidget(self.custom_classifier, 15, 0)
+        param_advanced.addWidget(self.btn_custom_classifier, 15, 1)
 
         param_basic.addWidget(self.btnAdvanced, 14, 1)
         analyze_layout.addWidget(self.btnAnalyze)
@@ -345,10 +325,85 @@ class BirdNETDialog(QDialog):
         self.setLayout(layout)
 
         # default: BirdNET-Lite
-        self.lite.setChecked(True)
+        self.load_config()
         self.advanced.hide()
+
+        # connect all the signals
+        self.lite.clicked.connect(self.updateDialog)
+        self.analyzer.clicked.connect(self.updateDialog)
+        self.lat.valueChanged.connect(self.updateDialog)
+        self.lon.valueChanged.connect(self.updateDialog)
+        self.week.valueChanged.connect(self.updateDialog)
+        self.slist.textChanged.connect(self.updateDialog)
+        self.btn_slist.clicked.connect(self.chooseSpeciesList)
+        self.datetime_format.textChanged.connect(self.updateDialog)
+        self.custom_classifier.textChanged.connect(self.updateDialog)
+        self.btn_custom_classifier.clicked.connect(self.chooseCustomClassifier)
+        self.btnAdvanced.clicked.connect(self.updateSettings)
+        self.btnAnalyze.clicked.connect(self.onClickanalyze)
+
         self.min_size = self.size()
         self.updateDialog()
+
+    def load_config(self):
+        self.config = self.parent.config
+        model = self.config["BirdNET_model"]
+        if model == "BirdNET-Analyzer":
+            self.analyzer.setChecked(True)
+        else:
+            self.lite.setChecked(True)
+
+        self.lat.setValue(self.config["BirdNET_latitude"])
+        self.lon.setValue(self.config["BirdNET_longitude"])
+        self.week.setValue(self.config["BirdNET_week"])
+        slist = self.config["BirdNET_custom_species_list"]
+        if os.path.isfile(slist):
+            self.slist.setText(os.path.basename(slist))
+            self.slist_path = slist
+        lan = self.config["BirdNET_language"]
+
+        index_lan = self.locale.findText(lan)
+        if index_lan > -1:
+            self.locale.setCurrentIndex(index_lan)
+
+        self.overlap.setValue(self.config["BirdNET_overlap"])
+        self.sensitivity.setValue(self.config["BirdNET_sensitivity"])
+        self.min_conf.setValue(self.config["BirdNET_min_confidence"])
+        n_threads = self.config["BirdNET_n_threads"]
+        if n_threads in range(1, os.cpu_count() + 1):
+            self.threads.setValue(n_threads)
+        self.mea.setChecked(self.config["BirdNET_moving_exponential_average"])
+        self.batchsize.setValue(self.config["BirdNET_batchsize"])
+        self.sf_thresh.setValue(self.config["BirdNET_location_threshold"])
+
+        custom_classifier = self.config["BirdNET_custom_classifier"]
+        if os.path.isfile(custom_classifier):
+            self.custom_classifier.setText(os.path.basename(custom_classifier))
+            self.classifier_path = custom_classifier
+
+    def write_config(self):
+        self.config["BirdNET_model"] = (
+            "BirdNET-Lite" if self.lite.isChecked() else "BirdNET-Analyzer"
+        )
+        self.config["BirdNET_latitude"] = self.lat.value()
+        self.config["BirdNET_longitude"] = self.lon.value()
+        self.config["BirdNET_week"] = self.week.value()
+
+        self.config["BirdNET_custom_species_list"] = self.slist_path
+        self.config["BirdNET_language"] = self.locale.currentText()
+
+        self.config["BirdNET_overlap"] = self.overlap.value()
+        self.config["BirdNET_sensitivity"] = self.sensitivity.value()
+        self.config["BirdNET_min_confidence"] = self.min_conf.value()
+        self.config["BirdNET_n_threads"] = self.threads.value()
+
+        self.config["BirdNET_moving_exponential_average"] = self.mea.isChecked()
+        self.config["BirdNET_batchsize"] = self.batchsize.value()
+        self.config["BirdNET_location_threshold"] = self.sf_thresh.value()
+
+        self.config["BirdNET_custom_classifier"] = self.classifier_path
+
+        self.parent.ConfigLoader.configwrite(self.config, self.parent.configfile)
 
     def updateSettings(self):
         if self.btnAdvanced.text() == "Show Advanced Settings":
@@ -369,11 +424,11 @@ class BirdNETDialog(QDialog):
         # self.updateDialog()
 
     def chooseCustomClassifier(self):
-        customClassifier = QFileDialog.getOpenFileName(
+        custom_classifier = QFileDialog.getOpenFileName(
             self, "Choose BirdNET-Analyzer model", filter="Model (*.tflite)"
         )
-        self.customClassifier.setText(os.path.basename(customClassifier[0]))
-        self.classifierPath = customClassifier[0]
+        self.custom_classifier.setText(os.path.basename(custom_classifier[0]))
+        self.classifier_path = custom_classifier[0]
 
     def validateInputParameters(self):
         correct = True
@@ -415,7 +470,7 @@ class BirdNETDialog(QDialog):
                 "locale": self.locale.currentText(),
                 "batchsize": self.batchsize.value(),
                 "sf_thresh": self.sf_thresh.value(),
-                "classifier": self.classifierPath if self.classifierPath else None,
+                "classifier": self.classifier_path if self.classifier_path else None,
             }
 
             msg = QMessageBox()
@@ -467,8 +522,8 @@ class BirdNETDialog(QDialog):
             self.lon.setDisabled(False)
             self.week.setDisabled(False)
             self.btn_slist.setDisabled(False)
-            self.customClassifier.setVisible(False)
-            self.btn_customClassifier.setVisible(False)
+            self.custom_classifier.setVisible(False)
+            self.btn_custom_classifier.setVisible(False)
             if self.datetime_format.text() != "":
                 self.week.setDisabled(True)
             elif self.week.value() != 0:
@@ -478,15 +533,14 @@ class BirdNETDialog(QDialog):
                 self.week.setDisabled(False)
 
         else:
-            self.mea.setChecked(False)
             self.datetime_format.setVisible(False)
             self.datetime_format_label.setVisible(False)
             self.batchsize.setVisible(True)
             self.batchsize_label.setVisible(True)
             self.sf_thresh.setVisible(True)
             self.sf_thresh_label.setVisible(True)
-            self.customClassifier.setVisible(True)
-            self.btn_customClassifier.setVisible(True)
+            self.custom_classifier.setVisible(True)
+            self.btn_custom_classifier.setVisible(True)
             if self.lat.value() != -1 or self.lon.value() != -1:
                 self.slist.clear()
                 self.btn_slist.setDisabled(True)
@@ -495,7 +549,7 @@ class BirdNETDialog(QDialog):
             elif self.slist.text() != "":
                 self.lat.setDisabled(True)
                 self.lon.setDisabled(True)
-                self.week.sitDisabled(True)
+                self.week.setDisabled(True)
                 self.sf_thresh.setDisabled(True)
             else:
                 self.lat.setDisabled(False)
@@ -505,8 +559,16 @@ class BirdNETDialog(QDialog):
                 self.week.setDisabled(True)
                 self.btn_slist.setDisabled(False)
                 # self.slist.setText(self.slist_path)
+        if self.slist.text() == "":
+            self.slist_path = ""
+        if self.custom_classifier.text() == "":
+            self.classifier_path = ""
 
         self.adjustSize()
+
+    def closeEvent(self, e):
+        self.write_config()
+        e.accept()
 
 
 class BirdNET(QWidget):
