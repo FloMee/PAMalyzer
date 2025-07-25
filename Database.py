@@ -196,6 +196,7 @@ class DatabaseHandler(QObject):
             (dir + "%",),
         )
         self.delete_orphan_segment_species()
+        self.delete_orphan_recordings()
 
     def delete_file_segments(self, file):
         self.cursor.execute(
@@ -444,3 +445,8 @@ class DatabaseHandler(QObject):
         self.cursor.execute("""DELETE FROM segment_species 
             WHERE segment_id NOT IN 
             (SELECT segment_id FROM segments)""")
+
+    def delete_orphan_recordings(self):
+        self.cursor.execute("""DELETE FROM recording 
+            WHERE filename NOT IN 
+            (SELECT filename FROM segments)""")
