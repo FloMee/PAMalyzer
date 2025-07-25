@@ -120,6 +120,7 @@ class DatabaseHandler(QObject):
             seg_id = self.cursor.fetchone()[0]
             for species in segment[4]:
                 self.add_species(species, seg_id)
+        self.commit()
 
     def add_operator(self, operator):
         self.cursor.execute(
