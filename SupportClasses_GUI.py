@@ -22,7 +22,6 @@
 
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 import io
 import math
 import os
@@ -31,6 +30,7 @@ from collections.abc import Generator
 from time import sleep
 
 import numpy as np
+import pandas as pd
 import pyqtgraph as pg
 import pyqtgraph.functions as fn
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -1536,12 +1536,24 @@ class LightedFileList(QListWidget):
             )
             self.soundDir = os.path.abspath(soundDir)
             file_sp_conf = self.database.get_file_species_max_confidence(self.soundDir)
-            file_sp_conf_dict = {}
-            for d, f, s, c in file_sp_conf:
-                if f in file_sp_conf_dict.keys():
-                    file_sp_conf_dict[f].append((s, c))
-                else:
-                    file_sp_conf_dict[f] = [(s, c)]
+
+            # convert list of tuples to pandas DataFrame to easily group values
+            file_sp_conf = pd.DataFrame(
+                file_sp_conf, columns=["dir", "file", "species", "confidence"]
+            )
+            # group by file
+            file_sp_conf_grouped = file_sp_conf.groupby("file")
+
+            # convert to dict where keys are files and values are tuples of species and confidence
+            file_sp_conf_dict = {
+                group[0]: list(
+                    group[1][["species", "confidence"]].itertuples(
+                        index=False, name=None
+                    )
+                )
+                for group in file_sp_conf_grouped
+            }
+
             for i, file in enumerate(self.listOfFiles):
                 # add entry to the list
                 # item = QListWidgetItem(self)
@@ -1567,10 +1579,16 @@ class LightedFileList(QListWidget):
                         # We still might need to walk the subfolders for sp lists and wav formats!
                         if not recursive:
                             continue
-                        dirspcert = self.database.get_dir_species_max_confidence(
-                            os.path.abspath(file)
-                        )
-                        self.set_item_data(item, dirspcert)
+                        dir_sp_conf = file_sp_conf[
+                            file_sp_conf["dir"].str.startswith(os.path.abspath(file))
+                        ]
+                        dir_sp_conf_grouped = dir_sp_conf.groupby("species").max()
+
+                        dspc = [
+                            (s, c)
+                            for s, _, _, c in dir_sp_conf_grouped.itertuples(name=None)
+                        ]
+                        self.set_item_data(item, dspc)
 
                 else:
                     item.setText(file.fileName())
@@ -1621,7 +1639,6 @@ class LightedFileList(QListWidget):
     ) -> None:
         """Sets a dict of maximum confidence value per species as item data
         and updates the list of species and maximum confidence values"""
-
         item_data = {species: max_conf for species, max_conf in filespconf}
         item.setData(QtCore.Qt.UserRole, item_data)
 
