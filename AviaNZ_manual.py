@@ -2252,7 +2252,6 @@ class AviaNZ(QMainWindow):
             # Load any previous segments stored
             self.segments.getData(self, self.filename)
             # If there are segments, show them
-
         for count in range(len(self.segments)):
             self.addSegment(
                 startpoint=self.segments[count][0],
@@ -2939,12 +2938,17 @@ class AviaNZ(QMainWindow):
                     # Check if the user has clicked in a box
                     # Note: Returns the first one it finds, i.e. the newest
                     box1id = -1
+                    min_distance = float("inf")
                     for count in range(len(self.listRectanglesa1)):
-                        if self.listRectanglesa1[count] is not None:
-                            x1, x2 = self.listRectanglesa1[count].getRegion()
-                            if x1 <= mousePoint.x() and x2 >= mousePoint.x():
-                                box1id = count
-                                break
+                        rect = self.listRectanglesa1[count]
+                        if rect is not None:
+                            x1, x2 = rect.getRegion()
+                            if x1 <= mousePoint.x() <= x2:
+                                center_x = (x1 + x2) / 2
+                                distance = abs(mousePoint.x() - center_x)
+                                if distance < min_distance:
+                                    min_distance = distance
+                                    box1id = count
 
                     # User clicked in a segment:
                     if box1id > -1:
@@ -3136,28 +3140,38 @@ class AviaNZ(QMainWindow):
                     # Check if the user has clicked in a box
                     # Note: Returns the first one it finds, i.e. the newest
                     box1id = -1
+                    min_distance = float("inf")
                     for count in range(len(self.listRectanglesa2)):
-                        if (
-                            type(self.listRectanglesa2[count]) == self.ROItype
-                            and self.listRectanglesa2[count] is not None
-                        ):
-                            x1 = self.listRectanglesa2[count].pos().x()
-                            y1 = self.listRectanglesa2[count].pos().y()
-                            x2 = x1 + self.listRectanglesa2[count].size().x()
-                            y2 = y1 + self.listRectanglesa2[count].size().y()
+                        rect = self.listRectanglesa2[count]
+                        if rect is None:
+                            continue
+
+                        if type(rect) is self.ROItype:
+                            x1 = rect.pos().x()
+                            y1 = rect.pos().y()
+                            x2 = x1 + rect.size().x()
+                            y2 = y1 + rect.size().y()
+
                             if (
-                                x1 <= mousePoint.x()
-                                and x2 >= mousePoint.x()
-                                and y1 <= mousePoint.y()
-                                and y2 >= mousePoint.y()
+                                x1 <= mousePoint.x() <= x2
+                                and y1 <= mousePoint.y() <= y2
                             ):
-                                box1id = count
-                                break
-                        elif self.listRectanglesa2[count] is not None:
-                            x1, x2 = self.listRectanglesa2[count].getRegion()
-                            if x1 <= mousePoint.x() and x2 >= mousePoint.x():
-                                box1id = count
-                                break
+                                center_x = (x1 + x2) / 2
+                                center_y = (y1 + y2) / 2
+                                distance = math.hypot(
+                                    mousePoint.x() - center_x, mousePoint.y() - center_y
+                                )
+                                if distance < min_distance:
+                                    min_distance = distance
+                                    box1id = count
+                        else:
+                            x1, x2 = rect.getRegion()
+                            if x1 <= mousePoint.x() <= x2:
+                                center_x = (x1 + x2) / 2
+                                distance = abs(mousePoint.x() - center_x)
+                                if distance < min_distance:
+                                    min_distance = distance
+                                    box1id = count
 
                     # User clicked in a segment:
                     if box1id > -1:
