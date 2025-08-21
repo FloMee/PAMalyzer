@@ -72,7 +72,7 @@ class DatabaseHandler(QObject):
             end REAL,
             low REAL,
             high REAL,
-            operator_id,
+            operator_id INTEGER,
             FOREIGN KEY(filename) REFERENCES recording(filename),
             FOREIGN KEY(operator_id) REFERENCES operator(operator_id))"""
         )
@@ -80,11 +80,11 @@ class DatabaseHandler(QObject):
         # table segment_species: connects segments and species
         self.cursor.execute(
             """CREATE TABLE IF NOT EXISTS segment_species(
-            species_scientific_name,
+            species_scientific_name CHAR,
             confidence REAL,
-            segment_id,
-            filter_id,
-            calltype_id,
+            segment_id INTEGER,
+            filter_id INTEGER,
+            calltype_id INTEGER,
             FOREIGN KEY(species_scientific_name) REFERENCES species(scientific_name),
             FOREIGN KEY(segment_id) REFERENCES segments(segment_id),
             FOREIGN KEY(filter_id) REFERENCES filters(filter_id),
@@ -97,6 +97,12 @@ class DatabaseHandler(QObject):
         )
         self.cursor.execute(
             """CREATE UNIQUE INDEX IF NOT EXISTS idx_segment_species_unique on segment_species(species_scientific_name, confidence, segment_id, filter_id, calltype_id)"""
+        )
+        self.cursor.execute(
+            """CREATE INDEX IF NOT EXISTS idx_segment_species_segment_id on segment_species(segment_id)"""
+        )
+        self.cursor.execute(
+            """CREATE INDEX IF NOT EXISTS idx_recording_directory on recording(directory)"""
         )
 
     @pyqtSlot(Segment.SegmentList, str)
