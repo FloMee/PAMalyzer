@@ -1500,6 +1500,8 @@ class AviaNZ(QMainWindow):
             self.listFiles.sortItems()
             self.listFiles.restrict(self.currentSpecies, self.certSlider.value())
             self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
+            self.removeSegments()
+            self.drawfigMain()
         self.updateListSpecies()
 
     def loadFile(self, name=None):
@@ -2541,6 +2543,7 @@ class AviaNZ(QMainWindow):
             # convert from absolute times to relative-to-page times
             startpoint = startpoint - self.startRead
             endpoint = endpoint - self.startRead
+        species_list = [entry["species"] for entry in species]
 
         if not saveSeg:
             # check if this segment fits in the current spectrogram page
@@ -2559,6 +2562,9 @@ class AviaNZ(QMainWindow):
         else:
             self.segmentsToSave = True
             show = True
+
+        if self.currentSpecies != "Species" and self.currentSpecies not in species_list:
+            show = False
 
         if saveSeg or show:
             # create a Segment. this will check for errors and standardize the labels
