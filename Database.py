@@ -357,13 +357,13 @@ class DatabaseHandler(QObject):
         )
         return self.cursor.fetchall()
 
-    def get_dir_species_max_confidence(self, dirname):
+    def get_dir_species_confidence(self, dirname):
         self.cursor.execute(
-            """SELECT segment_species.species_scientific_name, MAX(segment_species.confidence) FROM recording 
-            INNER JOIN segments ON recording.filename=segments.filename 
-            INNER JOIN segment_species ON segments.segment_id = segment_species.segment_id 
-            WHERE recording.directory LIKE ? GROUP BY segment_species.species_scientific_name""",
-            (dirname + "%",),
+            """SELECT segment_species.species_scientific_name, segment_species.confidence FROM recording 
+            CROSS JOIN segments ON recording.filename=segments.filename 
+            CROSS JOIN segment_species ON segments.segment_id = segment_species.segment_id 
+            WHERE recording.directory = ?""",
+            (dirname,),
         )
         return self.cursor.fetchall()
 
@@ -423,13 +423,13 @@ class DatabaseHandler(QObject):
         )
         return self.cursor.fetchall()
 
-    def get_file_species_max_confidence(self, dirname):
+    def get_files_species_confidence(self, dirname):
         self.cursor.execute(
-            """SELECT recording.directory, recording.filename, segment_species.species_scientific_name, MAX(segment_species.confidence) FROM recording 
-            INNER JOIN segments ON recording.filename=segments.filename 
-            INNER JOIN segment_species ON segments.segment_id = segment_species.segment_id 
-            WHERE recording.directory LIKE ? GROUP BY recording.filename, segment_species.species_scientific_name""",
-            (dirname + "%",),
+            """SELECT recording.directory, recording.filename, segment_species.species_scientific_name, segment_species.confidence FROM recording 
+            CROSS JOIN segments ON recording.filename=segments.filename 
+            CROSS JOIN segment_species ON segments.segment_id = segment_species.segment_id 
+            WHERE recording.directory = ? """,
+            (dirname,),
         )
         return self.cursor.fetchall()
 

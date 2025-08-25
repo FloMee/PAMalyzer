@@ -29,7 +29,11 @@ def sortable_item_empty(qtbot, lighted_file_list):
 def sortable_item_one(qtbot, lighted_file_list):
     lw_item = SupportClasses_GUI.SortableListWidgetItem(lighted_file_list)
     lw_item.setText("1.wav")
-    data = {"Bartgeier": 57.3, "Haubenlerche": 12.2, "Common Redstart": 93.1}
+    data = {
+        "Bartgeier": [57.3, 20.4, 16.2],
+        "Haubenlerche": [12.2, 10.1, 12.2],
+        "Common Redstart": [93.1],
+    }
     lw_item.setData(QtCore.Qt.UserRole, data)
     return lw_item
 
@@ -38,7 +42,7 @@ def sortable_item_one(qtbot, lighted_file_list):
 def sortable_item_two(qtbot, lighted_file_list):
     lw_item = SupportClasses_GUI.SortableListWidgetItem(lighted_file_list)
     lw_item.setText("2.wav")
-    data = {"Bartgeier": 88.3, "Haubenlerche": 12.2}
+    data = {"Bartgeier": [88.3, 10.1], "Haubenlerche": [12.2]}
     lw_item.setData(QtCore.Qt.UserRole, data)
     return lw_item
 
@@ -123,7 +127,7 @@ def test_min_max_confidence_with_data_empty_species(qtbot, sortable_item_one):
 
 
 def test_min_max_confidence_with_data_species(qtbot, sortable_item_one):
-    assert sortable_item_one.get_min_max_confidence("Bartgeier") == (57.3, 57.3)
+    assert sortable_item_one.get_min_max_confidence("Bartgeier") == (16.2, 57.3)
 
 
 def test_paint_vulture(qtbot, lighted_file_list, sortable_item_one, qicon_vulture_one):

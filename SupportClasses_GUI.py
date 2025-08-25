@@ -1362,9 +1362,9 @@ class SortableListWidgetItem(QListWidgetItem):
         max_conf = 0
         if data:
             if species in data.keys():
-                max_conf = data[species]
+                max_conf = max(data[species])
             elif species == "Species":
-                max_conf = max(data.values())
+                max_conf = max(max(data.values()))
         return max_conf
 
     def paint(self, conf_slider_val: float, current_species: str):
@@ -1383,12 +1383,11 @@ class SortableListWidgetItem(QListWidgetItem):
         max_conf = 0
         min_conf = -1
         if current_species == "Species" and data != {}:
-            min_conf = min(data.values())
-            max_conf = max(data.values())
+            min_conf = min(min(data.values()))
+            max_conf = max(max(data.values()))
         elif current_species in data.keys():
-            max_conf = data[current_species]
-            min_conf = max_conf
-
+            max_conf = max(data[current_species])
+            min_conf = min(data[current_species])
         return (min_conf, max_conf)
 
     def paintIcon(
@@ -1535,24 +1534,26 @@ class LightedFileList(QListWidget):
                 sort=QDir.DirsFirst,
             )
             self.soundDir = os.path.abspath(soundDir)
-            file_sp_conf = self.database.get_file_species_max_confidence(self.soundDir)
+            file_sp_conf = self.database.get_files_species_confidence(self.soundDir)
 
             # convert list of tuples to pandas DataFrame to easily group values
             file_sp_conf = pd.DataFrame(
                 file_sp_conf, columns=["dir", "file", "species", "confidence"]
             )
-            # group by file
-            file_sp_conf_grouped = file_sp_conf.groupby("file")
+            # group by file and species and convert confidence values to list of confidence values
+            file_sp_conf_grouped = (
+                file_sp_conf.groupby(["file", "species"])["confidence"]
+                .apply(list)
+                .reset_index()
+            )
 
-            # convert to dict where keys are files and values are tuples of species and confidence
-            file_sp_conf_dict = {
-                group[0]: list(
-                    group[1][["species", "confidence"]].itertuples(
-                        index=False, name=None
-                    )
-                )
-                for group in file_sp_conf_grouped
-            }
+            # convert to dict where keys are files and values are tuples of species and list of confidences
+            file_sp_conf_dict = {}
+            for _, row in file_sp_conf_grouped.iterrows():
+                file = row["file"]
+                species = row["species"]
+                confidences = row["confidence"]
+                file_sp_conf_dict.setdefault(file, []).append((species, confidences))
 
             for i, file in enumerate(self.listOfFiles):
                 # add entry to the list
@@ -1579,14 +1580,26 @@ class LightedFileList(QListWidget):
                         # We still might need to walk the subfolders for sp lists and wav formats!
                         if not recursive:
                             continue
-                        dir_sp_conf = file_sp_conf[
-                            file_sp_conf["dir"].str.startswith(os.path.abspath(file))
-                        ]
-                        dir_sp_conf_grouped = dir_sp_conf.groupby("species").max()
 
+                        # get all species, confidence tuples of directory
+                        dir_sp_conf = self.database.get_dir_species_confidence(
+                            os.path.join(self.soundDir, file.fileName())
+                        )
+                        # convert to DataFrame for easy grouping
+                        dir_sp_conf = pd.DataFrame(
+                            dir_sp_conf, columns=["species", "confidence"]
+                        )
+                        # group by species and collect confidence values in list
+                        dir_sp_conf_grouped = (
+                            dir_sp_conf.groupby(["species"])["confidence"]
+                            .apply(list)
+                            .reset_index()
+                        )
+
+                        # convert to tuples with species and list of confidences
                         dspc = [
-                            (s, c)
-                            for s, _, _, c in dir_sp_conf_grouped.itertuples(name=None)
+                            (row["species"], row["confidence"])
+                            for _, row in dir_sp_conf_grouped.iterrows()
                         ]
                         self.set_item_data(item, dspc)
 
@@ -1615,7 +1628,7 @@ class LightedFileList(QListWidget):
                                 )
                                 print(e)
                 self.insertItem(i, item)
-            self.restrict(species, self.conf_slider_value)
+            self.restrict(self.current_species, self.conf_slider_value)
         if readFmt:
             print("Found the following Fs:", self.fsList)
 
@@ -1639,15 +1652,15 @@ class LightedFileList(QListWidget):
     ) -> None:
         """Sets a dict of maximum confidence value per species as item data
         and updates the list of species and maximum confidence values"""
-        item_data = {species: max_conf for species, max_conf in filespconf}
+        item_data = {species: conf for species, conf in filespconf}
         item.setData(QtCore.Qt.UserRole, item_data)
 
         # collect some extra info about this file as we've read it anyway
         for sp, conf in filespconf:
-            if sp in self.spListCert.keys() and self.spListCert[sp] > conf:
+            if sp in self.spListCert.keys() and self.spListCert[sp] > max(conf):
                 continue
             else:
-                self.spListCert[sp] = conf
+                self.spListCert[sp] = max(conf)
 
     def paintIcon(
         self,
