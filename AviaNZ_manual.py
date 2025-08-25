@@ -980,18 +980,24 @@ class AviaNZ(QMainWindow):
         self.listSpecies.setToolTip(
             "Select species and tick the Box to reduce filelist."
         )
-        self.listSpecies.currentIndexChanged.connect(self.updateListFiles)
+        self.listSpecies.currentIndexChanged.connect(
+            self.update_list_species_index_changed
+        )
         self.currentSpecies = "Species"
         # self.tickSpecies = QCheckBox("Only files with selected species?")
         self.tickSpecies = QCheckBox()
         self.tickSpecies.setToolTip("Tick to reduce filelist to current species.")
-        self.tickSpecies.stateChanged.connect(lambda: self.updateListFiles(True))
+        self.tickSpecies.stateChanged.connect(self.update_tick_species_state_changed)
         self.certSlider = QSlider(Qt.Horizontal)
         self.certSlider.setToolTip("Select minimum confidence to reduce filelist.")
         self.certSlider.setMinimum(0)
         self.certSlider.setMaximum(100)
         self.certSlider.setValue(0)
-        self.certSlider.valueChanged.connect(self.updateListFiles)
+        self.certSlider.setTracking(False)
+        self.certSlider.valueChanged.connect(
+            self.update_confidence_slider_value_changed
+        )
+        self.certSlider.sliderMoved.connect(self.update_confidence_slider_moved)
         self.certValue = QLabel()
         self.certValue.setToolTip("Current selected minimum confidence value.")
         self.certValue.setText(str(self.certSlider.value()))
@@ -1261,7 +1267,6 @@ class AviaNZ(QMainWindow):
         if not os.path.isdir(dir):
             print("ERROR: directory %s doesn't exist" % dir)
             return
-
         self.listFiles.fill(dir, fileName, self.certSlider.value(), self.currentSpecies)
         self.updateListSpecies()
 
@@ -1283,7 +1288,7 @@ class AviaNZ(QMainWindow):
                 [
                     "{} {:.0f}".format(key, value)
                     for key, value in self.listFiles.spListCert.items()
-                    if value > self.certSlider.value()
+                    if value > self.certSlider.value() or key == currentSpecies
                 ]
             ),
         )
@@ -1301,7 +1306,9 @@ class AviaNZ(QMainWindow):
         self.currentSpecies = self.listSpecies.currentText().rpartition(" ")[0]
 
         # reconnect updateListFiles to listSpecies
-        self.listSpecies.currentIndexChanged.connect(self.updateListFiles)
+        self.listSpecies.currentIndexChanged.connect(
+            self.update_list_species_index_changed
+        )
 
     def resetStorageArrays(self):
         """Called when new files are loaded.
@@ -1486,23 +1493,42 @@ class AviaNZ(QMainWindow):
         self.listFiles.sortItems()
         self.listFiles.restrict(self.currentSpecies, self.certSlider.value())
 
-    def updateListFiles(self, force=False):
-        self.listFiles.showAll = not self.tickSpecies.isChecked()
+    def update_tick_species_state_changed(self, state):
+        """This function is called when the species checkbox is clicked.
+        It restricts the list of files and updates the segments if needed"""
+        self.listFiles.showAll = not state
+        self.listFiles.sortItems()
+        self.listFiles.restrict(self.currentSpecies, self.certSlider.value())
+        self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
+        if not self.currentSpecies == "Species":
+            self.removeSegments()
+            self.drawfigMain()
+
+    def update_list_species_index_changed(self, idx):
+        """This function is called when the user chooses another species in the list.
+        It restricts the list of files and updates the segments if needed"""
         oldSpecies = self.currentSpecies
         self.currentSpecies = self.listSpecies.currentText().rpartition(" ")[0]
-        self.certValue.setText(str(self.certSlider.value()))
-        if force or oldSpecies != self.currentSpecies:
-            # if oldSpecies != "Species" and self.currentSpecies == "Species":
-            #     self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
-            # # elif oldSpecies != self.currentSpecies:
-            # else:
+        if oldSpecies != self.currentSpecies:
             self.listFiles.current_species = self.currentSpecies
             self.listFiles.sortItems()
             self.listFiles.restrict(self.currentSpecies, self.certSlider.value())
             self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
-            self.removeSegments()
-            self.drawfigMain()
+            if not self.listFiles.showAll:
+                self.removeSegments()
+                self.drawfigMain()
+
+    def update_confidence_slider_value_changed(self, value):
+        """This function is called when the user chooses another confidence threshold.
+        It restricts the list of files accordingly"""
+        self.certValue.setText(str(self.certSlider.value()))
+        self.listFiles.sortItems()
+        self.listFiles.restrict(self.currentSpecies, self.certSlider.value())
+        self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
         self.updateListSpecies()
+
+    def update_confidence_slider_moved(self, position):
+        self.certValue.setText(str(position))
 
     def loadFile(self, name=None):
         """This does the work of loading a file.
@@ -2563,7 +2589,11 @@ class AviaNZ(QMainWindow):
             self.segmentsToSave = True
             show = True
 
-        if self.currentSpecies != "Species" and self.currentSpecies not in species_list:
+        if (
+            not self.listFiles.showAll
+            and self.currentSpecies != "Species"
+            and self.currentSpecies not in species_list
+        ):
             show = False
 
         if saveSeg or show:
@@ -6083,8 +6113,7 @@ class AviaNZ(QMainWindow):
             for detection in segment[4]:
                 sp = detection["species"]
                 conf = detection["certainty"]
-                if sp not in data.keys() or (sp in data.keys() and data[sp] < conf):
-                    data[sp] = conf
+                data.setdefault(sp, []).append(conf)
         self.listFiles.currentItem().setData(QtCore.Qt.UserRole, data)
         self.listFiles.currentItem().paint(self.certSlider.value(), self.currentSpecies)
 
