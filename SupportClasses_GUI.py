@@ -22,6 +22,7 @@
 
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+import bisect
 import io
 import math
 import os
@@ -1338,6 +1339,7 @@ class SortableListWidgetItem(QListWidgetItem):
         self.parent = parent
         self.pixmap = QPixmap(50, 10)
         self.blackpen = fn.mkPen(color=(160, 160, 160, 255), width=2)
+        self.max_conf = 0
 
     def __lt__(self, other):
         if self.text() == "../":
@@ -1347,8 +1349,8 @@ class SortableListWidgetItem(QListWidgetItem):
             return False
 
         elif self.parent.rank_sort:
-            maxthis = self.get_max_conf()
-            maxother = other.get_max_conf()
+            maxthis = self.max_conf
+            maxother = other.max_conf
             if maxthis == maxother:
                 return self.text() < other.text()
             else:
@@ -1356,38 +1358,46 @@ class SortableListWidgetItem(QListWidgetItem):
         else:
             return self.text() < other.text()
 
-    def get_max_conf(self):
-        data = self.data(QtCore.Qt.UserRole)
-        species = self.parent.current_species
-        max_conf = 0
-        if data:
-            if species in data.keys():
-                max_conf = max(data[species])
-            elif species == "Species":
-                max_conf = max(max(data.values()))
-        return max_conf
-
-    def paint(self, conf_slider_val: float, current_species: str):
+    def paint(self, conf_slider_val: tuple, current_species: str):
         data = self.data(QtCore.Qt.UserRole)
         if not data or data == []:
             self.paintIcon()
+            self.max_conf = 0
         else:
-            min_conf, max_conf = self.get_min_max_confidence(current_species)
-            if conf_slider_val > max_conf:
+            min_conf, max_conf = self.get_min_max_confidence(
+                current_species, conf_slider_val
+            )
+            self.max_conf = max_conf
+            if conf_slider_val[0] > max_conf:
                 min_conf = -1
 
             self.paintIcon(True, min_conf, max_conf)
 
-    def get_min_max_confidence(self, current_species) -> tuple:
+    def get_min_max_confidence(
+        self, current_species: str, conf_slider_val: tuple
+    ) -> tuple:
         data = self.data(QtCore.Qt.UserRole)
         max_conf = 0
         min_conf = -1
-        if current_species == "Species" and data != {}:
-            min_conf = min(min(data.values()))
-            max_conf = max(max(data.values()))
-        elif current_species in data.keys():
-            max_conf = max(data[current_species])
-            min_conf = min(data[current_species])
+        species_data = []
+        if data != {}:
+            if current_species == "Species":
+                species_data = [
+                    conf for conf_list in data.values() for conf in conf_list
+                ]
+            elif current_species in data.keys():
+                species_data = data[current_species]
+
+            species_data.sort()
+            confidences = species_data[
+                bisect.bisect_left(species_data, conf_slider_val[0]) : bisect.bisect(
+                    species_data, conf_slider_val[1]
+                )
+            ]
+            if confidences:
+                min_conf = min(confidences)
+                max_conf = max(confidences)
+
         return (min_conf, max_conf)
 
     def paintIcon(
@@ -1736,17 +1746,6 @@ class LightedFileList(QListWidget):
     def iterAllItems(self) -> Generator[SortableListWidgetItem]:
         for i in range(self.count()):
             yield self.item(i)
-
-    def get_min_max_confidence_from_data(self, data: dict) -> tuple:
-        max_conf = 0
-        min_conf = -1
-        if self.current_species == "Species" and data != {}:
-            min_conf = min(data.values())
-            max_conf = max(data.values())
-        elif self.current_species in data.keys():
-            max_conf = data[self.current_species]
-            min_conf = max_conf
-        return (min_conf, max_conf)
 
 
 class MainPushButton(QPushButton):

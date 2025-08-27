@@ -20,7 +20,6 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # ? click, shutil
-
 import copy
 import fnmatch
 import json
@@ -38,6 +37,7 @@ import openpyxl
 import pyqtgraph as pg
 import pyqtgraph.exporters as pge
 import pyqtgraph.functions as fn
+import superqt
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QDir, QLocale, QModelIndex, QPoint, QPointF, QRectF, Qt, QTimer
 from PyQt5.QtGui import QIcon, QKeySequence, QPixmap, QStandardItem, QStandardItemModel
@@ -64,7 +64,6 @@ from PyQt5.QtWidgets import (
     QScrollBar,
     QShortcut,
     QSizePolicy,
-    QSlider,
     QSpinBox,
     QToolButton,
     QTreeView,
@@ -988,24 +987,26 @@ class AviaNZ(QMainWindow):
         self.tickSpecies = QCheckBox()
         self.tickSpecies.setToolTip("Tick to reduce filelist to current species.")
         self.tickSpecies.stateChanged.connect(self.update_tick_species_state_changed)
-        self.certSlider = QSlider(Qt.Horizontal)
-        self.certSlider.setToolTip("Select minimum confidence to reduce filelist.")
-        self.certSlider.setMinimum(0)
-        self.certSlider.setMaximum(100)
-        self.certSlider.setValue(0)
-        self.certSlider.setTracking(False)
-        self.certSlider.valueChanged.connect(
-            self.update_confidence_slider_value_changed
-        )
-        self.certSlider.sliderMoved.connect(self.update_confidence_slider_moved)
-        self.certValue = QLabel()
-        self.certValue.setToolTip("Current selected minimum confidence value.")
-        self.certValue.setText(str(self.certSlider.value()))
+        self.tickSpecies.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
 
+        self.conf_range_slider = superqt.QLabeledRangeSlider(Qt.Horizontal)
+        self.conf_range_slider.setRange(0, 100)
+        self.conf_range_slider.setHandleLabelPosition(0)
+        self.conf_range_slider.setEdgeLabelMode(2)
+        self.conf_range_slider.setValue((0, 100))
+        self.conf_range_slider.setTracking(False)
+        self.conf_range_slider.valuesChanged.connect(
+            self.update_conf_range_slider_value_changed
+        )
+        self.conf_range_slider.slidersMoved.connect(self.update_conf_range_slider_moved)
+        self.conf_range_slider.sliderReleased.connect(
+            self.update_conf_range_slider_released
+        )
+
+        self.confidence_range = (0, 100)
         self.w_files.addWidget(self.listSpecies, row=2, col=0)
         self.w_files.addWidget(self.tickSpecies, row=2, col=1)
-        self.w_files.addWidget(self.certSlider, row=4, col=0)
-        self.w_files.addWidget(self.certValue, row=4, col=1)
+        self.w_files.addWidget(self.conf_range_slider, row=4, col=0, colspan=2)
         self.w_files.addWidget(self.listFiles, row=5, colspan=2)
 
         # The context menu (drops down on mouse click) to select birds
@@ -1267,7 +1268,7 @@ class AviaNZ(QMainWindow):
         if not os.path.isdir(dir):
             print("ERROR: directory %s doesn't exist" % dir)
             return
-        self.listFiles.fill(dir, fileName, self.certSlider.value(), self.currentSpecies)
+        self.listFiles.fill(dir, fileName, self.confidence_range, self.currentSpecies)
         self.updateListSpecies()
 
     def updateListSpecies(self):
@@ -1288,7 +1289,7 @@ class AviaNZ(QMainWindow):
                 [
                     "{} {:.0f}".format(key, value)
                     for key, value in self.listFiles.spListCert.items()
-                    if value > self.certSlider.value() or key == currentSpecies
+                    if value > self.confidence_range[0] or key == currentSpecies
                 ]
             ),
         )
@@ -1490,15 +1491,15 @@ class AviaNZ(QMainWindow):
     def toggleRankSort(self):
         self.listFiles.rank_sort = self.rank_sort.isChecked()
         self.listFiles.setSortingEnabled(True)
+        self.listFiles.restrict(self.currentSpecies, self.confidence_range)
         self.listFiles.sortItems()
-        self.listFiles.restrict(self.currentSpecies, self.certSlider.value())
 
     def update_tick_species_state_changed(self, state):
         """This function is called when the species checkbox is clicked.
         It restricts the list of files and updates the segments if needed"""
         self.listFiles.showAll = not state
+        self.listFiles.restrict(self.currentSpecies, self.confidence_range)
         self.listFiles.sortItems()
-        self.listFiles.restrict(self.currentSpecies, self.certSlider.value())
         self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
         if not self.currentSpecies == "Species":
             self.removeSegments()
@@ -1511,24 +1512,35 @@ class AviaNZ(QMainWindow):
         self.currentSpecies = self.listSpecies.currentText().rpartition(" ")[0]
         if oldSpecies != self.currentSpecies:
             self.listFiles.current_species = self.currentSpecies
+            self.listFiles.restrict(self.currentSpecies, self.confidence_range)
             self.listFiles.sortItems()
-            self.listFiles.restrict(self.currentSpecies, self.certSlider.value())
             self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
             if not self.listFiles.showAll:
                 self.removeSegments()
                 self.drawfigMain()
 
-    def update_confidence_slider_value_changed(self, value):
-        """This function is called when the user chooses another confidence threshold.
+    def update_conf_range_slider_value_changed(self, values):
+        """This function is called when the user chooses another confidence range.
         It restricts the list of files accordingly"""
-        self.certValue.setText(str(self.certSlider.value()))
+        self.confidence_range = values
+        self.listFiles.restrict(self.currentSpecies, values)
         self.listFiles.sortItems()
-        self.listFiles.restrict(self.currentSpecies, self.certSlider.value())
         self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
         self.updateListSpecies()
 
-    def update_confidence_slider_moved(self, position):
-        self.certValue.setText(str(position))
+    def update_conf_range_slider_moved(self, position):
+        """This function is called when the user uses the mouse to move the confidence range slider.
+        As tracking is turned of the min/max values have to be updated here"""
+        self.conf_range_slider._min_label.setValue(position[0])
+        self.conf_range_slider._max_label.setValue(position[1])
+
+    def update_conf_range_slider_released(self):
+        """This function is called after the user moved the confidence range slider with the mouse.
+        As tracking of the confidence range slider is turned of this function calls the update
+        after value changed function"""
+        self.update_conf_range_slider_value_changed(
+            self.conf_range_slider.sliderPosition()
+        )
 
     def loadFile(self, name=None):
         """This does the work of loading a file.
@@ -1781,7 +1793,7 @@ class AviaNZ(QMainWindow):
         i = self.listFiles.currentRow()
         if not skipHidden and i > 1:
             self.listFiles.setCurrentRow(i - 1)
-            self.listFiles.restrict(self.currentSpecies, self.certSlider.value())
+            self.listFiles.restrict(self.currentSpecies, self.confidence_range)
             self.listLoadFile(self.listFiles.currentItem())
             return
 
@@ -1790,7 +1802,7 @@ class AviaNZ(QMainWindow):
             self.listFiles.setCurrentRow(
                 self.listFiles.currentIndices[currentIndex - 1]
             )
-            self.listFiles.restrict(self.currentSpecies, self.certSlider.value())
+            self.listFiles.restrict(self.currentSpecies, self.confidence_range)
 
         else:
             # Tell the user they've finished
@@ -1813,7 +1825,7 @@ class AviaNZ(QMainWindow):
         i = self.listFiles.currentRow()
         if not skipHidden and i + 1 < len(self.listFiles):
             self.listFiles.setCurrentRow(i + 1)
-            self.listFiles.restrict(self.currentSpecies, self.certSlider.value())
+            self.listFiles.restrict(self.currentSpecies, self.confidence_range)
             self.listLoadFile(self.listFiles.currentItem())
             return
 
@@ -1822,7 +1834,7 @@ class AviaNZ(QMainWindow):
             self.listFiles.setCurrentRow(
                 self.listFiles.currentIndices[currentIndex + 1]
             )
-            self.listFiles.restrict(self.currentSpecies, self.certSlider.value())
+            self.listFiles.restrict(self.currentSpecies, self.confidence_range)
 
         else:
             # Tell the user they've finished
@@ -4659,11 +4671,14 @@ class AviaNZ(QMainWindow):
 
         if self.currentSpecies == "Species":
             segment_data = self.database.get_dir_segments(
-                self.SoundFileDir, self.certSlider.value()
+                self.SoundFileDir,
+                self.confidence_range[0],
             )
         else:
             segment_data = self.database.get_dir_species_segments(
-                self.SoundFileDir, self.currentSpecies, self.certSlider.value()
+                self.SoundFileDir,
+                self.currentSpecies,
+                self.confidence_range[0],
             )
 
         all_files = []
@@ -5194,7 +5209,9 @@ class AviaNZ(QMainWindow):
     def exportFiles(self):
         """Copy files with selected species and segments with confidence > selected confidence to specified folder"""
         fileDirList = self.database.get_files_with_species(
-            self.currentSpecies, self.SoundFileDir, self.certSlider.value()
+            self.currentSpecies,
+            self.SoundFileDir,
+            self.confidence_range[0],
         )
         self.exportFilelist = [os.path.join(dir, file) for file, dir in fileDirList]
         print(self.exportFilelist)
@@ -5209,7 +5226,7 @@ class AviaNZ(QMainWindow):
         to_export = {}
         for seg in segments:
             file = os.path.join(seg[0], seg[1])
-            if seg[7] >= self.certSlider.value():
+            if seg[7] >= self.confidence_range[0]:
                 seg = [
                     seg[2],
                     seg[3],
@@ -5245,11 +5262,14 @@ class AviaNZ(QMainWindow):
 
         if self.currentSpecies == "Species":
             fileDirList = self.database.get_grouped_dir_segments(
-                self.SoundFileDir, self.certSlider.value()
+                self.SoundFileDir,
+                self.confidence_range[0],
             )
         else:
             fileDirList = self.database.get_grouped_dir_species_segments(
-                self.SoundFileDir, self.currentSpecies, self.certSlider.value()
+                self.SoundFileDir,
+                self.currentSpecies,
+                self.confidence_range[0],
             )
         self.export_segments_dict = {}
         for entry in fileDirList:
@@ -6115,7 +6135,7 @@ class AviaNZ(QMainWindow):
                 conf = detection["certainty"]
                 data.setdefault(sp, []).append(conf)
         self.listFiles.currentItem().setData(QtCore.Qt.UserRole, data)
-        self.listFiles.currentItem().paint(self.certSlider.value(), self.currentSpecies)
+        self.listFiles.currentItem().paint(self.confidence_range, self.currentSpecies)
 
     def saveSegments(self):
         """Save the segmentation data as a json file.
