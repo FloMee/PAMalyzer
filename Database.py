@@ -346,14 +346,15 @@ class DatabaseHandler(QObject):
             (segment_id,),
         )
 
-    def get_files_with_species(self, species, dirname, minconf):
+    def get_files_with_species(self, species, dirname, conf_range):
         self.cursor.execute(
             """SELECT recording.filename, recording.directory FROM recording 
             INNER JOIN segments ON recording.filename=segments.filename 
             INNER JOIN segment_species ON segments.segment_id = segment_species.segment_id 
             WHERE recording.directory LIKE ? AND segment_species.species_scientific_name = (?) AND
-            segment_species.confidence >= ? GROUP BY recording.filename""",
-            (dirname + "%", species, minconf),
+            segment_species.confidence >= ? AND segment_species.confidence <= ? 
+            GROUP BY recording.filename""",
+            (dirname + "%", species, conf_range[0], conf_range[1]),
         )
         return self.cursor.fetchall()
 
@@ -367,19 +368,20 @@ class DatabaseHandler(QObject):
         )
         return self.cursor.fetchall()
 
-    def get_grouped_dir_species_segments(self, dirname, species, minconf):
+    def get_grouped_dir_species_segments(self, dirname, species, conf_range):
         self.cursor.execute(
             """SELECT recording.directory, recording.filename, segments.start, segments.end, 
             segment_species.species_scientific_name, MAX(segment_species.confidence) FROM recording 
             INNER JOIN segments ON recording.filename=segments.filename 
             INNER JOIN segment_species ON segments.segment_id = segment_species.segment_id 
             WHERE recording.directory LIKE ? AND segment_species.species_scientific_name = (?) AND
-            segment_species.confidence >= ? GROUP BY segments.start, segments.end, segment_species.species_scientific_name""",
-            (dirname + "%", species, minconf),
+            segment_species.confidence >= ? AND segment_species.confidence <= ? 
+            GROUP BY segments.start, segments.end, segment_species.species_scientific_name""",
+            (dirname + "%", species, conf_range[0], conf_range[1]),
         )
         return self.cursor.fetchall()
 
-    def get_dir_species_segments(self, dirname, species, minconf):
+    def get_dir_species_segments(self, dirname, species, conf_range):
         self.cursor.execute(
             """SELECT recording.directory, recording.filename, segments.start, segments.end,
             segments.low, segments.high, 
@@ -390,24 +392,25 @@ class DatabaseHandler(QObject):
             INNER JOIN calltypes ON segment_species.calltype_id = calltypes.calltype_id
             INNER JOIN filters ON segment_species.filter_id = filters.filter_id
             WHERE recording.directory LIKE ? AND segment_species.species_scientific_name = (?) AND
-            segment_species.confidence >= ?""",
-            (dirname + "%", species, minconf),
+            segment_species.confidence >= ? AND segment_species.confidence <= ?""",
+            (dirname + "%", species, conf_range[0], conf_range[1]),
         )
         return self.cursor.fetchall()
 
-    def get_grouped_dir_segments(self, dirname, minconf):
+    def get_grouped_dir_segments(self, dirname, conf_range):
         self.cursor.execute(
             """SELECT recording.directory, recording.filename, segments.start, segments.end, 
             segment_species.species_scientific_name, MAX(segment_species.confidence) FROM recording 
             INNER JOIN segments ON recording.filename=segments.filename 
             INNER JOIN segment_species ON segments.segment_id = segment_species.segment_id 
             WHERE recording.directory LIKE ? AND
-            segment_species.confidence >= ? GROUP BY segments.start, segments.end, segment_species.species_scientific_name""",
-            (dirname + "%", minconf),
+            segment_species.confidence >= ? AND segment_species.confidence <= ? 
+            GROUP BY segments.start, segments.end, segment_species.species_scientific_name""",
+            (dirname + "%", conf_range[0], conf_range[1]),
         )
         return self.cursor.fetchall()
 
-    def get_dir_segments(self, dirname, minconf=0):
+    def get_dir_segments(self, dirname, conf_range=(0, 100)):
         self.cursor.execute(
             """SELECT recording.directory, recording.filename, segments.start, segments.end, 
             segments.low, segments.high, 
@@ -418,8 +421,8 @@ class DatabaseHandler(QObject):
             INNER JOIN calltypes ON segment_species.calltype_id = calltypes.calltype_id
             INNER JOIN filters ON segment_species.filter_id = filters.filter_id
             WHERE recording.directory LIKE ? AND
-            segment_species.confidence >= ?""",
-            (dirname + "%", minconf),
+            segment_species.confidence >= ? AND segment_species.confidence <= ?""",
+            (dirname + "%", conf_range[0], conf_range[1]),
         )
         return self.cursor.fetchall()
 
@@ -455,4 +458,4 @@ class DatabaseHandler(QObject):
     def delete_orphan_recordings(self):
         self.cursor.execute("""DELETE FROM recording 
             WHERE filename NOT IN 
-            (SELECT filename FROM segments)""")
+            (SELECT filename FROM Regments)""")

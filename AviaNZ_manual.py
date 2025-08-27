@@ -1289,7 +1289,7 @@ class AviaNZ(QMainWindow):
                 [
                     "{} {:.0f}".format(key, value)
                     for key, value in self.listFiles.spListCert.items()
-                    if value > self.confidence_range[0] or key == currentSpecies
+                    if value >= self.confidence_range[0] or key == currentSpecies
                 ]
             ),
         )
@@ -4672,13 +4672,13 @@ class AviaNZ(QMainWindow):
         if self.currentSpecies == "Species":
             segment_data = self.database.get_dir_segments(
                 self.SoundFileDir,
-                self.confidence_range[0],
+                self.confidence_range,
             )
         else:
             segment_data = self.database.get_dir_species_segments(
                 self.SoundFileDir,
                 self.currentSpecies,
-                self.confidence_range[0],
+                self.confidence_range,
             )
 
         all_files = []
@@ -5211,7 +5211,7 @@ class AviaNZ(QMainWindow):
         fileDirList = self.database.get_files_with_species(
             self.currentSpecies,
             self.SoundFileDir,
-            self.confidence_range[0],
+            self.confidence_range,
         )
         self.exportFilelist = [os.path.join(dir, file) for file, dir in fileDirList]
         print(self.exportFilelist)
@@ -5222,29 +5222,36 @@ class AviaNZ(QMainWindow):
 
     def export_json_files(self):
         print(self.SoundFileDir)
-        segments = self.database.get_dir_segments(self.SoundFileDir)
+        if self.currentSpecies == "Species":
+            segments = self.database.get_dir_segments(
+                self.SoundFileDir, self.confidence_range
+            )
+        else:
+            segments = self.database.get_dir_species_segments(
+                self.SoundFileDir, self.currentSpecies, self.confidence_range
+            )
+
         to_export = {}
         for seg in segments:
             file = os.path.join(seg[0], seg[1])
-            if seg[7] >= self.confidence_range[0]:
-                seg = [
-                    seg[2],
-                    seg[3],
-                    seg[4],
-                    seg[5],
-                    [
-                        {
-                            "species": seg[6],
-                            "certainty": seg[7],
-                            "calltype": seg[8],
-                            "filter": seg[9],
-                        }
-                    ],
-                ]
-                if file in to_export.keys():
-                    to_export[file].append(seg)
-                else:
-                    to_export[file] = [seg]
+            seg = [
+                seg[2],
+                seg[3],
+                seg[4],
+                seg[5],
+                [
+                    {
+                        "species": seg[6],
+                        "certainty": seg[7],
+                        "calltype": seg[8],
+                        "filter": seg[9],
+                    }
+                ],
+            ]
+            if file in to_export.keys():
+                to_export[file].append(seg)
+            else:
+                to_export[file] = [seg]
         for seg in to_export:
             print("{}: {}".format(seg, to_export[seg]))
             seglist = Segment.SegmentList()
@@ -5263,13 +5270,13 @@ class AviaNZ(QMainWindow):
         if self.currentSpecies == "Species":
             fileDirList = self.database.get_grouped_dir_segments(
                 self.SoundFileDir,
-                self.confidence_range[0],
+                self.confidence_range,
             )
         else:
             fileDirList = self.database.get_grouped_dir_species_segments(
                 self.SoundFileDir,
                 self.currentSpecies,
-                self.confidence_range[0],
+                self.confidence_range,
             )
         self.export_segments_dict = {}
         for entry in fileDirList:
