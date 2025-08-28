@@ -21,6 +21,7 @@
 
 # ? click, shutil
 import copy
+import datetime
 import fnmatch
 import json
 import math
@@ -995,6 +996,9 @@ class AviaNZ(QMainWindow):
         self.conf_range_slider.setEdgeLabelMode(2)
         self.conf_range_slider.setValue((0, 100))
         self.conf_range_slider.setTracking(False)
+        self.conf_range_slider.setToolTip(
+            "Set confidence range to filter detections in files"
+        )
         self.conf_range_slider.valuesChanged.connect(
             self.update_conf_range_slider_value_changed
         )
@@ -1004,10 +1008,41 @@ class AviaNZ(QMainWindow):
         )
 
         self.confidence_range = (0, 100)
-        self.w_files.addWidget(self.listSpecies, row=2, col=0)
-        self.w_files.addWidget(self.tickSpecies, row=2, col=1)
-        self.w_files.addWidget(self.conf_range_slider, row=4, col=0, colspan=2)
-        self.w_files.addWidget(self.listFiles, row=5, colspan=2)
+
+        self.time_range_start_label = QLabel("00:00")
+        self.time_range_start_label.setToolTip(
+            "Set time range to filter files. Does not filter directories."
+        )
+
+        self.time_range_slider = superqt.QRangeSlider(Qt.Horizontal)
+        self.time_range_slider.setRange(0, 24 * 6)
+        self.time_range_slider.setValue((0, 24 * 6))
+        self.time_range_slider.setTickInterval(1)
+        self.time_range_slider.setPageStep(6)
+        self.time_range_slider.setToolTip(
+            "Set time range to filter files. Does not filter directories."
+        )
+        self.time_range_slider.valuesChanged.connect(
+            self.update_time_range_slider_value_changed
+        )
+        self.time_range_slider.slidersMoved.connect(self.update_time_range_slider_moved)
+        self.time_range_slider.sliderReleased.connect(
+            self.update_time_range_slider_released
+        )
+
+        self.time_range_end_label = QLabel("24:00")
+        self.time_range_end_label.setToolTip(
+            "Set time range to filter files. Does not filter directories."
+        )
+
+        self.time_range = (0, 24 * 3600)
+        self.w_files.addWidget(self.listSpecies, row=2, col=0, colspan=2)
+        self.w_files.addWidget(self.tickSpecies, row=2, col=2)
+        self.w_files.addWidget(self.conf_range_slider, row=4, col=0, colspan=3)
+        self.w_files.addWidget(self.time_range_start_label, row=5, col=0)
+        self.w_files.addWidget(self.time_range_slider, row=5, col=1)
+        self.w_files.addWidget(self.time_range_end_label, row=5, col=2)
+        self.w_files.addWidget(self.listFiles, row=8, colspan=3)
 
         # The context menu (drops down on mouse click) to select birds
         self.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -1268,7 +1303,9 @@ class AviaNZ(QMainWindow):
         if not os.path.isdir(dir):
             print("ERROR: directory %s doesn't exist" % dir)
             return
-        self.listFiles.fill(dir, fileName, self.confidence_range, self.currentSpecies)
+        self.listFiles.fill(
+            dir, fileName, self.confidence_range, self.time_range, self.currentSpecies
+        )
         self.updateListSpecies()
 
     def updateListSpecies(self):
@@ -1491,14 +1528,18 @@ class AviaNZ(QMainWindow):
     def toggleRankSort(self):
         self.listFiles.rank_sort = self.rank_sort.isChecked()
         self.listFiles.setSortingEnabled(True)
-        self.listFiles.restrict(self.currentSpecies, self.confidence_range)
+        self.listFiles.restrict(
+            self.currentSpecies, self.confidence_range, self.time_range
+        )
         self.listFiles.sortItems()
 
     def update_tick_species_state_changed(self, state):
         """This function is called when the species checkbox is clicked.
         It restricts the list of files and updates the segments if needed"""
         self.listFiles.showAll = not state
-        self.listFiles.restrict(self.currentSpecies, self.confidence_range)
+        self.listFiles.restrict(
+            self.currentSpecies, self.confidence_range, self.time_range
+        )
         self.listFiles.sortItems()
         self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
         if not self.currentSpecies == "Species":
@@ -1512,7 +1553,9 @@ class AviaNZ(QMainWindow):
         self.currentSpecies = self.listSpecies.currentText().rpartition(" ")[0]
         if oldSpecies != self.currentSpecies:
             self.listFiles.current_species = self.currentSpecies
-            self.listFiles.restrict(self.currentSpecies, self.confidence_range)
+            self.listFiles.restrict(
+                self.currentSpecies, self.confidence_range, self.time_range
+            )
             self.listFiles.sortItems()
             self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
             if not self.listFiles.showAll:
@@ -1523,7 +1566,7 @@ class AviaNZ(QMainWindow):
         """This function is called when the user chooses another confidence range.
         It restricts the list of files accordingly"""
         self.confidence_range = values
-        self.listFiles.restrict(self.currentSpecies, values)
+        self.listFiles.restrict(self.currentSpecies, values, self.time_range)
         self.listFiles.sortItems()
         self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
         self.updateListSpecies()
@@ -1540,6 +1583,40 @@ class AviaNZ(QMainWindow):
         after value changed function"""
         self.update_conf_range_slider_value_changed(
             self.conf_range_slider.sliderPosition()
+        )
+
+    def update_time_range_slider_value_changed(self, values):
+        """This function is called when the user chooses another confidence range.
+        It restricts the list of files accordingly"""
+        self.update_time_range_slider_moved(values)
+        self.listFiles.restrict(
+            self.currentSpecies, self.confidence_range, self.time_range
+        )
+        self.listFiles.sortItems()
+        self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
+
+    def update_time_range_slider_moved(self, position):
+        """This function is called when the user uses the mouse to move the confidence range slider.
+        As tracking is turned of the min/max values have to be updated here"""
+        s = datetime.timedelta(minutes=position[0] * 10)
+        e = datetime.timedelta(minutes=position[1] * 10)
+        self.time_range = (s.seconds, e.days * 24 * 3600 + e.seconds)
+
+        start = (datetime.datetime.min + s).time()
+        end = (datetime.datetime.min + e).time()
+
+        self.time_range_start_label.setText(start.strftime("%H:%M"))
+        if end == datetime.time(0):
+            self.time_range_end_label.setText("24:00")
+        else:
+            self.time_range_end_label.setText(end.strftime("%H:%M"))
+
+    def update_time_range_slider_released(self):
+        """This function is called after the user moved the confidence range slider with the mouse.
+        As tracking of the confidence range slider is turned of this function calls the update
+        after value changed function"""
+        self.update_time_range_slider_value_changed(
+            self.time_range_slider.sliderPosition()
         )
 
     def loadFile(self, name=None):
@@ -1793,7 +1870,9 @@ class AviaNZ(QMainWindow):
         i = self.listFiles.currentRow()
         if not skipHidden and i > 1:
             self.listFiles.setCurrentRow(i - 1)
-            self.listFiles.restrict(self.currentSpecies, self.confidence_range)
+            self.listFiles.restrict(
+                self.currentSpecies, self.confidence_range, self.time_range
+            )
             self.listLoadFile(self.listFiles.currentItem())
             return
 
@@ -1802,7 +1881,9 @@ class AviaNZ(QMainWindow):
             self.listFiles.setCurrentRow(
                 self.listFiles.currentIndices[currentIndex - 1]
             )
-            self.listFiles.restrict(self.currentSpecies, self.confidence_range)
+            self.listFiles.restrict(
+                self.currentSpecies, self.confidence_range, self.time_range
+            )
 
         else:
             # Tell the user they've finished
@@ -1825,7 +1906,9 @@ class AviaNZ(QMainWindow):
         i = self.listFiles.currentRow()
         if not skipHidden and i + 1 < len(self.listFiles):
             self.listFiles.setCurrentRow(i + 1)
-            self.listFiles.restrict(self.currentSpecies, self.confidence_range)
+            self.listFiles.restrict(
+                self.currentSpecies, self.confidence_range, self.time_range
+            )
             self.listLoadFile(self.listFiles.currentItem())
             return
 
@@ -1834,7 +1917,9 @@ class AviaNZ(QMainWindow):
             self.listFiles.setCurrentRow(
                 self.listFiles.currentIndices[currentIndex + 1]
             )
-            self.listFiles.restrict(self.currentSpecies, self.confidence_range)
+            self.listFiles.restrict(
+                self.currentSpecies, self.confidence_range, self.time_range
+            )
 
         else:
             # Tell the user they've finished
@@ -6142,7 +6227,9 @@ class AviaNZ(QMainWindow):
                 conf = detection["certainty"]
                 data.setdefault(sp, []).append(conf)
         self.listFiles.currentItem().setData(QtCore.Qt.UserRole, data)
-        self.listFiles.currentItem().paint(self.confidence_range, self.currentSpecies)
+        self.listFiles.currentItem().paint(
+            self.confidence_range, self.currentSpecies, self.time_range
+        )
 
     def saveSegments(self):
         """Save the segmentation data as a json file.

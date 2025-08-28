@@ -28,6 +28,7 @@ import math
 import os
 import re
 from collections.abc import Generator
+from datetime import datetime
 from time import sleep
 
 import numpy as np
@@ -1340,6 +1341,7 @@ class SortableListWidgetItem(QListWidgetItem):
         self.pixmap = QPixmap(50, 10)
         self.blackpen = fn.mkPen(color=(160, 160, 160, 255), width=2)
         self.max_conf = 0
+        self.startTime = -1
 
     def __lt__(self, other):
         if self.text() == "../":
@@ -1358,20 +1360,21 @@ class SortableListWidgetItem(QListWidgetItem):
         else:
             return self.text() < other.text()
 
-    def paint(self, conf_slider_val: tuple, current_species: str):
+    def paint(self, conf_slider_val: tuple, current_species: str, time_range: tuple):
         data = self.data(QtCore.Qt.UserRole)
         if not data or data == []:
             self.paintIcon()
             self.max_conf = 0
-        else:
+        elif self.startTime == -1 or (time_range[0] <= self.startTime <= time_range[1]):
             min_conf, max_conf = self.get_min_max_confidence(
                 current_species, conf_slider_val
             )
             self.max_conf = max_conf
             if conf_slider_val[0] > max_conf:
                 min_conf = -1
-
             self.paintIcon(True, min_conf, max_conf)
+        else:
+            self.paintIcon(True)
 
     def get_min_max_confidence(
         self, current_species: str, conf_slider_val: tuple
@@ -1459,16 +1462,15 @@ class SortableListWidgetItem(QListWidgetItem):
 
     def get_doc_start_time(self):
         if not hasattr(self, "doc"):
-            DOCRecording = re.search("(\d{6})_(\d{6})", self.text()[-17:-4])
-
+            DOCRecording = re.search("(\d{8})_(\d{6})", self.text()[-19:-4])
             if DOCRecording:
                 self.doc = True
                 self.startTime = DOCRecording.group(2)
-
+                self.datetime = datetime.fromisoformat(DOCRecording.group(0))
                 self.startTime = (
-                    int(self.startTime[:2]) * 3600
-                    + int(self.startTime[2:4]) * 60
-                    + int(self.startTime[4:6])
+                    self.datetime.hour * 3600
+                    + self.datetime.minute * 60
+                    + self.datetime.second
                 )
             else:
                 self.doc = False
@@ -1509,6 +1511,7 @@ class LightedFileList(QListWidget):
         soundDir,
         fileName,
         conf_slider_val,
+        time_range,
         species="Species",
         recursive=True,
         readFmt=False,
@@ -1532,6 +1535,7 @@ class LightedFileList(QListWidget):
         self.listOfFiles = []
         self.current_species = species
         self.conf_slider_value = conf_slider_val
+        self.time_range = time_range
 
         with pg.BusyCursor():
             # Read contents of current dir
@@ -1615,7 +1619,7 @@ class LightedFileList(QListWidget):
 
                 else:
                     item.setText(file.fileName())
-
+                    item.get_doc_start_time()
                     # check for a data file here and color this entry based on that
                     fullname = os.path.join(soundDir, file.fileName())
                     # (also updates the directory info sets)
@@ -1638,7 +1642,7 @@ class LightedFileList(QListWidget):
                                 )
                                 print(e)
                 self.insertItem(i, item)
-            self.restrict(self.current_species, self.conf_slider_value)
+            self.restrict(self.current_species, self.conf_slider_value, self.time_range)
         if readFmt:
             print("Found the following Fs:", self.fsList)
 
@@ -1723,7 +1727,12 @@ class LightedFileList(QListWidget):
         if not item.isHidden():
             self.currentIndices.append(self.indexFromItem(item).row())
 
-    def restrict(self, species: str, conf_slider_val: float = 0) -> None:
+    def restrict(
+        self,
+        species: str,
+        conf_slider_val: float = 0,
+        time_range: tuple = (0, 24 * 3600),
+    ) -> None:
         """restrict the filelist to files where species occures with max_conf > conf_slider_val"""
 
         self.currentIndices = []
@@ -1737,7 +1746,7 @@ class LightedFileList(QListWidget):
         for item in self.iterAllItems():
             # if not item.text().endswith("/"):
             if not item.text() == "../":
-                item.paint(self.conf_slider_value, self.current_species)
+                item.paint(self.conf_slider_value, self.current_species, time_range)
                 if not item.isHidden():
                     self.currentIndices.append(self.indexFromItem(item).row())
         # enable sorting again
