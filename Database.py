@@ -458,4 +458,4 @@ class DatabaseHandler(QObject):
     def delete_orphan_recordings(self):
         self.cursor.execute("""DELETE FROM recording 
             WHERE filename NOT IN 
-            (SELECT filename FROM Regments)""")
+            (SELECT filename FROM segments)""")
