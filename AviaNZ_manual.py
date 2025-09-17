@@ -2682,16 +2682,16 @@ class AviaNZ(QMainWindow):
                 show = False
             else:
                 show = True
+            if (
+                not self.listFiles.showAll
+                and self.currentSpecies != "Species"
+                and self.currentSpecies not in species_list
+            ):
+                show = False
+
         else:
             self.segmentsToSave = True
             show = True
-
-        if (
-            not self.listFiles.showAll
-            and self.currentSpecies != "Species"
-            and self.currentSpecies not in species_list
-        ):
-            show = False
 
         if saveSeg or show:
             # create a Segment. this will check for errors and standardize the labels
