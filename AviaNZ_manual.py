@@ -5306,7 +5306,6 @@ class AviaNZ(QMainWindow):
         self.exportDialog.btnCopyFiles.clicked.connect(self.copyFiles)
 
     def export_json_files(self):
-        print(self.SoundFileDir)
         if self.currentSpecies == "Species":
             segments = self.database.get_dir_segments(
                 self.SoundFileDir, self.confidence_range
@@ -5338,7 +5337,6 @@ class AviaNZ(QMainWindow):
             else:
                 to_export[file] = [seg]
         for seg in to_export:
-            print("{}: {}".format(seg, to_export[seg]))
             seglist = Segment.SegmentList()
             seglist.metadata["Duration"] = 0
             seglist.metadata["Operator"] = self.operator
