@@ -2986,6 +2986,7 @@ class AviaNZ(QMainWindow):
                         max(mousePoint.x(), 0.0),
                         species=copy.deepcopy(self.lastSpecies),
                     )
+                    self.refreshFileColor()
                 elif modifiers == Qt.ControlModifier:
                     self.addSegment(self.start_ampl_loc, max(mousePoint.x(), 0.0))
                     # Context menu
@@ -3188,6 +3189,7 @@ class AviaNZ(QMainWindow):
                     self.addSegment(
                         x1, x2, y1, y2, species=copy.deepcopy(self.lastSpecies)
                     )
+                    self.refreshFileColor()
                 elif modifiers == Qt.ControlModifier:
                     self.addSegment(x1, x2, y1, y2)
                     # Context menu
