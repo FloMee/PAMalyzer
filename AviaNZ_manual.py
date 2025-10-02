@@ -3171,8 +3171,10 @@ class AviaNZ(QMainWindow):
 
                     # When dragging, can sometimes make boxes by mistake, which is annoying.
                     # To avoid, check that the box isn't too small
+                    # Instead of creating a box, move the playback position bar.
                     if np.abs((x2 - x1) * (y2 - y1)) < self.minboxsize:
-                        print("Small box detected, ignoring")
+                        self.bar.setValue(self.convertAmpltoSpec(x1))
+                        self.barMoved()
                         return
 
                     y1 = int(self.convertYtoFreq(y1))
@@ -5206,7 +5208,7 @@ class AviaNZ(QMainWindow):
         self.media_obj.applyVolSlider(value)
         self.media_slow.applyVolSlider(value)
 
-    def barMoved(self, evt):
+    def barMoved(self, evt=None):
         """Listener for when the bar showing playback position moves.
         Resets both QAudioOutputs so that they don't try to resume
         """
