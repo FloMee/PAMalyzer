@@ -104,6 +104,12 @@ class DatabaseHandler(QObject):
         self.cursor.execute(
             """CREATE INDEX IF NOT EXISTS idx_recording_directory on recording(directory)"""
         )
+        self.cursor.execute(
+            """CREATE UNIQUE INDEX IF NOT EXISTS idx_calltype_scientific_name on calltypes(calltype, scientific_name)"""
+        )
+        self.cursor.execute(
+            """CREATE UNIQUE INDEX IF NOT EXISTS idx_species_scientific_common_name on species(scientific_name, common_name)"""
+        )
 
     @pyqtSlot(Segment.SegmentList, str)
     def insert_segments(self, segmentList, filename):
