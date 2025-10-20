@@ -1643,6 +1643,7 @@ class LightedFileList(QListWidget):
                                 print(e)
                 self.insertItem(i, item)
             self.restrict(self.current_species, self.conf_slider_value, self.time_range)
+            self.sortItems()
         if readFmt:
             print("Found the following Fs:", self.fsList)
 
