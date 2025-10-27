@@ -27,7 +27,6 @@
 #    see https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.en
 
 # import statements for BirdNET-Lite
-
 import copy
 import math
 import operator
@@ -646,7 +645,7 @@ class BirdNET(QWidget):
             print(
                 "\nAnalysis sucessfully completed in {:.0f}h {:.0f}min {:.0f}s".format(
                     (end_time - self.start_time) // 3600,
-                    (end_time - self.start_time) // 60,
+                    ((end_time - self.start_time) % 3600) // 60,
                     (end_time - self.start_time) % 60,
                 )
             )
