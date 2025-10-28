@@ -1532,6 +1532,7 @@ class AviaNZ(QMainWindow):
             self.currentSpecies, self.confidence_range, self.time_range
         )
         self.listFiles.sortItems()
+        self.listFiles.update_current_indices()
 
     def update_tick_species_state_changed(self, state):
         """This function is called when the species checkbox is clicked.
@@ -1541,6 +1542,7 @@ class AviaNZ(QMainWindow):
             self.currentSpecies, self.confidence_range, self.time_range
         )
         self.listFiles.sortItems()
+        self.listFiles.update_current_indices()
         self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
         if not self.currentSpecies == "Species":
             self.removeSegments()
@@ -1557,6 +1559,7 @@ class AviaNZ(QMainWindow):
                 self.currentSpecies, self.confidence_range, self.time_range
             )
             self.listFiles.sortItems()
+            self.listFiles.update_current_indices()
             self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
             if not self.listFiles.showAll:
                 self.removeSegments()
@@ -1568,6 +1571,7 @@ class AviaNZ(QMainWindow):
         self.confidence_range = values
         self.listFiles.restrict(self.currentSpecies, values, self.time_range)
         self.listFiles.sortItems()
+        self.listFiles.update_current_indices()
         self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
         self.updateListSpecies()
 
@@ -1593,6 +1597,7 @@ class AviaNZ(QMainWindow):
             self.currentSpecies, self.confidence_range, self.time_range
         )
         self.listFiles.sortItems()
+        self.listFiles.update_current_indices()
         self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
 
     def update_time_range_slider_moved(self, position):
@@ -1873,6 +1878,7 @@ class AviaNZ(QMainWindow):
             self.listFiles.restrict(
                 self.currentSpecies, self.confidence_range, self.time_range
             )
+            self.listFiles.update_current_indices()
             self.listLoadFile(self.listFiles.currentItem())
             return
 
@@ -1884,6 +1890,7 @@ class AviaNZ(QMainWindow):
             self.listFiles.restrict(
                 self.currentSpecies, self.confidence_range, self.time_range
             )
+            self.listFiles.update_current_indices()
 
         else:
             # Tell the user they've finished
@@ -1909,6 +1916,7 @@ class AviaNZ(QMainWindow):
             self.listFiles.restrict(
                 self.currentSpecies, self.confidence_range, self.time_range
             )
+            self.listFiles.update_current_indices()
             self.listLoadFile(self.listFiles.currentItem())
             return
 
@@ -1920,6 +1928,7 @@ class AviaNZ(QMainWindow):
             self.listFiles.restrict(
                 self.currentSpecies, self.confidence_range, self.time_range
             )
+            self.listFiles.update_current_indices()
 
         else:
             # Tell the user they've finished
