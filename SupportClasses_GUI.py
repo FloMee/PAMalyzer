@@ -1748,10 +1748,15 @@ class LightedFileList(QListWidget):
             # if not item.text().endswith("/"):
             if not item.text() == "../":
                 item.paint(self.conf_slider_value, self.current_species, time_range)
-                if not item.isHidden():
-                    self.currentIndices.append(self.indexFromItem(item).row())
         # enable sorting again
         self.setSortingEnabled(True)
+        self.update_current_indices()
+
+    def update_current_indices(self):
+        self.currentIndices = []
+        for item in self.iterAllItems():
+            if not item.text() == "../" and not item.isHidden():
+                self.currentIndices.append(self.indexFromItem(item).row())
 
     def iterAllItems(self) -> Generator[SortableListWidgetItem]:
         for i in range(self.count()):
