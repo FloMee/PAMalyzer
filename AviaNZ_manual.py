@@ -2676,6 +2676,7 @@ class AviaNZ(QMainWindow):
             startpoint = startpoint - self.startRead
             endpoint = endpoint - self.startRead
         species_list = [entry["species"] for entry in species]
+        conf_list = [entry["certainty"] for entry in species]
 
         if not saveSeg:
             # check if this segment fits in the current spectrogram page
@@ -2694,6 +2695,7 @@ class AviaNZ(QMainWindow):
             if (
                 not self.listFiles.showAll
                 and self.currentSpecies != "Species"
+                and 100 not in conf_list
                 and self.currentSpecies not in species_list
             ):
                 show = False
