@@ -1759,12 +1759,6 @@ class LightedFileList(QListWidget):
             if not item.text() == "../" and not item.isHidden():
                 self.currentIndices.append(self.indexFromItem(item).row())
 
-    def update_current_indices(self):
-        self.currentIndices = []
-        for item in self.iterAllItems():
-            if not item.text() == "../" and not item.isHidden():
-                self.currentIndices.append(self.indexFromItem(item).row())
-
     def iterAllItems(self) -> Generator[SortableListWidgetItem]:
         for i in range(self.count()):
             yield self.item(i)
