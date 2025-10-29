@@ -1751,6 +1751,13 @@ class LightedFileList(QListWidget):
                 item.paint(self.conf_slider_value, self.current_species, time_range)
         # enable sorting again
         self.setSortingEnabled(True)
+        self.update_current_indices()
+
+    def update_current_indices(self):
+        self.currentIndices = []
+        for item in self.iterAllItems():
+            if not item.text() == "../" and not item.isHidden():
+                self.currentIndices.append(self.indexFromItem(item).row())
 
     def update_current_indices(self):
         self.currentIndices = []
