@@ -675,9 +675,13 @@ class AviaNZ(QMainWindow):
 
         # Corresponding keyboard shortcuts:
         self.move_left_key = QShortcut(QKeySequence(Qt.Key_Left), self)
+        self.move_left_key2 = QShortcut(QKeySequence(Qt.Key_A), self)
         self.move_left_key.activated.connect(self.moveLeft)
+        self.move_left_key2.activated.connect(self.moveLeft)
         self.move_right_key = QShortcut(QKeySequence(Qt.Key_Right), self)
+        self.move_right_key2 = QShortcut(QKeySequence(Qt.Key_D), self)
         self.move_right_key.activated.connect(self.moveRight)
+        self.move_right_key2.activated.connect(self.moveRight)
         self.move_prev_5mins_key = QShortcut(QKeySequence("Shift+Left"), self)
         self.move_prev_5mins_key.activated.connect(self.movePrev5mins)
         self.move_next_5mins_key = QShortcut(QKeySequence("Shift+Right"), self)
@@ -788,20 +792,37 @@ class AviaNZ(QMainWindow):
         self.d_files.addWidget(self.w_files)
 
         self.skipBackwardKey = QShortcut(QKeySequence("Up"), self)
+        self.skipBackwardKey2 = QShortcut(QKeySequence(Qt.Key_W), self)
         self.skipBackwardKey.activated.connect(
             lambda: self.openPreviousFile(skipHidden=True)
         )
+        self.skipBackwardKey2.activated.connect(
+            lambda: self.openPreviousFile(skipHidden=True)
+        )
         self.skipBackwardHiddenKey = QShortcut(QKeySequence("Alt+Up"), self)
+        self.skipBackwardHiddenKey2 = QShortcut(
+            QKeySequence(Qt.Key_W + Qt.Key_Up), self
+        )
         self.skipBackwardHiddenKey.activated.connect(
             lambda: self.openPreviousFile(skipHidden=False)
         )
 
         self.skipForwardKey = QShortcut(QKeySequence("Down"), self)
+        self.skipForwardKey2 = QShortcut(QKeySequence(Qt.Key_S), self)
         self.skipForwardKey.activated.connect(
             lambda: self.openNextFile(skipHidden=True)
         )
+        self.skipForwardKey2.activated.connect(
+            lambda: self.openNextFile(skipHidden=True)
+        )
         self.skipForwardHiddenKey = QShortcut(QKeySequence("Alt+Down"), self)
+        self.skipForwardHiddenKey2 = QShortcut(
+            QKeySequence(Qt.Key_S + Qt.Key_Down), self
+        )
         self.skipForwardHiddenKey.activated.connect(
+            lambda: self.openNextFile(skipHidden=False)
+        )
+        self.skipForwardHiddenKey2.activated.connect(
             lambda: self.openNextFile(skipHidden=False)
         )
 
