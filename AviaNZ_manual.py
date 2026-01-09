@@ -172,7 +172,11 @@ class AviaNZ(QMainWindow):
         self.viewCallType = False
         self.viewCertainty = True
 
-        self.database_filepath = os.path.join(configdir, "test.db")
+        if os.path.exists(self.config["Database"]):
+            self.database_filepath = self.config["Database"]
+        else:
+            self.database_filepath = os.path.join(configdir, "default.db")
+
         self.database = Database.DatabaseHandler(self.database_filepath)
 
         # Spectrogram default settings
@@ -417,6 +421,7 @@ class AviaNZ(QMainWindow):
         fileMenu.addSeparator()
 
         databaseMenu = annotationMenu.addMenu("Database")
+        databaseMenu.addAction("Choose database", self.chooseDatabase)
         databaseMenu.addAction(
             "Update file directory",
             self.update_directory,
@@ -5555,6 +5560,30 @@ class AviaNZ(QMainWindow):
                     self.database.add_file(file, root)
         self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
         self.database.commit()
+
+    def chooseDatabase(self):
+        file, _ = QFileDialog.getSaveFileName(
+            self,
+            "Choose Annotation Database",
+            os.path.dirname(self.database.db_path),
+            "Database files (*.db)",
+            "",
+            QFileDialog.Option.DontConfirmOverwrite,
+        )
+        # update database filepath and database
+        if file:
+            self.database_filepath = file
+            self.database = None
+            self.database = Database.DatabaseHandler(self.database_filepath)
+            self.listFiles.database = self.database
+
+            # make sure the new database is saved to config
+            self.saveConfig = True
+            self.config["Database"] = self.database_filepath
+
+            # reload the list of files to update the file icons
+            self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
+            self.loadFile(self.filename)
 
     def changeSettings(self):
         """Create the parameter tree when the Interface settings menu is pressed."""
