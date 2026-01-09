@@ -64,6 +64,7 @@ from PyQt5.QtWidgets import (
     QSlider,
     QWidget,
 )
+from pyqtgraph.parametertree import ParameterTree
 
 import Segment
 import wavio
@@ -1893,3 +1894,14 @@ class BrightContrVol(QWidget):
         """Emit both colour and volume signals (useful for initialization)"""
         self.emitCol()
         self.volChanged.emit(self.volSlider.value())
+
+
+class ParameterTreeWithClose(ParameterTree):
+    treeclosed = pyqtSignal()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def closeEvent(self, event):
+        self.treeclosed.emit()
+        super().closeEvent(event)

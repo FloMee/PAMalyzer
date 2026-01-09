@@ -1763,13 +1763,24 @@ def getColourRange(minsg, maxsg, bright, contr, invert):
         return [colStart, colEnd]
 
 
-def getLookupTable(cmapname):
+def getLookupTableFromColourMap(cmapname):
     """Wrapper around pyqtgraph.ColorMap.getLookupTable.
     cmapname: string, name of the colour map from this file.
     Returns a lookup table which can be directly passed
     to pg.ImageItem.setLookupTable
     """
     pos, colour, mode = colourMaps(cmapname)
+    return getLookupTable(pos, colour)
+
+
+def getLookupTable(pos, colour):
+    """Wrapper around pyqtgraph.ColorMap.getLookupTable.
+    pos: array, containing position values
+    colour: array, containing arrays with rgb values, each
+    corresponding to on position in pos
+    Returns a lookup table which can be directly passed
+    to pg.ImageItem.setLookupTable
+    """
     cmap = pyqtgraph.ColorMap(pos, colour)
     lut = cmap.getLookupTable(0.0, 1.0, 256)
     return lut

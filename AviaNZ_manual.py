@@ -40,7 +40,16 @@ import pyqtgraph.exporters as pge
 import pyqtgraph.functions as fn
 import superqt
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import QDir, QLocale, QModelIndex, QPoint, QPointF, QRectF, Qt, QTimer
+from PyQt5.QtCore import (
+    QDir,
+    QLocale,
+    QModelIndex,
+    QPoint,
+    QPointF,
+    QRectF,
+    Qt,
+    QTimer,
+)
 from PyQt5.QtGui import QIcon, QKeySequence, QPixmap, QStandardItem, QStandardItemModel
 from PyQt5.QtMultimedia import QAudio
 from PyQt5.QtWidgets import (
@@ -73,7 +82,7 @@ from PyQt5.QtWidgets import (
     QWidgetAction,
 )
 from pyqtgraph.dockarea import Dock, DockArea
-from pyqtgraph.parametertree import Parameter, ParameterTree
+from pyqtgraph.parametertree import Parameter
 from scipy.ndimage.filters import median_filter
 
 import BirdNET
@@ -122,6 +131,7 @@ class AviaNZ(QMainWindow):
         self.ConfigLoader = SupportClasses.ConfigLoader()
         self.config = self.ConfigLoader.config(self.configfile)
         self.saveConfig = True
+        self.settingsChanged = False
 
         # Load call types
         self.calltypesDir = os.path.join(configdir, "Calltypes")
@@ -3758,7 +3768,12 @@ class AviaNZ(QMainWindow):
             self.stopPlayback()
 
         self.config["cmap"] = cmap
-        lut = colourMaps.getLookupTable(self.config["cmap"])
+        if cmap == "Custom":
+            lut = colourMaps.getLookupTable(
+                self.config["ccmap"][0], self.config["ccmap"][1]
+            )
+        else:
+            lut = colourMaps.getLookupTableFromColourMap(self.config["cmap"])
 
         self.specPlot.setLookupTable(lut)
         self.overviewImage.setLookupTable(lut)
@@ -5658,6 +5673,14 @@ class AviaNZ(QMainWindow):
                         ],
                     },
                     {
+                        "name": "Custom colour map",
+                        "type": "colormap",
+                        "value": pg.ColorMap(
+                            self.config["ccmap"][0], self.config["ccmap"][1]
+                        ),
+                        "tip": "Custom colour map in View -> Choose colour map",
+                    },
+                    {
                         "name": "Guidelines",
                         "type": "group",
                         "children": [
@@ -5841,13 +5864,14 @@ class AviaNZ(QMainWindow):
                 "value": self.config["RequireNoiseData"],
             },
         ]
-
+        self.settingsChanged = False
         ## Create tree of Parameter objects
         self.p = Parameter.create(name="params", type="group", children=params)
         self.p.sigTreeStateChanged.connect(self.changeParams)
         ## Create ParameterTree widget
-        self.t = ParameterTree()
+        self.t = SupportClasses_GUI.ParameterTreeWithClose()
         self.t.setParameters(self.p, showTop=False)
+        self.t.treeclosed.connect(self.reload_file)
         self.t.show()
         self.t.setWindowTitle("PAMalyzer - Interface Settings")
         self.t.setWindowIcon(QIcon("img/PAMalyzer.ico"))
@@ -5988,6 +6012,12 @@ class AviaNZ(QMainWindow):
                     self.config["ColourSelected"][2],
                     255,
                 )
+            elif childName == "Annotation.Custom colour map":
+                self.config["ccmap"] = [
+                    data.getStops()[0].tolist(),
+                    data.getStops()[1].tolist(),
+                ]
+                self.setColourMap("Custom")
             elif childName == "Annotation.Guidelines.Show frequency guides":
                 self.config["guidelinesOn"] = data
                 self.drawGuidelines()
@@ -6111,9 +6141,12 @@ class AviaNZ(QMainWindow):
             # self.longBirdList = self.ConfigLoader.longbl(self.config['BirdListLong'], self.configdir)
 
         self.saveConfig = True
+        self.settingsChanged = True
 
+    def reload_file(self):
         # pass the file name to reset interface properly
-        self.loadFile(self.filename)
+        if self.settingsChanged:
+            self.loadFile(self.filename)
 
     # ============
     # Various actions: deleting segments, saving, quitting

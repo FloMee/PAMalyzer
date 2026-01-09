@@ -39,6 +39,7 @@
     "ColourNone": {"type": "array", "items": {"type": "number", "minimum": 0}, "minItems": 4, "maxItems": 4},
     "ColourPossible": {"type": "array", "items": {"type": "number", "minimum": 0}, "minItems": 4, "maxItems": 4},
     "cmap": {"type": "string"},
+    "ccmap": {"type": "array"},
   
     "guidelinesOn": {"type": "boolean"},
     "guidepos": {"type": "array", "items": {"type": "number", "minimum": 0}, "minItems": 4, "maxItems": 4},
