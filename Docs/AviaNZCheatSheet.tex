@@ -35,7 +35,7 @@
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
   \graphicspath{{figures/}}
   
-  \title{AviaNZ + BirdNET}
+  \title{PAMalzyer}
   \subtitle{Cheat Sheet}
 
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -46,18 +46,21 @@
     \begin{columns}[t]
       \begin{column}{.28\linewidth}
         \maketitle
-	Use the \textbf{Manual Processing} mode to look at, listen to, and manually annotate individual audio files, to train your own recognisers and to classify your recordings with BirdNET.
+	The \textbf{PAMalyzer} helps you to classify your recordings with BirdNET.
+	With different filtering and sorting options detections of interest can quickly be found and reviewed by visual and aural inspection.
+	% annotating individual audio files. reviewing the results by looking at, listening to and manually annotating individual audio files.
+
 	\begin{block}{Basic Actions and Navigation}
 	A usual workflow with BirdNET in AviaNZ would consist of the following steps:
 	\begin{itemize}[label=$\triangleright$]
-		\item Open a folder with audio files to classify
+		\item Open a folder with audio files
 		\item Classify the recordings with BirdNET
-		\item Manually control the results of BirdNET, i.e. confirm, adjust, delete, label segments
+		\item Manually review the results of BirdNET, i.e. confirm, adjust, delete, label segments
+		% \item Export results
 	\end{itemize}
 	\begin{subblock}{Basic Actions}
 		\begin{tabular}[]{ll}
 	  \textbf{Open file} & \inl{CTRL+O}\\
-	  \textbf{Restart program} & \inl{CTRL+R}\\
 	  \textbf{Quit program} & \inl{CTRL+Q}\\
 	  \textbf{Help/Open manual} & \inl{CTRL+H}\\
 	  \textbf{Spectrogram parameters} & \inl{CTRL+C}
@@ -82,6 +85,7 @@
 	  \textbf{Jump to next page} & \inl{SHIFT+RIGHT}\\
 	  \textbf{Jump to previous page} & \inl{SHIFT+LEFT}\\
 	  \textbf{Jump to next segment} & \inl{CTRL+RIGHT}\\
+	  \textbf{Jump to previous segment} & \inl{CTRL+LEFT}\\
   \end{tabular}
 %\inline{eins}\\Das soll hier hin. \br
    \end{subblock}
@@ -100,7 +104,7 @@
 		\textbf{Create with last species label} & \inl{SHIFT+CLICK+DRAG}
 	\end{tabular}
 	\blocksubtitle{Move, Resize and Delete}
-	Segments can be moved by clicking and dragging. To resize do the same on the edges.\br
+	Segments can be moved by clicking and dragging. To resize do the same on the edges.
 
 	Delete a segment by selecting and using the ``Delete segment'' Button or with the following shortcuts:\br
 	\begin{tabular}[]{ll}
@@ -112,18 +116,19 @@
 		\blocksubtitle{File Icons}
 		The file icon color indicates the state of segments in the file for the selected species.
 
-		The grey frame marks the maximum certainty value of the segments for selected species.
+		The grey frame marks the maximum confidence value of the segments for selected species.
 		\begin{tabular}[]{m{3.2em}m{18em}}
-			\includegraphics[height=4.5em]{/home/flo/Dokumente/Studium/Masterarbeit/Bilder/IconOverview} & 
+			\includegraphics[height=5em]{IconOverview3} & 
 			\begin{itemize}[topsep=8pt, label = $\triangleright$]
-				\item cert. of every segment 100\%
-				\item max. cert. of segments \textless 100\%
-				\item segments with cert. 0\% present
+				\item conf. of every segment 100\%
+				\item max. conf. of segments \textless 100\%
+				\item segments with conf. 0\% present
+				\item no segments for current selection
 			\end{itemize}
 		\end{tabular}
 	  \blocksubtitle{Reduce Filelist}
 	 Reduce the filelist by selecting the species of interest in the dropdown menu and ticking the box next to it.
-	 Adapt the minimum certainty value to further shorten the filelist.
+	 Adapt the minimum confidence value to further shorten the filelist.
 
 	  Use the following shortcuts to quickly review the detections of the selected species:\br
 \begin{tabular}[]{ll}
@@ -188,7 +193,7 @@
       
       \begin{column}{.43\linewidth}
 	\begin{block}{BirdNET}
-	\textbf{Start:} Menu$\,\to\,$Recognisers$\,\to\,$Classify recordings with BirdNET\\
+	\textbf{Start:} Menu$\,\to\,$Analysis$\,\to\,$Classify recordings with BirdNET\\
 %	ATTENTION: BirdNET-Analyzer: entering a value here lets BirdtNET calculate a Custom Species List for you. ATTENTION: If you select a file here, you cannot set latitude and longitude and vice versa.
 	\begin{subblock}{Parameters}
 {\renewcommand{\arraystretch}{1.2}
@@ -201,9 +206,9 @@
 \textbf{Language of species labels} & Self-explanatory; Not 100\% of the labels are translated in every language.\\
 \textbf{Overlap} & BirdNET cuts your recordings into chunks of \SI{3}{\second} lenght internally; Overlap defines the number of seconds the single segments overlap; Values in [0.0; 2.9]; Defaults to 0.0.\\
 \textbf{Sensitivity} & Detection sensitivity; Higher values result in higher sensitivity; Values in [0.5, 1.5]; Defaults to 1.0.\\
-\textbf{Minimum certainty} & Minimum certainty value in the output; Values in [0.01; 0.99]; Defaults to 0.1.\\
+\textbf{Minimum confidence} & Minimum confidence value in the output; Values in [0.01; 0.99]; Defaults to 0.1.\\
 \textbf{Number of threads} & Number of threads used for calculation; Defaults to the number of available cores of the CPU.\\
-\textbf{Calculate moving exp. average} & If set, the original certainty values are smoothed and pooled with a moving mean exponential average with a width of 3 chunks; Used to potentially remove some false positives; Described here: \url{https://onlinelibrary.wiley.com/doi/10.1111/2041-210X.13571}\\
+\textbf{Calculate moving exp. average} & If set, the original confidence values are smoothed and pooled with a moving mean exponential average with a width of 3 chunks; Used to potentially remove some false positives; Described here: \url{https://onlinelibrary.wiley.com/doi/10.1111/2041-210X.13571}\\
 \textbf{Batchsize} & Only BirdNET-Analzyer; Number of chunks that are analysed concurrently; May influence the processing time but not the output; Defaults to 1.\\
 \textbf{Threshold for location filter} & Only BirdNET-Analyzer; If Latitude, Longitude and Week are set BirdNET-Analyzer calculates a custom species list; Species with a calculated value below this \mbox{threshold} are not included in the output list; Defaults to: 0,03. \\
 \end{tabular}
