@@ -13,6 +13,7 @@
 "BirdListLong": "ListDOCBirds.txt",
 "BatList": "ListBats.txt",
 "RecentFiles": [],
+"Database": "",
 "ColourList": ["Grey", "Viridis", "Inferno", "Plasma", "Autumn", "Cool", "Bone",
                 "Copper", "Hot", "Jet", "Thermal", "Flame", "Yellowy", "Bipolar", "Spectrum","Custom"],
 "ColourSelected": [0, 0, 255, 100],

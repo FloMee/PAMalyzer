@@ -19,6 +19,7 @@
   
     "SoundFileDir": {"type": "string"},
     "RecentFiles": {"type": "array", "items": {"type": "string"}, "maxItems": 4},
+    "Database": {"type": "string"},
     "secsSave": {"type": "number", "minimum": 0},
     "windowWidth": {"type": "number", "minimum": 0},
     "widthOverviewSegment": {"type": "number", "minimum": 0},
