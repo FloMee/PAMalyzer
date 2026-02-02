@@ -5468,25 +5468,25 @@ class AviaNZ(QMainWindow):
 
     def import_avianz_data(self):
         self.tempsl = Segment.SegmentList()
-        for root, dirs, files in os.walk(self.SoundFileDir):
-            for filename in files:
-                filenamef = os.path.abspath(os.path.join(root, filename))
-                if filename.lower().endswith(".wav") or filename.lower().endswith(
-                    ".bmp"
-                ):
-                    dataf = filenamef + ".data"
-                    if os.path.isfile(dataf):
-                        print("Update entries for {}".format(filename), end="")
-                        print("\r", end="")
-                        self.tempsl.parseJSON(dataf, silent=True)
-                        if len(self.tempsl) > 0:
-                            self.database.insert_segments(
-                                self.tempsl,
-                                filenamef,
-                            )
+        filenames, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Choose AviaNZ annotation files",
+            self.SoundFileDir,
+            "AviaNZ annotation files (*.data)",
+        )
+        for filename in filenames:
+            if os.path.isfile(filename):
+                print("Update entries for {}".format(filename[:-5]), end="")
+                print("\r", end="")
+                self.tempsl.parseJSON(filename, silent=True)
+                if len(self.tempsl) > 0:
+                    self.database.insert_segments(
+                        self.tempsl,
+                        filename[:-5],
+                    )
         self.database.commit()
         print("Database successfully updated.")
-        self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
+        self.update_directory()
 
     def import_raven_data(self):
         """Imports data from individual raven selection tables"""
@@ -5560,6 +5560,7 @@ class AviaNZ(QMainWindow):
                     self.database.add_file(file, root)
         self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
         self.database.commit()
+        self.loadFile(self.filename)
 
     def chooseDatabase(self):
         file, _ = QFileDialog.getSaveFileName(
