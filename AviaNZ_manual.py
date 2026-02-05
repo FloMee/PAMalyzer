@@ -5551,6 +5551,7 @@ class AviaNZ(QMainWindow):
         self.database.delete_dir_segments(self.SoundFileDir)
         self.database.commit()
         self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
+        self.loadFile(self.filename)
 
     def update_directory(self):
         for root, dir, files in os.walk(self.SoundFileDir):
