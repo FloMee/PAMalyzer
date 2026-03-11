@@ -1098,9 +1098,9 @@ class AviaNZ(QMainWindow):
         self.statusLeft = QLabel("Left")
         # Not sure what's the difference between Sunken and Panel?
         self.statusLeft.setFrameStyle(QFrame.Panel | QFrame.Sunken)
-        self.statusBM = QLabel("")
-        self.statusBM.setAlignment(Qt.AlignCenter)
-        self.statusBM.setFrameStyle(QFrame.Panel | QFrame.Sunken)
+        self.statusDB = QLabel("")
+        self.statusDB.setAlignment(Qt.AlignCenter)
+        self.statusDB.setFrameStyle(QFrame.Panel | QFrame.Sunken)
         self.statusRO = QLabel("")
         self.statusRO.setAlignment(Qt.AlignCenter)
         self.statusRO.setFrameStyle(QFrame.Panel | QFrame.Sunken)
@@ -1108,12 +1108,13 @@ class AviaNZ(QMainWindow):
         self.statusRight.setAlignment(Qt.AlignRight)
         self.statusRight.setFrameStyle(QFrame.Panel | QFrame.Sunken)
         self.statusBar().addPermanentWidget(self.statusLeft, 3)
-        self.statusBar().addPermanentWidget(self.statusBM, 1)
+        self.statusBar().addPermanentWidget(self.statusDB, 1)
         self.statusBar().addPermanentWidget(self.statusRO, 1)
         self.statusBar().addPermanentWidget(self.statusRight, 2)
 
         # Set the message in the status bar
         self.statusLeft.setText("Ready")
+        self.statusDB.setText(os.path.basename(self.dbPath))
         self.statusRO.setText("Read-only mode" if self.config["readOnly"] else "")
 
         # Function calls to check if should show various parts of the interface, whether dragging boxes or not
@@ -5568,6 +5569,7 @@ class AviaNZ(QMainWindow):
             # make sure the new database is saved to config
             self.saveConfig = True
             self.config["Database"] = self.dbPath
+            self.statusDB.setText(os.path.basename(self.dbPath))
 
             # reload the list of files to update the file icons
             self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
