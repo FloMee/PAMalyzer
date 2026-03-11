@@ -173,11 +173,11 @@ class AviaNZ(QMainWindow):
         self.viewCertainty = True
 
         if os.path.exists(self.config["Database"]):
-            self.database_filepath = self.config["Database"]
+            self.dbPath = self.config["Database"]
         else:
-            self.database_filepath = os.path.join(configdir, "default.db")
+            self.dbPath = os.path.join(configdir, "default.db")
 
-        self.database = Database.DatabaseHandler(self.database_filepath)
+        self.db = Database.DatabaseHandler(self.dbPath)
 
         # Spectrogram default settings
         # TODO: put in config?
@@ -363,10 +363,10 @@ class AviaNZ(QMainWindow):
         self.readonly.setCheckable(True)
         self.readonly.setChecked(self.config["readOnly"])
 
-        self.rank_sort = viewMenu.addAction(
+        self.sortRank = viewMenu.addAction(
             "Sort files by maximum confidence", self.toggleRankSort
         )
-        self.rank_sort.setCheckable(True)
+        self.sortRank.setCheckable(True)
 
         exportViewMenu = viewMenu.addMenu("Export view")
         exportViewMenu.addAction("Overview spectrogram as image", self.saveImageRaw)
@@ -393,24 +393,24 @@ class AviaNZ(QMainWindow):
         annotationMenu = self.menuBar().addMenu("&Annotations")
 
         importMenu = annotationMenu.addMenu("&Import Annotations")
-        importMenu.addAction("From AviaNZ (.data files)", self.import_avianz_data)
-        importMenu.addAction("From Raven (selection tables)", self.import_raven_data)
+        importMenu.addAction("From AviaNZ (.data files)", self.importAvianzData)
+        importMenu.addAction("From Raven (selection tables)", self.importRavenData)
         # importMenu.addAction("From Excel", self.excel2Annotation)
 
         exportMenu = annotationMenu.addMenu("&Export Annotations")
         exportMenu.addAction("To Excel (File)", self.exportSeg)
         exportMenu.addAction("To Excel (Directory)", self.exportExcel)
-        exportMenu.addAction("To .data files (Directory)", self.export_json_files)
+        exportMenu.addAction("To .data files (Directory)", self.exportAvianzData)
         exportFilesMenu = annotationMenu.addMenu("&Export Audio")
         exportFilesMenu.addAction("Files with selected species", self.exportFiles)
         exportFilesMenu.addAction(
-            "File segments with selected species", self.export_segments
+            "File segments with selected species", self.exportAudioSegments
         )
         annotationMenu.addSeparator()
 
         deleteMenu = annotationMenu.addMenu("&Delete annotations")
         deleteMenu.addAction("File annotations", self.deleteAll, "Ctrl+D")
-        deleteMenu.addAction("Directory annotations", self.delete_all_segments)
+        deleteMenu.addAction("Directory annotations", self.deleteDirAnnotations)
 
         self.addRegularAction = annotationMenu.addAction(
             "Mark regular segments", self.addRegularSegments, "Ctrl+M"
@@ -424,7 +424,7 @@ class AviaNZ(QMainWindow):
         databaseMenu.addAction("Choose database", self.chooseDatabase)
         databaseMenu.addAction(
             "Update file directory",
-            self.update_directory,
+            self.updateDirectory,
         )
 
         helpMenu = self.menuBar().addMenu("&Help")
@@ -624,45 +624,45 @@ class AviaNZ(QMainWindow):
         self.placeInFileSelector.setMinimumHeight(25)
 
         # Find previous annotation buttons
-        self.annot_prev_label = QLabel("Jump to previous mark:")
-        self.annot_any_prev_btn = QToolButton()
-        self.annot_any_prev_btn.setIcon(QIcon("img/findprev-g.png"))
-        self.annot_any_prev_btn.setToolTip("Any label [Ctrl+Left]")
-        # self.annot_any_prev_btn.setAutoRaise(True)
-        self.annot_any_prev_btn.setMinimumSize(35, 30)
-        self.annot_any_prev_btn.setIconSize(QtCore.QSize(20, 17))
-        self.annot_any_prev_btn.clicked.connect(lambda: self.annot_jump_prev(100))
+        self.annotPrevLabel = QLabel("Jump to previous mark:")
+        self.annotAnyPrevBtn = QToolButton()
+        self.annotAnyPrevBtn.setIcon(QIcon("img/findprev-g.png"))
+        self.annotAnyPrevBtn.setToolTip("Any label [Ctrl+Left]")
+        # self.annotAnyPrevBtn.setAutoRaise(True)
+        self.annotAnyPrevBtn.setMinimumSize(35, 30)
+        self.annotAnyPrevBtn.setIconSize(QtCore.QSize(20, 17))
+        self.annotAnyPrevBtn.clicked.connect(lambda: self.annotJumperPrev(100))
 
-        self.annot_any_prev_key = QShortcut(QKeySequence("Ctrl+Left"), self)
-        self.annot_any_prev_key.activated.connect(lambda: self.annot_jump_prev(100))
+        self.annotAnyPrevKey = QShortcut(QKeySequence("Ctrl+Left"), self)
+        self.annotAnyPrevKey.activated.connect(lambda: self.annotJumperPrev(100))
 
-        self.annot_uncert_prev_btn = QToolButton()
-        self.annot_uncert_prev_btn.setIcon(QIcon("img/findprev-y.png"))
-        self.annot_uncert_prev_btn.setToolTip("Uncertain label")
-        # self.annot_uncert_prev_btn.setAutoRaise(True)
-        self.annot_uncert_prev_btn.setMinimumSize(35, 30)
-        self.annot_uncert_prev_btn.setIconSize(QtCore.QSize(20, 17))
-        self.annot_uncert_prev_btn.clicked.connect(lambda: self.annot_jump_prev(99))
+        self.annotUncertPrevBtn = QToolButton()
+        self.annotUncertPrevBtn.setIcon(QIcon("img/findprev-y.png"))
+        self.annotUncertPrevBtn.setToolTip("Uncertain label")
+        # self.annotUncertPrevBtn.setAutoRaise(True)
+        self.annotUncertPrevBtn.setMinimumSize(35, 30)
+        self.annotUncertPrevBtn.setIconSize(QtCore.QSize(20, 17))
+        self.annotUncertPrevBtn.clicked.connect(lambda: self.annotJumperPrev(99))
 
         # "Find next annotation" buttons
-        self.annot_next_label = QLabel("Jump to next mark:")
-        self.annot_any_next_btn = QToolButton()
-        self.annot_any_next_btn.setIcon(QIcon("img/findnext-g.png"))
-        self.annot_any_next_btn.setToolTip("Any label [Ctrl+Right]")
-        # self.annot_any_next_btn.setAutoRaise(True)
-        self.annot_any_next_btn.setMinimumSize(35, 30)
-        self.annot_any_next_btn.setIconSize(QtCore.QSize(20, 17))
-        self.annot_any_next_btn.clicked.connect(lambda: self.annotJumper(100))
-        self.annot_any_next_key = QShortcut(QKeySequence("Ctrl+Right"), self)
-        self.annot_any_next_key.activated.connect(lambda: self.annotJumper(100))
+        self.annotNextLabel = QLabel("Jump to next mark:")
+        self.annotAnyNextBtn = QToolButton()
+        self.annotAnyNextBtn.setIcon(QIcon("img/findnext-g.png"))
+        self.annotAnyNextBtn.setToolTip("Any label [Ctrl+Right]")
+        # self.annotAnyNextBtn.setAutoRaise(True)
+        self.annotAnyNextBtn.setMinimumSize(35, 30)
+        self.annotAnyNextBtn.setIconSize(QtCore.QSize(20, 17))
+        self.annotAnyNextBtn.clicked.connect(lambda: self.annotJumper(100))
+        self.annotAnyNextKey = QShortcut(QKeySequence("Ctrl+Right"), self)
+        self.annotAnyNextKey.activated.connect(lambda: self.annotJumper(100))
 
-        self.annot_uncert_next_btn = QToolButton()
-        self.annot_uncert_next_btn.setIcon(QIcon("img/findnext-y.png"))
-        self.annot_uncert_next_btn.setToolTip("Uncertain label")
-        # self.annot_uncert_next_btn.setAutoRaise(True)
-        self.annot_uncert_next_btn.setMinimumSize(35, 30)
-        self.annot_uncert_next_btn.setIconSize(QtCore.QSize(20, 17))
-        self.annot_uncert_next_btn.clicked.connect(lambda: self.annotJumper(99))
+        self.annotUncertNextBtn = QToolButton()
+        self.annotUncertNextBtn.setIcon(QIcon("img/findnext-y.png"))
+        self.annotUncertNextBtn.setToolTip("Uncertain label")
+        # self.annotUncertNextBtn.setAutoRaise(True)
+        self.annotUncertNextBtn.setMinimumSize(35, 30)
+        self.annotUncertNextBtn.setIconSize(QtCore.QSize(20, 17))
+        self.annotUncertNextBtn.clicked.connect(lambda: self.annotJumper(99))
 
         # position everything in the dock
         self.w_overview.layout.addLayout(fileInfo, 0, 0, 1, 3)
@@ -672,9 +672,9 @@ class AviaNZ(QMainWindow):
         self.w_overview.addWidget(self.rightBtn, row=2, col=2)
         placeInFileBox = QHBoxLayout()
         placeInFileBox.addStretch(4)
-        placeInFileBox.addWidget(self.annot_prev_label)
-        placeInFileBox.addWidget(self.annot_any_prev_btn)
-        placeInFileBox.addWidget(self.annot_uncert_prev_btn)
+        placeInFileBox.addWidget(self.annotPrevLabel)
+        placeInFileBox.addWidget(self.annotAnyPrevBtn)
+        placeInFileBox.addWidget(self.annotUncertPrevBtn)
         placeInFileBox.addStretch(4)
         placeInFileBox.addWidget(self.placeInFileLabel2)
         placeInFileBox.addWidget(self.prev5mins)
@@ -682,25 +682,25 @@ class AviaNZ(QMainWindow):
         placeInFileBox.addWidget(self.next5mins)
         placeInFileBox.addWidget(self.placeInFileLabel)
         placeInFileBox.addStretch(4)
-        placeInFileBox.addWidget(self.annot_next_label)
-        placeInFileBox.addWidget(self.annot_any_next_btn)
-        placeInFileBox.addWidget(self.annot_uncert_next_btn)
+        placeInFileBox.addWidget(self.annotNextLabel)
+        placeInFileBox.addWidget(self.annotAnyNextBtn)
+        placeInFileBox.addWidget(self.annotUncertNextBtn)
         placeInFileBox.addStretch(4)
         self.w_overview.layout.addLayout(placeInFileBox, 3, 1)
 
         # Corresponding keyboard shortcuts:
-        self.move_left_key = QShortcut(QKeySequence(Qt.Key_Left), self)
-        self.move_left_key2 = QShortcut(QKeySequence(Qt.Key_A), self)
-        self.move_left_key.activated.connect(self.moveLeft)
-        self.move_left_key2.activated.connect(self.moveLeft)
-        self.move_right_key = QShortcut(QKeySequence(Qt.Key_Right), self)
-        self.move_right_key2 = QShortcut(QKeySequence(Qt.Key_D), self)
-        self.move_right_key.activated.connect(self.moveRight)
-        self.move_right_key2.activated.connect(self.moveRight)
-        self.move_prev_5mins_key = QShortcut(QKeySequence("Shift+Left"), self)
-        self.move_prev_5mins_key.activated.connect(self.movePrev5mins)
-        self.move_next_5mins_key = QShortcut(QKeySequence("Shift+Right"), self)
-        self.move_next_5mins_key.activated.connect(self.moveNext5mins)
+        self.moveLeftKey = QShortcut(QKeySequence(Qt.Key_Left), self)
+        self.moveLeftKey2 = QShortcut(QKeySequence(Qt.Key_A), self)
+        self.moveLeftKey.activated.connect(self.moveLeft)
+        self.moveLeftKey2.activated.connect(self.moveLeft)
+        self.moveRightKey = QShortcut(QKeySequence(Qt.Key_Right), self)
+        self.moveRightKey2 = QShortcut(QKeySequence(Qt.Key_D), self)
+        self.moveRightKey.activated.connect(self.moveRight)
+        self.moveRightKey2.activated.connect(self.moveRight)
+        self.movePrev5MinsKey = QShortcut(QKeySequence("Shift+Left"), self)
+        self.movePrev5MinsKey.activated.connect(self.movePrev5mins)
+        self.moveNext5MinsKey = QShortcut(QKeySequence("Shift+Right"), self)
+        self.moveNext5MinsKey.activated.connect(self.moveNext5mins)
 
         # AMPLITUDE dock
         self.w_ampl = pg.GraphicsLayoutWidget()
@@ -892,16 +892,16 @@ class AviaNZ(QMainWindow):
         self.quickDenButton.setToolTip("Denoise segment")
         self.quickDenButton.clicked.connect(self.denoiseSeg)
 
-        self.toggle_label_type_btn = QtWidgets.QToolButton()
-        self.toggle_label_type_btn.setIcon(QIcon("img/splarge-ct.png"))
-        self.toggle_label_type_btn.setIconSize(QtCore.QSize(35, 20))
-        self.toggle_label_type_btn.setToolTip(
+        self.toggleLabelTypeBtn = QtWidgets.QToolButton()
+        self.toggleLabelTypeBtn.setIcon(QIcon("img/splarge-ct.png"))
+        self.toggleLabelTypeBtn.setIconSize(QtCore.QSize(35, 20))
+        self.toggleLabelTypeBtn.setToolTip(
             "Toggle between species/calltype views [Tab]"
         )
-        self.toggle_label_type_btn.clicked.connect(self.toggle_label_type)
+        self.toggleLabelTypeBtn.clicked.connect(self.toggleLabelType)
 
-        self.toggle_label_type_key = QShortcut(QKeySequence("Tab"), self)
-        self.toggle_label_type_key.activated.connect(self.toggle_label_type)
+        self.toggleLabelTypeKey = QShortcut(QKeySequence("Tab"), self)
+        self.toggleLabelTypeKey.activated.connect(self.toggleLabelType)
 
         self.playBandLimitedSegButton = QtWidgets.QToolButton()
         self.playBandLimitedSegButton.setIcon(QtGui.QIcon("img/playBandLimited.png"))
@@ -940,7 +940,7 @@ class AviaNZ(QMainWindow):
 
         # export selected sound
         self.exportSoundBtn = QPushButton("  Save sound clip")
-        self.exportSoundBtn.clicked.connect(lambda _: self.save_selected_sound())
+        self.exportSoundBtn.clicked.connect(lambda _: self.saveSelectedSound())
         self.exportSoundBtn.setIcon(QIcon(QPixmap("img/storage2.png")))
         self.exportSoundBtn.setToolTip("Export the selected segment to a file")
 
@@ -948,7 +948,7 @@ class AviaNZ(QMainWindow):
         if not self.DOC:
             self.exportSlowSoundBtn = QPushButton("  Save slow sound clip")
             self.exportSlowSoundBtn.clicked.connect(
-                lambda _: self.save_selected_sound(self.slowSpeed)
+                lambda _: self.saveSelectedSound(self.slowSpeed)
             )
             self.exportSlowSoundBtn.setIcon(QIcon(QPixmap("img/storage2.png")))
             self.exportSlowSoundBtn.setToolTip(
@@ -978,7 +978,7 @@ class AviaNZ(QMainWindow):
             self.w_controls.addWidget(self.quickDenButton, row=1, col=2)
             # self.w_controls.addWidget(self.quickDenNButton,row=1,col=1)
 
-        self.w_controls.addWidget(self.toggle_label_type_btn, row=1, col=3)
+        self.w_controls.addWidget(self.toggleLabelTypeBtn, row=1, col=3)
 
         self.w_controls.addWidget(self.specControls, row=2, col=0, rowspan=2, colspan=4)
 
@@ -1009,75 +1009,69 @@ class AviaNZ(QMainWindow):
 
         # List to hold the list of files
         self.listFiles = SupportClasses_GUI.LightedFileList(
-            self.ColourNone, self.ColourPossibleDark, self.ColourNamed, self.database
+            self.ColourNone, self.ColourPossibleDark, self.ColourNamed, self.db
         )
         self.listFiles.itemDoubleClicked.connect(self.listLoadFile)
         self.listSpecies = QComboBox()
         self.listSpecies.setToolTip(
             "Select species and tick the Box to reduce filelist."
         )
-        self.listSpecies.currentIndexChanged.connect(
-            self.update_list_species_index_changed
-        )
+        self.listSpecies.currentIndexChanged.connect(self.updateListSpeciesIndexChanged)
         self.currentSpecies = "Species"
         # self.tickSpecies = QCheckBox("Only files with selected species?")
         self.tickSpecies = QCheckBox()
         self.tickSpecies.setToolTip("Tick to reduce filelist to current species.")
-        self.tickSpecies.stateChanged.connect(self.update_tick_species_state_changed)
+        self.tickSpecies.stateChanged.connect(self.updateTickSpeciesStateChanged)
         self.tickSpecies.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
 
-        self.conf_range_slider = superqt.QLabeledRangeSlider(Qt.Horizontal)
-        self.conf_range_slider.setRange(0, 100)
-        self.conf_range_slider.setHandleLabelPosition(0)
-        self.conf_range_slider.setEdgeLabelMode(2)
-        self.conf_range_slider.setValue((0, 100))
-        self.conf_range_slider.setTracking(False)
-        self.conf_range_slider.setToolTip(
+        self.confRangeSlider = superqt.QLabeledRangeSlider(Qt.Horizontal)
+        self.confRangeSlider.setRange(0, 100)
+        self.confRangeSlider.setHandleLabelPosition(0)
+        self.confRangeSlider.setEdgeLabelMode(2)
+        self.confRangeSlider.setValue((0, 100))
+        self.confRangeSlider.setTracking(False)
+        self.confRangeSlider.setToolTip(
             "Set confidence range to filter detections in files"
         )
-        self.conf_range_slider.valuesChanged.connect(
-            self.update_conf_range_slider_value_changed
+        self.confRangeSlider.valuesChanged.connect(
+            self.updateConfRangeSliderValueChanged
         )
-        self.conf_range_slider.slidersMoved.connect(self.update_conf_range_slider_moved)
-        self.conf_range_slider.sliderReleased.connect(
-            self.update_conf_range_slider_released
-        )
+        self.confRangeSlider.slidersMoved.connect(self.updateConfRangeSliderMoved)
+        self.confRangeSlider.sliderReleased.connect(self.updateConfRangeSliderReleased)
 
-        self.confidence_range = (0, 100)
+        self.confidenceRange = (0, 100)
 
-        self.time_range_start_label = QLabel("00:00")
-        self.time_range_start_label.setToolTip(
+        self.timeRangeStartLabel = QLabel("00:00")
+        self.timeRangeStartLabel.setToolTip(
             "Set time range to filter files. Does not filter directories."
         )
 
-        self.time_range_slider = superqt.QRangeSlider(Qt.Horizontal)
-        self.time_range_slider.setRange(0, 24 * 6)
-        self.time_range_slider.setValue((0, 24 * 6))
-        self.time_range_slider.setTickInterval(1)
-        self.time_range_slider.setPageStep(6)
-        self.time_range_slider.setToolTip(
+        self.timeRangeSlider = superqt.QRangeSlider(Qt.Horizontal)
+        self.timeRangeSlider.setRange(0, 24 * 6)
+        self.timeRangeSlider.setValue((0, 24 * 6))
+        self.timeRangeSlider.setTickInterval(1)
+        self.timeRangeSlider.setPageStep(6)
+        self.timeRangeSlider.setToolTip(
             "Set time range to filter files. Does not filter directories."
         )
-        self.time_range_slider.valuesChanged.connect(
-            self.update_time_range_slider_value_changed
+        self.timeRangeSlider.valuesChanged.connect(
+            self.updateTimeRangeSliderValuesChanged
         )
-        self.time_range_slider.slidersMoved.connect(self.update_time_range_slider_moved)
-        self.time_range_slider.sliderReleased.connect(
-            self.update_time_range_slider_released
-        )
+        self.timeRangeSlider.slidersMoved.connect(self.updateTimeRangeSlidersMoved)
+        self.timeRangeSlider.sliderReleased.connect(self.updateTimeRangeSliderReleased)
 
-        self.time_range_end_label = QLabel("24:00")
-        self.time_range_end_label.setToolTip(
+        self.timeRangeEndLabel = QLabel("24:00")
+        self.timeRangeEndLabel.setToolTip(
             "Set time range to filter files. Does not filter directories."
         )
 
-        self.time_range = (0, 24 * 3600)
+        self.timeRange = (0, 24 * 3600)
         self.w_files.addWidget(self.listSpecies, row=2, col=0, colspan=2)
         self.w_files.addWidget(self.tickSpecies, row=2, col=2)
-        self.w_files.addWidget(self.conf_range_slider, row=4, col=0, colspan=3)
-        self.w_files.addWidget(self.time_range_start_label, row=5, col=0)
-        self.w_files.addWidget(self.time_range_slider, row=5, col=1)
-        self.w_files.addWidget(self.time_range_end_label, row=5, col=2)
+        self.w_files.addWidget(self.confRangeSlider, row=4, col=0, colspan=3)
+        self.w_files.addWidget(self.timeRangeStartLabel, row=5, col=0)
+        self.w_files.addWidget(self.timeRangeSlider, row=5, col=1)
+        self.w_files.addWidget(self.timeRangeEndLabel, row=5, col=2)
         self.w_files.addWidget(self.listFiles, row=8, colspan=3)
 
         # The context menu (drops down on mouse click) to select birds
@@ -1340,7 +1334,7 @@ class AviaNZ(QMainWindow):
             print("ERROR: directory %s doesn't exist" % dir)
             return
         self.listFiles.fill(
-            dir, fileName, self.confidence_range, self.time_range, self.currentSpecies
+            dir, fileName, self.confidenceRange, self.timeRange, self.currentSpecies
         )
         self.updateListSpecies()
 
@@ -1362,7 +1356,7 @@ class AviaNZ(QMainWindow):
                 [
                     "{} {:.0f}".format(key, value)
                     for key, value in self.listFiles.spListCert.items()
-                    if value >= self.confidence_range[0] or key == currentSpecies
+                    if value >= self.confidenceRange[0] or key == currentSpecies
                 ]
             ),
         )
@@ -1380,9 +1374,7 @@ class AviaNZ(QMainWindow):
         self.currentSpecies = self.listSpecies.currentText().rpartition(" ")[0]
 
         # reconnect updateListFiles to listSpecies
-        self.listSpecies.currentIndexChanged.connect(
-            self.update_list_species_index_changed
-        )
+        self.listSpecies.currentIndexChanged.connect(self.updateListSpeciesIndexChanged)
 
     def resetStorageArrays(self):
         """Called when new files are loaded.
@@ -1562,103 +1554,99 @@ class AviaNZ(QMainWindow):
         return 0
 
     def toggleRankSort(self):
-        self.listFiles.rank_sort = self.rank_sort.isChecked()
+        self.listFiles.sortRank = self.sortRank.isChecked()
         self.listFiles.setSortingEnabled(True)
         self.listFiles.restrict(
-            self.currentSpecies, self.confidence_range, self.time_range
+            self.currentSpecies, self.confidenceRange, self.timeRange
         )
         self.listFiles.sortItems()
-        self.listFiles.update_current_indices()
+        self.listFiles.updateCurrentIndices()
 
-    def update_tick_species_state_changed(self, state):
+    def updateTickSpeciesStateChanged(self, state):
         """This function is called when the species checkbox is clicked.
         It restricts the list of files and updates the segments if needed"""
         self.listFiles.showAll = not state
         self.listFiles.restrict(
-            self.currentSpecies, self.confidence_range, self.time_range
+            self.currentSpecies, self.confidenceRange, self.timeRange
         )
         self.listFiles.sortItems()
-        self.listFiles.update_current_indices()
+        self.listFiles.updateCurrentIndices()
         self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
         if not self.currentSpecies == "Species":
             self.removeSegments()
             self.drawfigMain()
 
-    def update_list_species_index_changed(self, idx):
+    def updateListSpeciesIndexChanged(self, idx):
         """This function is called when the user chooses another species in the list.
         It restricts the list of files and updates the segments if needed"""
         oldSpecies = self.currentSpecies
         self.currentSpecies = self.listSpecies.currentText().rpartition(" ")[0]
         if oldSpecies != self.currentSpecies:
-            self.listFiles.current_species = self.currentSpecies
+            self.listFiles.currentSpecies = self.currentSpecies
             self.listFiles.restrict(
-                self.currentSpecies, self.confidence_range, self.time_range
+                self.currentSpecies, self.confidenceRange, self.timeRange
             )
             self.listFiles.sortItems()
-            self.listFiles.update_current_indices()
+            self.listFiles.updateCurrentIndices()
             self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
             if not self.listFiles.showAll:
                 self.removeSegments()
                 self.drawfigMain()
 
-    def update_conf_range_slider_value_changed(self, values):
+    def updateConfRangeSliderValueChanged(self, values):
         """This function is called when the user chooses another confidence range.
         It restricts the list of files accordingly"""
-        self.confidence_range = values
-        self.listFiles.restrict(self.currentSpecies, values, self.time_range)
+        self.confidenceRange = values
+        self.listFiles.restrict(self.currentSpecies, values, self.timeRange)
         self.listFiles.sortItems()
-        self.listFiles.update_current_indices()
+        self.listFiles.updateCurrentIndices()
         self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
         self.updateListSpecies()
 
-    def update_conf_range_slider_moved(self, position):
+    def updateConfRangeSliderMoved(self, position):
         """This function is called when the user uses the mouse to move the confidence range slider.
         As tracking is turned of the min/max values have to be updated here"""
-        self.conf_range_slider._min_label.setValue(position[0])
-        self.conf_range_slider._max_label.setValue(position[1])
+        self.confRangeSlider._min_label.setValue(position[0])
+        self.confRangeSlider._max_label.setValue(position[1])
 
-    def update_conf_range_slider_released(self):
+    def updateConfRangeSliderReleased(self):
         """This function is called after the user moved the confidence range slider with the mouse.
         As tracking of the confidence range slider is turned of this function calls the update
         after value changed function"""
-        self.update_conf_range_slider_value_changed(
-            self.conf_range_slider.sliderPosition()
-        )
+        self.updateConfRangeSliderValueChanged(self.confRangeSlider.sliderPosition())
 
-    def update_time_range_slider_value_changed(self, values):
+    def updateTimeRangeSliderValuesChanged(self, values):
         """This function is called when the user chooses another confidence range.
         It restricts the list of files accordingly"""
-        self.update_time_range_slider_moved(values)
+        self.updateTimeRangeSlidersMoved(values)
         self.listFiles.restrict(
-            self.currentSpecies, self.confidence_range, self.time_range
+            self.currentSpecies, self.confidenceRange, self.timeRange
         )
         self.listFiles.sortItems()
-        self.listFiles.update_current_indices()
+        self.listFiles.updateCurrentIndices()
         self.listFiles.scrollToItem(self.listFiles.currentItem(), 3)
 
-    def update_time_range_slider_moved(self, position):
+    def updateTimeRangeSlidersMoved(self, position):
         """This function is called when the user uses the mouse to move the confidence range slider.
         As tracking is turned of the min/max values have to be updated here"""
         s = datetime.timedelta(minutes=position[0] * 10)
         e = datetime.timedelta(minutes=position[1] * 10)
-        self.time_range = (s.seconds, e.days * 24 * 3600 + e.seconds)
+        self.timeRange = (s.seconds, e.days * 24 * 3600 + e.seconds)
 
         start = (datetime.datetime.min + s).time()
         end = (datetime.datetime.min + e).time()
 
-        self.time_range_start_label.setText(start.strftime("%H:%M"))
+        self.timeRangeStartLabel.setText(start.strftime("%H:%M"))
         if end == datetime.time(0):
-            self.time_range_end_label.setText("24:00")
+            self.timeRangeEndLabel.setText("24:00")
         else:
-            self.time_range_end_label.setText(end.strftime("%H:%M"))
+            self.timeRangeEndLabel.setText(end.strftime("%H:%M"))
 
-    def update_time_range_slider_released(self):
+    def updateTimeRangeSliderReleased(self):
         """This function is called after the user moved the confidence range slider with the mouse.
         As tracking of the confidence range slider is turned of this function calls the update
         after value changed function"""
-        self.update_time_range_slider_value_changed(
-            self.time_range_slider.sliderPosition()
-        )
+        self.updateTimeRangeSliderValuesChanged(self.timeRangeSlider.sliderPosition())
 
     def loadFile(self, name=None):
         """This does the work of loading a file.
@@ -1702,7 +1690,7 @@ class AviaNZ(QMainWindow):
                     )
 
                 self.currentFileSection = 0
-                self.set_time_axis()
+                self.setTimeAxis()
 
             dlg += 1
             dlg.update()
@@ -1764,14 +1752,14 @@ class AviaNZ(QMainWindow):
                     )
                     self.prev5mins.setEnabled(False)
                     self.next5mins.setEnabled(True)
-                    self.move_prev_5mins_key.setEnabled(False)
-                    self.move_next_5mins_key.setEnabled(True)
+                    self.movePrev5MinsKey.setEnabled(False)
+                    self.moveNext5MinsKey.setEnabled(True)
                 else:
                     self.nFileSections = 1
                     self.prev5mins.setEnabled(False)
                     self.next5mins.setEnabled(False)
-                    self.move_prev_5mins_key.setEnabled(False)
-                    self.move_next_5mins_key.setEnabled(False)
+                    self.movePrev5MinsKey.setEnabled(False)
+                    self.moveNext5MinsKey.setEnabled(False)
                 print("number of pages: ", self.nFileSections)
 
             # Update overview info
@@ -1912,9 +1900,9 @@ class AviaNZ(QMainWindow):
         if not skipHidden and i > 1:
             self.listFiles.setCurrentRow(i - 1)
             self.listFiles.restrict(
-                self.currentSpecies, self.confidence_range, self.time_range
+                self.currentSpecies, self.confidenceRange, self.timeRange
             )
-            self.listFiles.update_current_indices()
+            self.listFiles.updateCurrentIndices()
             self.listLoadFile(self.listFiles.currentItem())
             return
 
@@ -1924,9 +1912,9 @@ class AviaNZ(QMainWindow):
                 self.listFiles.currentIndices[currentIndex - 1]
             )
             self.listFiles.restrict(
-                self.currentSpecies, self.confidence_range, self.time_range
+                self.currentSpecies, self.confidenceRange, self.timeRange
             )
-            self.listFiles.update_current_indices()
+            self.listFiles.updateCurrentIndices()
 
         else:
             # Tell the user they've finished
@@ -1950,9 +1938,9 @@ class AviaNZ(QMainWindow):
         if not skipHidden and i + 1 < len(self.listFiles):
             self.listFiles.setCurrentRow(i + 1)
             self.listFiles.restrict(
-                self.currentSpecies, self.confidence_range, self.time_range
+                self.currentSpecies, self.confidenceRange, self.timeRange
             )
-            self.listFiles.update_current_indices()
+            self.listFiles.updateCurrentIndices()
             self.listLoadFile(self.listFiles.currentItem())
             return
 
@@ -1962,9 +1950,9 @@ class AviaNZ(QMainWindow):
                 self.listFiles.currentIndices[currentIndex + 1]
             )
             self.listFiles.restrict(
-                self.currentSpecies, self.confidence_range, self.time_range
+                self.currentSpecies, self.confidenceRange, self.timeRange
             )
-            self.listFiles.update_current_indices()
+            self.listFiles.updateCurrentIndices()
 
         else:
             # Tell the user they've finished
@@ -2113,14 +2101,14 @@ class AviaNZ(QMainWindow):
                 self.segmentPlots = []
             self.statusLeft.setText("Ready")
 
-    def set_time_axis(self):
+    def setTimeAxis(self):
         if hasattr(self, "timeaxis"):
             self.w_spec.removeItem(self.timeaxis)
 
         # Check if the filename is in standard DOC format
         # Which is xxxxxx_xxxxxx.wav or ccxx_cccc_xxxxxx_xxxxxx.wav (c=char, x=0-9), could have _ afterward
         # So this checks for the 6 ints _ 6 ints part anywhere in string
-        doc, startTime = self.listFiles.currentItem().get_doc_start_time()
+        doc, startTime = self.listFiles.currentItem().getStartTimeDOC()
         self.startTime = startTime
 
         if doc:
@@ -2503,7 +2491,7 @@ class AviaNZ(QMainWindow):
         self.segments[i][1] = x2 + self.startRead
 
         # update segment in database
-        self.database.update_segment(
+        self.db.update_segment(
             old_segment,
             self.segments[i],
             self.SoundFileDir,
@@ -2549,13 +2537,13 @@ class AviaNZ(QMainWindow):
             self.segments[i][0] = sender.getRegion()[0] + self.startRead
             self.segments[i][1] = sender.getRegion()[1] + self.startRead
 
-            self.database.update_segment(
+            self.db.update_segment(
                 old_segment,
                 self.segments[i],
                 self.SoundFileDir,
                 self.listFiles.currentItem().text(),
             )
-            self.database.commit()
+            self.db.commit()
             # update the overview boxes, step 2
             self.refreshOverviewWith(self.segments[i])
 
@@ -3417,7 +3405,7 @@ class AviaNZ(QMainWindow):
                     [self.convertAmpltoSpec(self.start_ampl_loc), mousePoint.x()]
                 )
 
-    def toggle_label_type(self):
+    def toggleLabelType(self):
         """Toggles between species-calltype level displays.
         Needs to swap the context menu, and the segment label text.
         """
@@ -3425,13 +3413,13 @@ class AviaNZ(QMainWindow):
         if self.viewCallType:
             self.viewCallType = False
             self.menuBirdList.triggered.connect(self.birdSelectedMenu)
-            self.toggle_label_type_btn.setIcon(QIcon("img/splarge-ct.png"))
+            self.toggleLabelTypeBtn.setIcon(QIcon("img/splarge-ct.png"))
             # not sure if we need to re-set the size after every icon change
-            # self.toggle_label_type_btn.setIconSize(QtCore.QSize(35, 20))
+            # self.toggleLabelTypeBtn.setIconSize(QtCore.QSize(35, 20))
         else:
             self.viewCallType = True
             self.menuBirdList.triggered.connect(self.callSelectedMenu)
-            self.toggle_label_type_btn.setIcon(QIcon("img/sp-ctlarge.png"))
+            self.toggleLabelTypeBtn.setIcon(QIcon("img/sp-ctlarge.png"))
 
         for seg in range(len(self.listLabels)):
             if self.listLabels[seg] is not None:
@@ -3587,13 +3575,13 @@ class AviaNZ(QMainWindow):
         # refresh overview boxes after all updates:
         self.refreshOverviewWith(workingSeg)
 
-        self.database.update_segment_species(
+        self.db.update_segment_species(
             workingSeg,
             self.SoundFileDir,
             self.listFiles.currentItem().text(),
             self.reviewer,
         )
-        self.database.commit()
+        self.db.commit()
         # Store the species in case the user wants it for the next segment
         self.lastSpecies = [{"species": species, "certainty": 100, "filter": "M"}]
         self.updateText()
@@ -3662,13 +3650,13 @@ class AviaNZ(QMainWindow):
         ]
         self.updateText()
         self.segInfo.setText(workingSeg.infoString())
-        self.database.update_segment_species(
+        self.db.update_segment_species(
             workingSeg,
             self.SoundFileDir,
             self.listFiles.currentItem().text(),
             self.reviewer,
         )
-        self.database.commit()
+        self.db.commit()
         # self.menuBirdList.hide()
 
     def saveCalltypeDicts(self):
@@ -3853,10 +3841,10 @@ class AviaNZ(QMainWindow):
         """
         self.currentFileSection -= 1
         self.next5mins.setEnabled(True)
-        self.move_next_5mins_key.setEnabled(True)
+        self.moveNext5MinsKey.setEnabled(True)
         if self.currentFileSection <= 0:
             self.prev5mins.setEnabled(False)
-            self.move_prev_5mins_key.setEnabled(False)
+            self.movePrev5MinsKey.setEnabled(False)
         self.prepare5minMove()
 
     def moveNext5mins(self):
@@ -3866,10 +3854,10 @@ class AviaNZ(QMainWindow):
         """
         self.currentFileSection += 1
         self.prev5mins.setEnabled(True)
-        self.move_prev_5mins_key.setEnabled(True)
+        self.movePrev5MinsKey.setEnabled(True)
         if self.currentFileSection >= self.nFileSections - 1:
             self.next5mins.setEnabled(False)
-            self.move_next_5mins_key.setEnabled(False)
+            self.moveNext5MinsKey.setEnabled(False)
         self.prepare5minMove()
 
     def moveTo5mins(self, pagenum=None):
@@ -3887,17 +3875,17 @@ class AviaNZ(QMainWindow):
         self.currentFileSection = pagenum - 1
         if self.currentFileSection >= self.nFileSections - 1:
             self.next5mins.setEnabled(False)
-            self.move_next_5mins_key.setEnabled(False)
+            self.moveNext5MinsKey.setEnabled(False)
         else:
             self.next5mins.setEnabled(True)
-            self.move_next_5mins_key.setEnabled(True)
+            self.moveNext5MinsKey.setEnabled(True)
 
         if self.currentFileSection <= 0:
             self.prev5mins.setEnabled(False)
-            self.move_prev_5mins_key.setEnabled(False)
+            self.movePrev5MinsKey.setEnabled(False)
         else:
             self.prev5mins.setEnabled(True)
-            self.move_prev_5mins_key.setEnabled(True)
+            self.movePrev5MinsKey.setEnabled(True)
         self.prepare5minMove()
 
     def scroll(self):
@@ -3996,7 +3984,7 @@ class AviaNZ(QMainWindow):
         self.selectSegment(targetix)
         QApplication.restoreOverrideCursor()
 
-    def annot_jump_prev(self, maxcert):
+    def annotJumperPrev(self, maxcert):
         """Scrolls to previous annotation of no more than maxcert certainty."""
         # (this is just a manual pg.BusyCursor)
         QApplication.setOverrideCursor(QtGui.QCursor(Qt.WaitCursor))
@@ -4555,7 +4543,7 @@ class AviaNZ(QMainWindow):
         msg.exec_()
         return
 
-    def save_selected_sound(self, slowdown=1):
+    def saveSelectedSound(self, slowdown=1):
         """Listener for 'Save selected (slow) sound' button.
         Chooses destination, file name, and exports.
         slowdown: can pass a factor >1 (<1) to save slower (faster) sound.
@@ -4811,15 +4799,15 @@ class AviaNZ(QMainWindow):
         # spList = set([self.currentSpecies])
 
         if self.currentSpecies == "Species":
-            segment_data = self.database.get_dir_segments(
+            segment_data = self.db.get_dir_segments(
                 self.SoundFileDir,
-                self.confidence_range,
+                self.confidenceRange,
             )
         else:
-            segment_data = self.database.get_dir_species_segments(
+            segment_data = self.db.get_dir_species_segments(
                 self.SoundFileDir,
                 self.currentSpecies,
-                self.confidence_range,
+                self.confidenceRange,
             )
 
         all_files = []
@@ -5350,10 +5338,10 @@ class AviaNZ(QMainWindow):
 
     def exportFiles(self):
         """Copy files with selected species and segments with confidence > selected confidence to specified folder"""
-        fileDirList = self.database.get_files_with_species(
+        fileDirList = self.db.get_files_with_species(
             self.currentSpecies,
             self.SoundFileDir,
-            self.confidence_range,
+            self.confidenceRange,
         )
         self.exportFilelist = [os.path.join(dir, file) for file, dir in fileDirList]
         print(self.exportFilelist)
@@ -5362,14 +5350,12 @@ class AviaNZ(QMainWindow):
         self.exportDialog.activateWindow()
         self.exportDialog.btnCopyFiles.clicked.connect(self.copyFiles)
 
-    def export_json_files(self):
+    def exportAvianzData(self):
         if self.currentSpecies == "Species":
-            segments = self.database.get_dir_segments(
-                self.SoundFileDir, self.confidence_range
-            )
+            segments = self.db.get_dir_segments(self.SoundFileDir, self.confidenceRange)
         else:
-            segments = self.database.get_dir_species_segments(
-                self.SoundFileDir, self.currentSpecies, self.confidence_range
+            segments = self.db.get_dir_species_segments(
+                self.SoundFileDir, self.currentSpecies, self.confidenceRange
             )
 
         to_export = {}
@@ -5403,33 +5389,33 @@ class AviaNZ(QMainWindow):
                 seglist.addSegment(s)
             seglist.saveJSON(seg + ".data")
 
-    def export_segments(self):
+    def exportAudioSegments(self):
         """Listener for "Export segments" from actions menu;
         exports segments for selected species to specified folder"""
 
         if self.currentSpecies == "Species":
-            fileDirList = self.database.get_grouped_dir_segments(
+            fileDirList = self.db.get_grouped_dir_segments(
                 self.SoundFileDir,
-                self.confidence_range,
+                self.confidenceRange,
             )
         else:
-            fileDirList = self.database.get_grouped_dir_species_segments(
+            fileDirList = self.db.get_grouped_dir_species_segments(
                 self.SoundFileDir,
                 self.currentSpecies,
-                self.confidence_range,
+                self.confidenceRange,
             )
-        self.export_segments_dict = {}
+        self.exportSegmentsDict = {}
         for entry in fileDirList:
             filename = os.path.join(entry[0], entry[1])
             segment = (entry[2], entry[3], entry[4], entry[5])
-            if filename in self.export_segments_dict.keys():
-                self.export_segments_dict[filename].append(segment)
+            if filename in self.exportSegmentsDict.keys():
+                self.exportSegmentsDict[filename].append(segment)
             else:
-                self.export_segments_dict[filename] = [segment]
+                self.exportSegmentsDict[filename] = [segment]
         self.exportDialog = Dialogs.ExportSegmentsDialog(self, len(fileDirList))
         self.exportDialog.show()
         self.exportDialog.activateWindow()
-        self.exportDialog.btnCopySegments.clicked.connect(self.copy_segments)
+        self.exportDialog.btnCopySegments.clicked.connect(self.copySegments)
 
     def copyFiles(self):
         for src in self.exportFilelist:
@@ -5441,13 +5427,13 @@ class AviaNZ(QMainWindow):
             shutil.copy2(src, dst)
         self.exportDialog.close()
 
-    def copy_segments(self):
-        """Reads the audio files from self.export_segments_dict, extracts the segments and saves them as individual audio files"""
+    def copySegments(self):
+        """Reads the audio files from self.exportSegmentsDict, extracts the segments and saves them as individual audio files"""
         dst = self.exportDialog.txtDst.text()
-        for src in self.export_segments_dict:
+        for src in self.exportSegmentsDict:
             # read audio file
             audio = wavio.read(src)
-            for seg in self.export_segments_dict[src]:
+            for seg in self.exportSegmentsDict[src]:
                 # concatenate destination file path
                 file_dst = os.path.join(
                     dst,
@@ -5467,7 +5453,7 @@ class AviaNZ(QMainWindow):
 
         self.exportDialog.close()
 
-    def import_avianz_data(self):
+    def importAvianzData(self):
         self.tempsl = Segment.SegmentList()
         filenames, _ = QFileDialog.getOpenFileNames(
             self,
@@ -5481,15 +5467,15 @@ class AviaNZ(QMainWindow):
                 print("\r", end="")
                 self.tempsl.parseJSON(filename, silent=True)
                 if len(self.tempsl) > 0:
-                    self.database.insert_segments(
+                    self.db.insert_segments(
                         self.tempsl,
                         filename[:-5],
                     )
-        self.database.commit()
+        self.db.commit()
         print("Database successfully updated.")
-        self.update_directory()
+        self.updateDirectory()
 
-    def import_raven_data(self):
+    def importRavenData(self):
         """Imports data from individual raven selection tables"""
 
         file_names, _ = QFileDialog.getOpenFileNames(
@@ -5499,7 +5485,6 @@ class AviaNZ(QMainWindow):
             "Raven selection tables (*.txt)",
         )
         seglistdir = {}
-        print(file_names)
         for filename in file_names:
             # TODO: How to set filter -> manually? by name?
             if len(os.path.basename(filename).split(".")) == 5:
@@ -5542,47 +5527,47 @@ class AviaNZ(QMainWindow):
 
         # insert the annotations into the database.
         for file in seglistdir:
-            self.database.insert_segments(seglistdir[file], file)
+            self.db.insert_segments(seglistdir[file], file)
 
-        self.database.commit()
+        self.db.commit()
         print("Database successfully updated.")
         self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
 
-    def delete_all_segments(self):
-        self.database.delete_dir_segments(self.SoundFileDir)
-        self.database.commit()
+    def deleteDirAnnotations(self):
+        self.db.delete_dir_segments(self.SoundFileDir)
+        self.db.commit()
         self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
         self.loadFile(self.filename)
 
-    def update_directory(self):
+    def updateDirectory(self):
         for root, dir, files in os.walk(self.SoundFileDir):
             for file in files:
                 if file.endswith(".wav"):
                     print("root: {}, filename: {}".format(root, file))
-                    self.database.add_file(file, root)
+                    self.db.add_file(file, root)
         self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
-        self.database.commit()
+        self.db.commit()
         self.loadFile(self.filename)
 
     def chooseDatabase(self):
         file, _ = QFileDialog.getSaveFileName(
             self,
             "Choose Annotation Database",
-            os.path.dirname(self.database.db_path),
+            os.path.dirname(self.db.db_path),
             "Database files (*.db)",
             "",
             QFileDialog.Option.DontConfirmOverwrite,
         )
         # update database filepath and database
         if file:
-            self.database_filepath = file
-            self.database = None
-            self.database = Database.DatabaseHandler(self.database_filepath)
-            self.listFiles.database = self.database
+            self.dbPath = file
+            self.db = None
+            self.db = Database.DatabaseHandler(self.dbPath)
+            self.listFiles.database = self.db
 
             # make sure the new database is saved to config
             self.saveConfig = True
-            self.config["Database"] = self.database_filepath
+            self.config["Database"] = self.dbPath
 
             # reload the list of files to update the file icons
             self.fillFileList(self.SoundFileDir, os.path.basename(self.filename))
@@ -5903,7 +5888,7 @@ class AviaNZ(QMainWindow):
         ## Create ParameterTree widget
         self.t = SupportClasses_GUI.ParameterTreeWithClose()
         self.t.setParameters(self.p, showTop=False)
-        self.t.treeclosed.connect(self.reload_file)
+        self.t.treeclosed.connect(self.reloadFile)
         self.t.show()
         self.t.setWindowTitle("PAMalyzer - Interface Settings")
         self.t.setWindowIcon(QIcon("img/PAMalyzer.ico"))
@@ -6175,7 +6160,7 @@ class AviaNZ(QMainWindow):
         self.saveConfig = True
         self.settingsChanged = True
 
-    def reload_file(self):
+    def reloadFile(self):
         # pass the file name to reset interface properly
         if self.settingsChanged:
             self.loadFile(self.filename)
@@ -6203,13 +6188,13 @@ class AviaNZ(QMainWindow):
             self.updateText(id)
             self.updateColour(id)
             self.segInfo.setText(self.segments[id].infoString())
-            self.database.update_segment_species(
+            self.db.update_segment_species(
                 self.segments[id],
                 self.SoundFileDir,
                 self.listFiles.currentItem().text(),
                 self.reviewer,
             )
-            self.database.commit()
+            self.db.commit()
 
     def deleteSegment(self, id=-1, hr=False):
         """Listener for delete segment button, or backspace key. Also called when segments are deleted by the
@@ -6241,10 +6226,8 @@ class AviaNZ(QMainWindow):
             del self.listLabels[id]
             del self.listRectanglesa1[id]
             del self.listRectanglesa2[id]
-            self.database.delete_segment(
-                self.filename, self.SoundFileDir, self.segments[id]
-            )
-            self.database.commit()
+            self.db.delete_segment(self.filename, self.SoundFileDir, self.segments[id])
+            self.db.commit()
             del self.segments[id]
 
             self.refreshFileColor()
@@ -6274,8 +6257,8 @@ class AviaNZ(QMainWindow):
             reply = msg.exec_()
             if reply == QMessageBox.Yes:
                 self.removeSegments()
-                self.database.delete_file_segments(self.filename)
-                self.database.commit()
+                self.db.delete_file_segments(self.filename)
+                self.db.commit()
 
             # reset segment playback buttons
             self.refreshSegmentControls()
@@ -6327,7 +6310,7 @@ class AviaNZ(QMainWindow):
                 data.setdefault(sp, []).append(conf)
         self.listFiles.currentItem().setData(QtCore.Qt.UserRole, data)
         self.listFiles.currentItem().paint(
-            self.confidence_range, self.currentSpecies, self.time_range
+            self.confidenceRange, self.currentSpecies, self.timeRange
         )
 
     def saveSegments(self):
@@ -6350,7 +6333,7 @@ class AviaNZ(QMainWindow):
             self.segments.metadata["Operator"] = self.operator
             self.segments.metadata["Reviewer"] = self.reviewer
 
-            self.segments.save_to_database(str(self.filename))
+            self.segments.saveToDatabase(str(self.filename))
 
             # refresh this file's icon in file list dock
             self.segmentsToSave = False

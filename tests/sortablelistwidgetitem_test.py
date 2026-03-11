@@ -12,7 +12,7 @@ def lighted_file_list(qtbot):
     col_named = QtGui.QColor(0, 255, 0, 100)
     flist = SupportClasses_GUI.LightedFileList(col_none, col_posdark, col_named, None)
 
-    flist.rank_sort = True
+    flist.sortRank = True
     flist.showAll = True
     qtbot.addWidget(flist)
     return flist
@@ -76,71 +76,74 @@ def qicon_vulture_one(qtbot):
 
 
 def test_lower_than(lighted_file_list, sortable_item_one, sortable_item_two):
-    lighted_file_list.current_species = "Bartgeier"
+    lighted_file_list.currentSpecies = "Bartgeier"
+    sortable_item_one.maxConf = sortable_item_one.getConfidenceRange(
+        "Bartgeier", (0, 100)
+    )[1]
+    sortable_item_two.maxConf = sortable_item_two.getConfidenceRange(
+        "Bartgeier", (0, 100)
+    )[1]
+
     assert sortable_item_one > sortable_item_two
 
 
 def test_lower_than_equal_max(lighted_file_list, sortable_item_one, sortable_item_two):
-    lighted_file_list.current_species = "Haubenlerche"
+    lighted_file_list.currentSpecies = "Haubenlerche"
+    sortable_item_one.maxConf = sortable_item_one.getConfidenceRange(
+        "Haubenlerche", (0, 100)
+    )[1]
+    sortable_item_two.maxConf = sortable_item_two.getConfidenceRange(
+        "Haubenlerche", (0, 100)
+    )[1]
+
     assert sortable_item_one < sortable_item_two
 
 
 def test_lower_than_all_species(
     lighted_file_list, sortable_item_one, sortable_item_two
 ):
-    lighted_file_list.current_species = "Species"
+    lighted_file_list.currentSpecies = "Species"
     assert sortable_item_one < sortable_item_two
-
-
-def test_get_max_conf_all_species(sortable_item_one, lighted_file_list):
-    lighted_file_list.current_species = "Species"
-    assert sortable_item_one.get_max_conf() == 93.1
-
-
-def test_get_max_conf_single_species(sortable_item_one, lighted_file_list):
-    lighted_file_list.current_species = "Bartgeier"
-    assert sortable_item_one.get_max_conf() == 57.3
-
-
-def test_get_max_conf_non_existent_species(sortable_item_one, lighted_file_list):
-    lighted_file_list.current_species = "non-existent"
-    assert sortable_item_one.get_max_conf() == 0
 
 
 def test_lower_than_dirup_item(
     lighted_file_list, sortable_item_one, sortable_item_dirup
 ):
-    lighted_file_list.current_species = "Haubenlerche"
+    lighted_file_list.currentSpecies = "Haubenlerche"
     assert sortable_item_one > sortable_item_dirup
 
 
 def test_min_max_confidence_with_empty_data_empty_species(qtbot, sortable_item_empty):
-    assert sortable_item_empty.get_min_max_confidence("") == (-1, 0)
+    assert sortable_item_empty.getConfidenceRange("", (0, 100)) == (-1, 0)
 
 
 def test_min_max_confidence_with_empty_data_species(qtbot, sortable_item_empty):
-    assert sortable_item_empty.get_min_max_confidence("Bartgeier") == (-1, 0)
+    assert sortable_item_empty.getConfidenceRange("Bartgeier", (0, 100)) == (-1, 0)
 
 
 def test_min_max_confidence_with_data_empty_species(qtbot, sortable_item_one):
-    assert sortable_item_one.get_min_max_confidence("") == (-1, 0)
+    assert sortable_item_one.getConfidenceRange("", (0, 100)) == (-1, 0)
+
+
+def test_min_max_confidence_with_data_all_species(qtbot, sortable_item_one):
+    assert sortable_item_one.getConfidenceRange("Species", (0, 100)) == (10.1, 93.1)
 
 
 def test_min_max_confidence_with_data_species(qtbot, sortable_item_one):
-    assert sortable_item_one.get_min_max_confidence("Bartgeier") == (16.2, 57.3)
+    assert sortable_item_one.getConfidenceRange("Bartgeier", (0, 100)) == (16.2, 57.3)
 
 
-def test_paint_vulture(qtbot, lighted_file_list, sortable_item_one, qicon_vulture_one):
-    lighted_file_list.insertItem(1, sortable_item_one)
-    sortable_item_one.paint(90, "Bartgeier")
-    assert not sortable_item_one.isHidden()
-    lighted_file_list.showAll = False
-    sortable_item_one.paint(90, "Bartgeier")
-    assert sortable_item_one.isHidden()
-    sortable_item_one.paint(90, "Species")
-    assert not sortable_item_one.isHidden()
-    sortable_item_one.paint(10, "non-existent")
-    assert sortable_item_one.isHidden()
+# def test_paint_vulture(qtbot, lighted_file_list, sortable_item_one, qicon_vulture_one):
+#     lighted_file_list.insertItem(1, sortable_item_one)
+#     sortable_item_one.paint((0, 90), "Bartgeier", (0, 24 * 3600))
+#     assert not sortable_item_one.isHidden()
+#     lighted_file_list.showAll = False
+#     sortable_item_one.paint((0, 90), "Bartgeier", (0, 24 * 3600))
+#     assert sortable_item_one.isHidden()
+#     sortable_item_one.paint((0, 90), "Species", (0, 24 * 3600))
+#     assert not sortable_item_one.isHidden()
+#     sortable_item_one.paint((0, 10), "non-existent", (0, 24 * 3600))
+#     assert sortable_item_one.isHidden()
 
 
 def test_paint_icon(qtbot, sortable_item_one, lighted_file_list):

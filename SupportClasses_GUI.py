@@ -1334,7 +1334,7 @@ class Layout(pg.LayoutWidget):
 
 
 class SortableListWidgetItem(QListWidgetItem):
-    """Custom QListWidgetItem to allow for different sorting depending on set item data and rank_sort option"""
+    """Custom QListWidgetItem to allow for different sorting depending on set item data and sortRank option"""
 
     def __init__(self, parent=None):
         super(SortableListWidgetItem, self).__init__()
@@ -1351,7 +1351,7 @@ class SortableListWidgetItem(QListWidgetItem):
         elif other.text() == "../":
             return False
 
-        elif self.parent.rank_sort:
+        elif self.parent.sortRank:
             maxthis = self.max_conf
             maxother = other.max_conf
             if maxthis == maxother:
@@ -1361,41 +1361,39 @@ class SortableListWidgetItem(QListWidgetItem):
         else:
             return self.text() < other.text()
 
-    def paint(self, conf_slider_val: tuple, current_species: str, time_range: tuple):
+    def paint(self, confSliderValues: tuple, currentSpecies: str, timeRange: tuple):
         data = self.data(QtCore.Qt.UserRole)
         if not data or data == []:
             self.paintIcon()
             self.max_conf = 0
-        elif self.startTime == -1 or (time_range[0] <= self.startTime <= time_range[1]):
-            min_conf, max_conf = self.get_min_max_confidence(
-                current_species, conf_slider_val
+        elif self.startTime == -1 or (timeRange[0] <= self.startTime <= timeRange[1]):
+            min_conf, max_conf = self.getConfidenceRange(
+                currentSpecies, confSliderValues
             )
             self.max_conf = max_conf
-            if conf_slider_val[0] > max_conf:
+            if confSliderValues[0] > max_conf:
                 min_conf = -1
             self.paintIcon(True, min_conf, max_conf)
         else:
             self.paintIcon(True)
 
-    def get_min_max_confidence(
-        self, current_species: str, conf_slider_val: tuple
-    ) -> tuple:
+    def getConfidenceRange(self, currentSpecies: str, confSliderValues: tuple) -> tuple:
         data = self.data(QtCore.Qt.UserRole)
         max_conf = 0
         min_conf = -1
         species_data = []
         if data != {}:
-            if current_species == "Species":
+            if currentSpecies == "Species":
                 species_data = [
                     conf for conf_list in data.values() for conf in conf_list
                 ]
-            elif current_species in data.keys():
-                species_data = data[current_species]
+            elif currentSpecies in data.keys():
+                species_data = data[currentSpecies]
 
             species_data.sort()
             confidences = species_data[
-                bisect.bisect_left(species_data, conf_slider_val[0]) : bisect.bisect(
-                    species_data, conf_slider_val[1]
+                bisect.bisect_left(species_data, confSliderValues[0]) : bisect.bisect(
+                    species_data, confSliderValues[1]
                 )
             ]
             if confidences:
@@ -1423,13 +1421,13 @@ class SortableListWidgetItem(QListWidgetItem):
                 #     self.setHidden(True)
                 # else:
                 #     self.setHidden(False)
-                self.check_hidden()
+                self.checkHidden()
             elif min_conf == 0:
                 self.pixmap.fill(self.parent.ColourNone)
                 self.setIcon(QIcon(self.pixmap))
                 # if not self.parent.showAll:
                 #     self.setHidden(False)
-                self.check_hidden(False)
+                self.checkHidden(False)
             elif min_conf < 100:
                 self.pixmap.fill(self.parent.ColourPossibleDark)
                 painter = QPainter(self.pixmap)
@@ -1438,30 +1436,30 @@ class SortableListWidgetItem(QListWidgetItem):
                 self.setIcon(QIcon(self.pixmap))
                 # if not self.parent.showAll:
                 #     self.setHidden(False)
-                self.check_hidden(False)
+                self.checkHidden(False)
             else:
                 self.pixmap.fill(self.parent.ColourNamed)
                 self.setIcon(QIcon(self.pixmap))
                 # if not self.parent.showAll:
                 #     self.setHidden(False)
-                self.check_hidden(False)
+                self.checkHidden(False)
         else:
             # if not self.parent.showAll and self != self.parent.currentItem():
             #     self.setHidden(True)
             # else:
             #     self.setHidden(False)
-            self.check_hidden()
+            self.checkHidden()
             # no .data for this sound file
             self.pixmap.fill(QColor(255, 255, 255, 0))
             self.setIcon(QIcon(self.pixmap))
 
-    def check_hidden(self, hide=True):
+    def checkHidden(self, hide=True):
         if hide and not self.parent.showAll and self != self.parent.currentItem():
             self.setHidden(True)
         else:
             self.setHidden(False)
 
-    def get_doc_start_time(self):
+    def getStartTimeDOC(self):
         if not hasattr(self, "doc"):
             DOCRecording = re.search("(\d{8})_(\d{6})", self.text()[-19:-4])
             if DOCRecording:
@@ -1504,15 +1502,15 @@ class LightedFileList(QListWidget):
         self.blackpen = fn.mkPen(color=(160, 160, 160, 255), width=2)
         self.tempsl = Segment.SegmentList()
         self.setAutoScroll(False)
-        self.rank_sort = False
+        self.sortRank = False
         self.currentIndices = []
 
     def fill(
         self,
         soundDir,
         fileName,
-        conf_slider_val,
-        time_range,
+        confSliderValues,
+        timeRange,
         species="Species",
         recursive=True,
         readFmt=False,
@@ -1534,9 +1532,9 @@ class LightedFileList(QListWidget):
         self.spListCert = dict()
         self.fsList = set()
         self.listOfFiles = []
-        self.current_species = species
-        self.conf_slider_value = conf_slider_val
-        self.time_range = time_range
+        self.currentSpecies = species
+        self.confSliderValues = confSliderValues
+        self.timeRange = timeRange
 
         with pg.BusyCursor():
             # Read contents of current dir
@@ -1616,11 +1614,11 @@ class LightedFileList(QListWidget):
                             (row["species"], row["confidence"])
                             for _, row in dir_sp_conf_grouped.iterrows()
                         ]
-                        self.set_item_data(item, dspc)
+                        self.setItemData(item, dspc)
 
                 else:
                     item.setText(file.fileName())
-                    item.get_doc_start_time()
+                    item.getStartTimeDOC()
                     # check for a data file here and color this entry based on that
                     fullname = os.path.join(soundDir, file.fileName())
                     # (also updates the directory info sets)
@@ -1629,7 +1627,7 @@ class LightedFileList(QListWidget):
                         if file.fileName() in file_sp_conf_dict.keys()
                         else []
                     )
-                    self.set_item_data(item, filespconf=fspc)
+                    self.setItemData(item, filespconf=fspc)
                     # format collection only implemented for WAVs currently
                     if readFmt:
                         if file.fileName().lower().endswith(".wav"):
@@ -1643,9 +1641,9 @@ class LightedFileList(QListWidget):
                                 )
                                 print(e)
                 self.insertItem(i, item)
-            self.restrict(self.current_species, self.conf_slider_value, self.time_range)
+            self.restrict(self.currentSpecies, self.confSliderValues, self.timeRange)
             self.sortItems()
-            self.update_current_indices()
+            self.updateCurrentIndices()
         if readFmt:
             print("Found the following Fs:", self.fsList)
 
@@ -1664,9 +1662,7 @@ class LightedFileList(QListWidget):
             else:
                 self.setCurrentRow(0)
 
-    def set_item_data(
-        self, item: SortableListWidgetItem, filespconf: list = []
-    ) -> None:
+    def setItemData(self, item: SortableListWidgetItem, filespconf: list = []) -> None:
         """Sets a dict of maximum confidence value per species as item data
         and updates the list of species and maximum confidence values"""
         item_data = {species: conf for species, conf in filespconf}
@@ -1733,28 +1729,28 @@ class LightedFileList(QListWidget):
     def restrict(
         self,
         species: str,
-        conf_slider_val: float = 0,
-        time_range: tuple = (0, 24 * 3600),
+        confSliderValues: float = 0,
+        timeRange: tuple = (0, 24 * 3600),
     ) -> None:
-        """restrict the filelist to files where species occures with max_conf > conf_slider_val"""
+        """restrict the filelist to files where species occures with max_conf > confSliderValues"""
 
         self.currentIndices = []
         # do not sort while restricting filelist
         self.setSortingEnabled(False)
 
         # save current species for use in sorting later
-        self.current_species = species
-        self.conf_slider_value = conf_slider_val
+        self.currentSpecies = species
+        self.confSliderValues = confSliderValues
 
         for item in self.iterAllItems():
             # if not item.text().endswith("/"):
             if not item.text() == "../":
-                item.paint(self.conf_slider_value, self.current_species, time_range)
+                item.paint(self.confSliderValues, self.currentSpecies, timeRange)
         # enable sorting again
         self.setSortingEnabled(True)
-        self.update_current_indices()
+        self.updateCurrentIndices()
 
-    def update_current_indices(self):
+    def updateCurrentIndices(self):
         self.currentIndices = []
         for item in self.iterAllItems():
             if not item.text() == "../" and not item.isHidden():

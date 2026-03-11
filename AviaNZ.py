@@ -103,7 +103,8 @@ def mainlauncher():
                 print(e)
                 raise
     QtWidgets.QApplication.setAttribute(
-        QtCore.Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+        QtCore.Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+    )
     print("Starting PAMalyzer..")
 
     app = QApplication(sys.argv)

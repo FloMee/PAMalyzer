@@ -382,7 +382,7 @@ class SegmentList(list):
         """
         self.parent = parent
         try:
-            annots = self.parent.database.get_file_segments(
+            annots = self.parent.db.get_file_segments(
                 os.path.basename(filename), os.path.dirname(filename)
             )
         except Exception as e:
@@ -487,14 +487,14 @@ class SegmentList(list):
         file.close()
         return 1
 
-    def save_to_database(self, file, reviewer=""):
+    def saveToDatabase(self, file, reviewer=""):
         """Returns 1 on succesful save."""
         if reviewer != "":
             self.metadata["Reviewer"] = reviewer
         # annots = [self.metadata]
         # for seg in self:
         #     annots.append(seg)
-        self.parent.database.insert_segments(self, file)
+        self.parent.db.insert_segments(self, file)
         # self.parent.database.commit()
         return 1
 

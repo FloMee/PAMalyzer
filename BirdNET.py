@@ -636,7 +636,7 @@ class BirdNET(QWidget):
     def updateFilelist(self, filelist):
         self.workers_done += 1
         if self.workers_done == self.total_workers:
-            self.AviaNZ.database.commit()
+            self.AviaNZ.db.commit()
             self.AviaNZ.loadFile(name=self.AviaNZ.filename)
             self.AviaNZ.fillFileList(
                 self.AviaNZ.SoundFileDir, os.path.basename(self.AviaNZ.filename)
@@ -677,7 +677,7 @@ class BirdNET(QWidget):
                 )
                 worker.fileProcessed.update.connect(self.updateProgress)
                 worker.filelistProcessed.done.connect(self.updateFilelist)
-                worker.sendSegList.send.connect(self.AviaNZ.database.insert_segments)
+                worker.sendSegList.send.connect(self.AviaNZ.db.insert_segments)
                 self.threadpool.start(worker)
 
         except:
