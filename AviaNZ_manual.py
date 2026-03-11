@@ -4874,6 +4874,7 @@ class AviaNZ(QMainWindow):
                 simple=True,
                 fileperspecies=False,
                 species=self.currentSpecies,
+                precisionMS=True,
             )
 
         if excsuccess != 1:

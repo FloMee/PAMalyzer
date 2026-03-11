@@ -382,7 +382,8 @@ class DatabaseHandler(QObject):
             INNER JOIN segment_species ON segments.segment_id = segment_species.segment_id 
             WHERE recording.directory LIKE ? AND segment_species.species_scientific_name = (?) AND
             segment_species.confidence >= ? AND segment_species.confidence <= ? 
-            GROUP BY segments.start, segments.end, segment_species.species_scientific_name""",
+            GROUP BY recording.directory, recording.filename, segments.start, segments.end,
+            segment_species.species_scientific_name""",
             (dirname + "%", species, conf_range[0], conf_range[1]),
         )
         return self.cursor.fetchall()
@@ -411,7 +412,8 @@ class DatabaseHandler(QObject):
             INNER JOIN segment_species ON segments.segment_id = segment_species.segment_id 
             WHERE recording.directory LIKE ? AND
             segment_species.confidence >= ? AND segment_species.confidence <= ? 
-            GROUP BY segments.start, segments.end, segment_species.species_scientific_name""",
+            GROUP BY recording.directory, recording.filename, segments.start, segments.end,
+            segment_species.species_scientific_name""",
             (dirname + "%", conf_range[0], conf_range[1]),
         )
         return self.cursor.fetchall()
