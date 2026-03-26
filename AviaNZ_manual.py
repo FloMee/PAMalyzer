@@ -401,6 +401,7 @@ class AviaNZ(QMainWindow):
         exportMenu.addAction("To Excel (File)", self.exportSeg)
         exportMenu.addAction("To Excel (Directory)", self.exportExcel)
         exportMenu.addAction("To .data files (Directory)", self.exportAvianzData)
+        exportMenu.addAction("To database", self.exportDatabase)
         exportFilesMenu = annotationMenu.addMenu("&Export Audio")
         exportFilesMenu.addAction("Files with selected species", self.exportFiles)
         exportFilesMenu.addAction(
@@ -5351,15 +5352,8 @@ class AviaNZ(QMainWindow):
         self.exportDialog.activateWindow()
         self.exportDialog.btnCopyFiles.clicked.connect(self.copyFiles)
 
-    def exportAvianzData(self):
-        if self.currentSpecies == "Species":
-            segments = self.db.get_dir_segments(self.SoundFileDir, self.confidenceRange)
-        else:
-            segments = self.db.get_dir_species_segments(
-                self.SoundFileDir, self.currentSpecies, self.confidenceRange
-            )
-
-        to_export = {}
+    def prepareExportData(self, segments):
+        exportData = {}
         for seg in segments:
             file = os.path.join(seg[0], seg[1])
             seg = [
@@ -5376,10 +5370,22 @@ class AviaNZ(QMainWindow):
                     }
                 ],
             ]
-            if file in to_export.keys():
-                to_export[file].append(seg)
+            if file in exportData.keys():
+                exportData[file].append(seg)
             else:
-                to_export[file] = [seg]
+                exportData[file] = [seg]
+
+        return exportData
+
+    def exportAvianzData(self):
+        if self.currentSpecies == "Species":
+            segments = self.db.get_dir_segments(self.SoundFileDir, self.confidenceRange)
+        else:
+            segments = self.db.get_dir_species_segments(
+                self.SoundFileDir, self.currentSpecies, self.confidenceRange
+            )
+
+        to_export = self.prepareExportData(segments)
         for seg in to_export:
             seglist = Segment.SegmentList()
             seglist.metadata["Duration"] = 0
@@ -5389,6 +5395,48 @@ class AviaNZ(QMainWindow):
             for s in to_export[seg]:
                 seglist.addSegment(s)
             seglist.saveJSON(seg + ".data")
+
+    def exportDatabase(self):
+        exportDB, _ = QFileDialog.getSaveFileName(
+            self,
+            "Choose Annotation Database",
+            os.path.dirname(self.db.db_path),
+            "Database files (*.db)",
+            "",
+            QFileDialog.Option.DontConfirmOverwrite,
+        )
+        # update database filepath and database
+        if exportDB:
+            exportDBHandler = Database.DatabaseHandler(exportDB)
+
+        if self.currentSpecies == "Species":
+            segments = self.db.get_dir_segments(self.SoundFileDir, self.confidenceRange)
+        else:
+            segments = self.db.get_dir_species_segments(
+                self.SoundFileDir, self.currentSpecies, self.confidenceRange
+            )
+
+        to_export = self.prepareExportData(segments)
+
+        for file in to_export:
+            seglist = Segment.SegmentList()
+            seglist.metadata["Duration"] = 0
+            seglist.metadata["Operator"] = self.operator
+            seglist.metadata["Reviewer"] = self.reviewer
+
+            for s in to_export[file]:
+                seglist.addSegment(s)
+
+            exportDBHandler.insert_segments(seglist, file)
+
+        msg = SupportClasses_GUI.MessagePopup(
+            "d",
+            "Success",
+            "The data was exported to {}".format(os.path.basename(exportDB)),
+        )
+
+        msg.exec_()
+        return
 
     def exportAudioSegments(self):
         """Listener for "Export segments" from actions menu;
