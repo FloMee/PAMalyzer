@@ -6213,6 +6213,7 @@ class AviaNZ(QMainWindow):
     def reloadFile(self):
         # pass the file name to reset interface properly
         if self.settingsChanged:
+            self.saveSegments()
             self.loadFile(self.filename)
 
     # ============
