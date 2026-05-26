@@ -113,7 +113,7 @@ class Segment(list):
         if not isinstance(species, str):
             print("ERROR: bad species provided")
             return
-        if not isinstance(certainty, (int, float)):
+        if not isinstance(certainty, (int, float)) or certainty < 0:
             print("ERROR: bad certainty provided")
             return
         if "filter" in label and label["filter"] != "M" and "calltype" not in label:
