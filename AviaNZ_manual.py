@@ -6343,16 +6343,21 @@ class AviaNZ(QMainWindow):
     def refreshFileColor(self):
         """Extracts the maximum confidence value of every species in the segments,
         sets it as item data of the current item and paints the item."""
+
         data = {}
         for segment in self.segments:
             for detection in segment[4]:
                 sp = detection["species"]
                 conf = detection["certainty"]
                 data.setdefault(sp, []).append(conf)
-        self.listFiles.currentItem().setData(QtCore.Qt.UserRole, data)
+
+        self.listFiles.setItemData(self.listFiles.currentItem(), list(data.items()))
         self.listFiles.currentItem().paint(
             self.confidenceRange, self.currentSpecies, self.timeRange
         )
+
+        # update species list
+        self.updateListSpecies()
 
     def saveSegments(self):
         """Save the segmentation data as a json file.
