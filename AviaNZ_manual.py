@@ -1530,6 +1530,12 @@ class AviaNZ(QMainWindow):
             if self.filename is not None:
                 self.closeFile()
 
+        # restrict the file list and update indices
+        self.listFiles.restrict(
+            self.currentSpecies, self.confidenceRange, self.timeRange
+        )
+        self.listFiles.updateCurrentIndices()
+
         # Update the file list to show the right location
         i = 0
         lof = self.listFiles.listOfFiles
@@ -1901,10 +1907,6 @@ class AviaNZ(QMainWindow):
         i = self.listFiles.currentRow()
         if not skipHidden and i > 1:
             self.listFiles.setCurrentRow(i - 1)
-            self.listFiles.restrict(
-                self.currentSpecies, self.confidenceRange, self.timeRange
-            )
-            self.listFiles.updateCurrentIndices()
             self.listLoadFile(self.listFiles.currentItem())
             return
 
@@ -1913,10 +1915,6 @@ class AviaNZ(QMainWindow):
             self.listFiles.setCurrentRow(
                 self.listFiles.currentIndices[currentIndex - 1]
             )
-            self.listFiles.restrict(
-                self.currentSpecies, self.confidenceRange, self.timeRange
-            )
-            self.listFiles.updateCurrentIndices()
 
         else:
             # Tell the user they've finished
@@ -1939,10 +1937,6 @@ class AviaNZ(QMainWindow):
         i = self.listFiles.currentRow()
         if not skipHidden and i + 1 < len(self.listFiles):
             self.listFiles.setCurrentRow(i + 1)
-            self.listFiles.restrict(
-                self.currentSpecies, self.confidenceRange, self.timeRange
-            )
-            self.listFiles.updateCurrentIndices()
             self.listLoadFile(self.listFiles.currentItem())
             return
 
@@ -1951,10 +1945,6 @@ class AviaNZ(QMainWindow):
             self.listFiles.setCurrentRow(
                 self.listFiles.currentIndices[currentIndex + 1]
             )
-            self.listFiles.restrict(
-                self.currentSpecies, self.confidenceRange, self.timeRange
-            )
-            self.listFiles.updateCurrentIndices()
 
         else:
             # Tell the user they've finished
