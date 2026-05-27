@@ -183,7 +183,11 @@ class Spectrogram(QDialog):
         Box = QVBoxLayout()
         form = QFormLayout()
         form.addRow("Window", self.windowType)
-        form.addRow("Spectrogram type", self.sgType)
+
+        # TODO: Decide wheather option sgType should stay
+        # if not, remove it completely, now just hidden
+
+        # form.addRow("Spectrogram type", self.sgType)
         form.addRow("Spectrogram normalisation", self.sgNorm)
         form.addRow("Mean normalise", self.mean_normalise)
         form.addRow("Equal loudness", self.equal_loudness)
