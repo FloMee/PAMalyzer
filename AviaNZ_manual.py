@@ -132,6 +132,7 @@ class AviaNZ(QMainWindow):
         self.config = self.ConfigLoader.config(self.configfile)
         self.saveConfig = True
         self.settingsChanged = False
+        self.updateFileIcons = False
 
         # Load call types
         self.calltypesDir = os.path.join(configdir, "Calltypes")
@@ -5926,6 +5927,7 @@ class AviaNZ(QMainWindow):
             },
         ]
         self.settingsChanged = False
+        self.updateFileIcons = False
         ## Create tree of Parameter objects
         self.p = Parameter.create(name="params", type="group", children=params)
         self.p.sigTreeStateChanged.connect(self.changeParams)
@@ -6019,6 +6021,7 @@ class AviaNZ(QMainWindow):
                     255,
                 )
                 self.listFiles.ColourNamed = self.ColourNamed
+                self.updateFileIcons = True
             elif childName == "Annotation.Segment colours.Possible":
                 rgbaVal = list(data.getRgb())
                 if rgbaVal[3] > 100:
@@ -6037,6 +6040,7 @@ class AviaNZ(QMainWindow):
                     255,
                 )
                 self.listFiles.ColourPossibleDark = self.ColourPossibleDark
+                self.updateFileIcons = True
             elif childName == "Annotation.Segment colours.Don't know":
                 rgbaVal = list(data.getRgb())
                 if rgbaVal[3] > 100:
@@ -6055,6 +6059,7 @@ class AviaNZ(QMainWindow):
                     255,
                 )
                 self.listFiles.ColourNone = self.ColourNone
+                self.updateFileIcons = True
             elif childName == "Annotation.Segment colours.Currently selected":
                 rgbaVal = list(data.getRgb())
                 if rgbaVal[3] > 100:
@@ -6209,6 +6214,12 @@ class AviaNZ(QMainWindow):
         if self.settingsChanged:
             self.saveSegments()
             self.loadFile(self.filename)
+        # redraw file icons if colors changed
+        if self.updateFileIcons:
+            self.listFiles.restrict(
+                self.currentSpecies, self.confidenceRange, self.timeRange
+            )
+            self.updateFileIcons = False
 
     # ============
     # Various actions: deleting segments, saving, quitting
