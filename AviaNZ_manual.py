@@ -1843,7 +1843,7 @@ class AviaNZ(QMainWindow):
             # Set the window size
             self.windowSize = self.config["windowWidth"]
             self.timeaxis.setRange(0, self.windowSize)
-            self.widthWindow.setRange(0.5, self.datalengthSec)
+            self.widthWindow.setRange(0.01, self.datalengthSec)
 
             # Reset it if the file is shorter than the window
             if self.datalengthSec < self.windowSize:
