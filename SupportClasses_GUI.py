@@ -1391,11 +1391,22 @@ class SortableListWidgetItem(QListWidgetItem):
                 species_data = data[currentSpecies]
 
             species_data.sort()
-            confidences = species_data[
-                bisect.bisect_left(species_data, confSliderValues[0]) : bisect.bisect(
-                    species_data, confSliderValues[1]
-                )
-            ]
+            # TODO: include option in interface settings that allows to exclude upper
+            # limit of confidence range? For now it depends on the sorting used.
+            if self.parent.sortRank:
+                confidences = species_data[
+                    bisect.bisect_left(
+                        species_data, confSliderValues[0]
+                    ) : bisect.bisect_left(species_data, confSliderValues[1])
+                ]
+
+            else:
+                confidences = species_data[
+                    bisect.bisect_left(
+                        species_data, confSliderValues[0]
+                    ) : bisect.bisect(species_data, confSliderValues[1])
+                ]
+
             if confidences:
                 min_conf = min(confidences)
                 max_conf = max(confidences)
