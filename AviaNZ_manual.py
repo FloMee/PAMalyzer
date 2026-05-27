@@ -2414,7 +2414,11 @@ class AviaNZ(QMainWindow):
                 reusing=reusing,
                 coordsAbsolute=True,
             )
-        self.refreshFileColor()
+        # redraw file icon if currently marked item in the list is open file
+        if self.filename == os.path.join(
+            self.listFiles.soundDir, self.listFiles.currentItem().text()
+        ):
+            self.refreshFileColor()
 
         QApplication.processEvents()
 
