@@ -213,6 +213,7 @@ class AviaNZ(QMainWindow):
         self.SoundFileDirOld = ""
         self.filename = None
         self.focusRegion = None
+
         self.operator = self.config["operator"]
         self.reviewer = self.config["reviewer"]
 
@@ -261,7 +262,7 @@ class AviaNZ(QMainWindow):
 
         self.listLoadFile(os.path.basename(firstFile))
 
-        if self.DOC:
+        if self.operator == "" or self.reviewer == "":
             self.setOperatorReviewerDialog()
 
     def createMenu(self):
@@ -5276,7 +5277,9 @@ class AviaNZ(QMainWindow):
             "Operator: " + self.operator + ", Reviewer: " + self.reviewer
         )
         self.operatorReviewerDialog.close()
-        self.segmentsToSave = True
+        self.config["operator"] = self.operator
+        self.config["reviewer"] = self.reviewer
+        self.saveConfig = True
 
     def classifyBirdNET(self):
         self.BirdNETDialog = BirdNET.BirdNETDialog(self)
