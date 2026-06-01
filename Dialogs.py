@@ -646,7 +646,7 @@ class OperatorReviewer(QDialog):
     # Class for the set operator dialog box
     def __init__(self, operator="", reviewer="", parent=None):
         QDialog.__init__(self, parent)
-        self.setWindowTitle("Set Operator/Reviewer")
+        self.setWindowTitle("Set Operator")
         self.setWindowIcon(QIcon("img/PAMalyzer.ico"))
         self.setWindowFlags((self.windowFlags() ^ Qt.WindowContextHelpButtonHint))
         self.setMinimumWidth(320)
@@ -654,24 +654,18 @@ class OperatorReviewer(QDialog):
         self.operatorlabel = QLabel("Operator")
         self.name1 = QLineEdit(self)
         self.name1.setText(operator)
-        self.reviewerlabel = QLabel("Reviewer")
-        self.name2 = QLineEdit(self)
-        self.name2.setText(reviewer)
         self.activate = QPushButton("Set")
 
         Box = QVBoxLayout()
         Box.addWidget(self.operatorlabel)
         Box.addWidget(self.name1)
-        Box.addWidget(self.reviewerlabel)
-        Box.addWidget(self.name2)
         Box.addWidget(self.activate)
 
         # Now put everything into the frame
         self.setLayout(Box)
 
     def getValues(self):
-        # print(self.name1.text(),self.name2.text())
-        return [self.name1.text(), self.name2.text()]
+        return self.name1.text()
 
 
 # ======

@@ -215,7 +215,6 @@ class AviaNZ(QMainWindow):
         self.focusRegion = None
 
         self.operator = self.config["operator"]
-        self.reviewer = self.config["reviewer"]
 
         # For preventing callbacks involving overview panel
         self.updateRequestedByOverview = False
@@ -262,7 +261,7 @@ class AviaNZ(QMainWindow):
 
         self.listLoadFile(os.path.basename(firstFile))
 
-        if self.operator == "" or self.reviewer == "":
+        if self.operator == "":
             self.setOperatorReviewerDialog()
 
     def createMenu(self):
@@ -274,7 +273,7 @@ class AviaNZ(QMainWindow):
         fileMenu.addAction(openIcon, "&Open sound file", self.openFile, "Ctrl+O")
         # fileMenu.addAction("&Change Directory", self.chDir)
         fileMenu.addAction(
-            "Set Operator/Reviewer (Current File)", self.setOperatorReviewerDialog
+            "Set Operator (Current File)", self.setOperatorReviewerDialog
         )
         fileMenu.addSeparator()
         for recentfile in self.config["RecentFiles"]:
@@ -1814,9 +1813,7 @@ class AviaNZ(QMainWindow):
 
             self.drawProtocolMarks()
 
-            self.statusRight.setText(
-                "Operator: " + str(self.operator) + ", Reviewer: " + str(self.reviewer)
-            )
+            self.statusRight.setText("Operator: " + str(self.operator))
 
             if hasattr(self, "seg"):
                 self.seg.setNewData(self.sp)
@@ -2403,6 +2400,8 @@ class AviaNZ(QMainWindow):
             self.segments = Segment.SegmentList()
             # Load any previous segments stored
             self.segments.getData(self, self.filename)
+            self.segments.metadata["Operator"] = self.operator
+
             # If there are segments, show them
         for count in range(len(self.segments)):
             self.addSegment(
@@ -3577,7 +3576,7 @@ class AviaNZ(QMainWindow):
             workingSeg,
             self.SoundFileDir,
             self.listFiles.currentItem().text(),
-            self.reviewer,
+            self.operator,
         )
         self.db.commit()
         # Store the species in case the user wants it for the next segment
@@ -3652,7 +3651,7 @@ class AviaNZ(QMainWindow):
             workingSeg,
             self.SoundFileDir,
             self.listFiles.currentItem().text(),
-            self.reviewer,
+            self.operator,
         )
         self.db.commit()
         # self.menuBirdList.hide()
@@ -4706,7 +4705,7 @@ class AviaNZ(QMainWindow):
                         ],
                     ]
                 )
-            annotation.insert(0, {"Operator": "", "Reviewer": "", "Duration": duration})
+            annotation.insert(0, {"Operator": "", "Duration": duration})
             file = open(audiofile + ".data", "w")
             json.dump(annotation, file)
             file.close()
@@ -5259,28 +5258,22 @@ class AviaNZ(QMainWindow):
 
     def setOperatorReviewerDialog(self):
         """Listener for Set Operator/Reviewer menu item."""
-        if hasattr(self, "operator") and hasattr(self, "reviewer"):
+        if hasattr(self, "operator"):
             self.operatorReviewerDialog = Dialogs.OperatorReviewer(
-                operator=self.operator, reviewer=self.reviewer
+                operator=self.operator
             )
         else:
-            self.operatorReviewerDialog = Dialogs.OperatorReviewer(
-                operator="", reviewer=""
-            )
+            self.operatorReviewerDialog = Dialogs.OperatorReviewer(operator="")
         self.operatorReviewerDialog.activate.clicked.connect(self.changeOperator)
         self.operatorReviewerDialog.exec()
 
     def changeOperator(self):
         """Listener for the operator/reviewer dialog."""
-        name1, name2 = self.operatorReviewerDialog.getValues()
+        name1 = self.operatorReviewerDialog.getValues()
         self.operator = str(name1)
-        self.reviewer = str(name2)
-        self.statusRight.setText(
-            "Operator: " + self.operator + ", Reviewer: " + self.reviewer
-        )
+        self.statusRight.setText("Operator: " + self.operator)
         self.operatorReviewerDialog.close()
         self.config["operator"] = self.operator
-        self.config["reviewer"] = self.reviewer
         self.saveConfig = True
 
     def classifyBirdNET(self):
@@ -5390,7 +5383,6 @@ class AviaNZ(QMainWindow):
             seglist = Segment.SegmentList()
             seglist.metadata["Duration"] = 0
             seglist.metadata["Operator"] = self.operator
-            seglist.metadata["Reviewer"] = self.reviewer
 
             for s in to_export[seg]:
                 seglist.addSegment(s)
@@ -5422,7 +5414,6 @@ class AviaNZ(QMainWindow):
             seglist = Segment.SegmentList()
             seglist.metadata["Duration"] = 0
             seglist.metadata["Operator"] = self.operator
-            seglist.metadata["Reviewer"] = self.reviewer
 
             for s in to_export[file]:
                 seglist.addSegment(s)
@@ -5568,7 +5559,6 @@ class AviaNZ(QMainWindow):
                     if audio not in seglistdir.keys():
                         seglist = Segment.SegmentList()
                         seglist.metadata = {
-                            "Reviewer": self.reviewer,
                             "Operator": self.operator,
                         }
                         seglistdir[audio] = seglist
@@ -5912,12 +5902,6 @@ class AviaNZ(QMainWindow):
                         "value": self.config["operator"],
                         "tip": "Person name",
                     },
-                    {
-                        "name": "Reviewer",
-                        "type": "str",
-                        "value": self.config["reviewer"],
-                        "tip": "Person name",
-                    },
                 ],
             },
             {
@@ -6121,21 +6105,7 @@ class AviaNZ(QMainWindow):
             elif childName == "User.Operator":
                 self.config["operator"] = data
                 self.operator = data
-                self.statusRight.setText(
-                    "Operator: "
-                    + str(self.operator)
-                    + ", Reviewer: "
-                    + str(self.reviewer)
-                )
-            elif childName == "User.Reviewer":
-                self.config["reviewer"] = data
-                self.reviewer = data
-                self.statusRight.setText(
-                    "Operator: "
-                    + str(self.operator)
-                    + ", Reviewer: "
-                    + str(self.reviewer)
-                )
+                self.statusRight.setText("Operator: " + str(self.operator))
             elif childName == "Bird List.Common Bird List.Choose File":
                 filename, drop = QFileDialog.getOpenFileName(
                     self,
@@ -6253,7 +6223,7 @@ class AviaNZ(QMainWindow):
                 self.segments[id],
                 self.SoundFileDir,
                 self.listFiles.currentItem().text(),
-                self.reviewer,
+                self.operator,
             )
             self.db.commit()
 
@@ -6397,7 +6367,6 @@ class AviaNZ(QMainWindow):
 
         if self.segmentsToSave:
             self.segments.metadata["Operator"] = self.operator
-            self.segments.metadata["Reviewer"] = self.reviewer
 
             self.segments.saveToDatabase(str(self.filename))
 
@@ -6432,7 +6401,7 @@ class AviaNZ(QMainWindow):
             # Note: we're making this flag useless as every new file open will update the config
             self.saveConfig = True
 
-        # Add in the operator and reviewer at the top, and then save the segments and the config file.
+        # Add in the operator at the top, and then save the segments and the config file.
         if self.saveConfig:
             self.ConfigLoader.configwrite(self.config, self.configfile)
 

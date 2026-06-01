@@ -57,7 +57,6 @@
     "saveCorrections": {"type": "boolean"},
   
     "operator": {"type": "string"},
-    "reviewer": {"type": "string"},
     "protocolOn": {"type": "boolean"},
     "protocolSize": {"type": "number", "minimum": 0},
     "protocolInterval": {"type": "number", "minimum": 0},

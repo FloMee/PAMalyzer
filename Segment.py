@@ -281,7 +281,7 @@ class SegmentList(list):
         if isinstance(annots[0], list) and annots[0][0] == -1:
             if not silent:
                 print("old format metadata detected")
-            self.metadata = {"Operator": annots[0][2], "Reviewer": annots[0][3]}
+            self.metadata = {"Operator": annots[0][2]}
             # when file is loaded, true duration can be passed. Otherwise,
             # some old files have duration in samples, so need a rough check
             if duration > 0:
@@ -317,11 +317,7 @@ class SegmentList(list):
             self.metadata = annots[0]
             if duration > 0:
                 self.metadata["Duration"] = duration
-            if (
-                "Operator" not in self.metadata
-                or "Reviewer" not in self.metadata
-                or "Duration" not in self.metadata
-            ):
+            if "Operator" not in self.metadata or "Duration" not in self.metadata:
                 print("ERROR: required metadata fields not found")
                 return
             del annots[0]
@@ -390,9 +386,8 @@ class SegmentList(list):
             print(e)
             return
         # first segment stores metadata
-        self.metadata = dict()
-        self.metadata = {"Operator": "FloMee", "Reviewer": "FloMee"}
         self.metadata["Duration"] = wavio.readFmt(filename)[1]
+
         grouped = []
         sorted_annots = sorted(annots, key=lambda x: x[:4])
         for key, group in groupby(sorted_annots, key=lambda x: x[:4]):
@@ -475,8 +470,7 @@ class SegmentList(list):
 
     def saveJSON(self, file, reviewer=""):
         """Returns 1 on succesful save."""
-        if reviewer != "":
-            self.metadata["Reviewer"] = reviewer
+        self.metadata["Reviewer"] = reviewer
         annots = [self.metadata]
         for seg in self:
             annots.append(seg)
@@ -487,15 +481,9 @@ class SegmentList(list):
         file.close()
         return 1
 
-    def saveToDatabase(self, file, reviewer=""):
+    def saveToDatabase(self, file):
         """Returns 1 on succesful save."""
-        if reviewer != "":
-            self.metadata["Reviewer"] = reviewer
-        # annots = [self.metadata]
-        # for seg in self:
-        #     annots.append(seg)
         self.parent.db.insert_segments(self, file)
-        # self.parent.database.commit()
         return 1
 
     def orderTime(self):

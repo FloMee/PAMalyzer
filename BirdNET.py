@@ -1108,7 +1108,6 @@ class BirdNET_Worker(QRunnable):
 
         seg_list.metadata = {
             "Operator": self.parent.AviaNZ.operator,
-            "Reviewer": self.parent.AviaNZ.reviewer,
             "Duration": 60,
         }
 

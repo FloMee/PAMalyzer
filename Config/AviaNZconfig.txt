@@ -24,7 +24,7 @@
 "showAmplitudePlot": false, "showAnnotationOverview": true, "showPointerDetails": false,
 "readOnly": false, "transparentBoxes": false, "showListofFiles": true,
 "invertColourMap": false, "saveCorrections": true,
-"operator": "", "reviewer": "",
+"operator": "",
 "protocolOn": false, "protocolSize": 15, "protocolInterval": 300,
 "guidepos": [20000, 60000, 36000, 50000], "guidelinesOn": false,
 "guidecol": [[255, 232, 140, 255], [255, 232, 140, 255], [239, 189, 124, 255], [239, 189, 124, 255]],
