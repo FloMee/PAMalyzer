@@ -4943,6 +4943,8 @@ class AviaNZ(QMainWindow):
             [self.segments],
             self.SoundFileDir,
             action=action,
+            species=self.currentSpecies,
+            fileperspecies=False,
             pagelenarg=datalen,
             numpages=self.nFileSections,
             startTime=self.startTime,
